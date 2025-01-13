@@ -89,6 +89,8 @@ class SDGraph(nn.Module):
         """
         super().__init__()
 
+        print('cls 初始版')
+
         self.n_stroke = n_stroke
         self.stroke_point = stroke_point
 
