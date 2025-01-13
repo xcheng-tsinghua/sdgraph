@@ -29,7 +29,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--batch_size', type=int, default=8, help='batch size in training')
+    parser.add_argument('--batch_size', type=int, default=128, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -95,6 +95,8 @@ def clear_log(log_dir):
     """
     清空空白的log文件
     """
+    os.makedirs(log_dir, exist_ok=True)
+
     # 遍历文件夹中的所有文件
     for filename in os.listdir(log_dir):
         # 获取文件的完整路径
@@ -168,6 +170,7 @@ def main(args):
     # classifier = pointnet(num_class)
     # loss_func = get_loss().cuda()
 
+    os.makedirs('model_trained/', exist_ok=True)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':

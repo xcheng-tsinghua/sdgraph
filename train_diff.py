@@ -64,6 +64,8 @@ def clear_log(folder_path, k=5):
     :param folder_path: 要处理的文件夹路径
     :param k: 行数阈值，小于 k 的文件会被删除
     """
+    os.makedirs(folder_path, exist_ok=True)
+
     for filename in os.listdir(folder_path):
         # 构造文件的完整路径
         file_path = os.path.join(folder_path, filename)
@@ -108,6 +110,7 @@ def main(args):
     '''MODEL LOADING'''
     model = SDGraphUNet()
 
+    os.makedirs('model_trained/', exist_ok=True)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
