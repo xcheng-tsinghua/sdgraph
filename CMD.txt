@@ -1,0 +1,24 @@
+
+
+# 查看当前状态
+git status
+
+# 将修改添加到暂存区
+git add .
+
+# 将更改信息暂存到本地
+git commit -m "change"
+
+# 推送到远程仓库
+git push origin main
+
+
+
+
+
+git pull origin main
+
+
+
+
+
