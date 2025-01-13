@@ -265,12 +265,8 @@ def up_sample(dim_in, dim_out, dropout=0.4):
 
 
 class SDGraphEncoder(nn.Module):
-    """
-    每个笔划上的点数会降到原来的 1/2
-    """
     def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt, sample_type='down_sample'):
         """
-
         :param sparse_in:
         :param sparse_out:
         :param dense_in:
@@ -284,13 +280,10 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         # 将 DGraph 的数据转移到 SGraph
-        # self.dense_to_sparse = DenseToSparse(dense_in, sparse_in)
+        self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
 
-        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in, n_stk_pnt)
-        self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in, n_stk_pnt)
-
-        self.sparse_update = DgcnnEncoder(sparse_in, sparse_out, n_near=2)
-        self.dense_update = DgcnnEncoder(dense_in, dense_out, n_near=10)
+        self.sparse_update = DgcnnEncoder(dense_in + sparse_in, sparse_out, n_near=2)
+        self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out, n_near=10)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
@@ -317,9 +310,24 @@ class SDGraphEncoder(nn.Module):
         # -> [bs, emb, n_stroke, stroke_point]
         dense_fea = dense_fea.view(bs, emb_dn, self.n_stk, self.n_stk_pnt)
 
-        # 融合 sdgraph
-        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
-        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
+        # 将 dense fea更新到 sparse graph
+        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+
+        # -> [bs, emb, n_stroke]
+        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
+        assert union_sparse.size()[2] == self.n_stk
+
+        # 将 sparse fea更新到 dense graph
+        # -> [bs, emb, n_stroke, stroke_point]
+        dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
+        assert dense_feas_from_sparse.size()[2] == self.n_stk and dense_feas_from_sparse.size()[3] == self.n_stk_pnt
+
+        # -> [bs, emb, n_stroke, stroke_point]
+        union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
+        assert union_dense.size()[2] == self.n_stk and union_dense.size()[3] == self.n_stk_pnt
+
+        # -> [bs, emb, n_stroke * stroke_point]
+        union_dense = union_dense.view(bs, -1, self.n_stk * self.n_stk_pnt)
 
         # update sparse fea
         union_sparse = self.sparse_update(union_sparse)

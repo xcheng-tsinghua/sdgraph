@@ -29,16 +29,16 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--batch_size', type=int, default=128, help='batch size in training')
-    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--local', default='True', choices=['True', 'False'], type=str, help='---')
+    parser.add_argument('--batch_size', '--B', type=int, default=128, help='batch size in training')
+    parser.add_argument('--epoch', '--E', default=1000, type=int, help='number of epoch in training')
+    parser.add_argument('--learning_rate', '--R', default=1e-4, type=float, help='learning rate in training')
+    parser.add_argument('--decay_rate', '--D', type=float, default=1e-4, help='decay rate')
+    parser.add_argument('--is_load_weight', '--W', type=str, default='False', choices=['True', 'False'], help='---')
+    parser.add_argument('--local', '--L', default='True', choices=['True', 'False'], type=str, help='---')
 
-    parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch', help='---')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch', help='---')
+    parser.add_argument('--save_str', '--S', type=str, default='sdgraph', help='---')
+    parser.add_argument('--root_sever', '--RS', type=str, default=r'/root/my_data/data_set/unified_sketch', help='---')
+    parser.add_argument('--root_local', '--RL', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch', help='---')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
