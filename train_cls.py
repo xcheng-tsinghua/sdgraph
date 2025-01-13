@@ -34,9 +34,11 @@ def parse_args():
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
+    parser.add_argument('--local', default='True', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch', help='---')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch', help='---')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
@@ -139,9 +141,14 @@ def main(args):
     '''HYPER PARAMETER'''
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
+    if args.local == 'True':
+        data_root = args.root_local
+    else:
+        data_root = args.root_sever
+
     # 定义数据集，训练集及对应加载器
-    train_dataset = SketchDataset(root=args.root, is_train=True)
-    test_dataset = SketchDataset(root=args.root, is_train=False)
+    train_dataset = SketchDataset(root=data_root, is_train=True)
+    test_dataset = SketchDataset(root=data_root, is_train=False)
     num_class = len(train_dataset.classes)
 
     # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
