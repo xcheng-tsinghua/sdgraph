@@ -280,7 +280,9 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         # 将 DGraph 的数据转移到 SGraph
-        self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
+        # self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
+
+        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(dense_in + sparse_in, sparse_out, n_near=2)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out, n_near=10)
@@ -311,11 +313,13 @@ class SDGraphEncoder(nn.Module):
         dense_fea = dense_fea.view(bs, emb_dn, self.n_stk, self.n_stk_pnt)
 
         # 将 dense fea更新到 sparse graph
-        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+        # sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
 
         # -> [bs, emb, n_stroke]
-        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
-        assert union_sparse.size()[2] == self.n_stk
+        # union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
+        # assert union_sparse.size()[2] == self.n_stk
 
         # 将 sparse fea更新到 dense graph
         # -> [bs, emb, n_stroke, stroke_point]

@@ -169,7 +169,8 @@ if __name__ == '__main__':
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
-    show_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\100350.txt', show_axis=True, show_dot=True)
+    # show_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\100350.txt', show_axis=True, show_dot=True)
+    show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\0bc12e6b9e792b74da4f7819d0041c9b_1.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
 
