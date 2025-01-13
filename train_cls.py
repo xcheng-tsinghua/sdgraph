@@ -30,7 +30,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--batch_size', type=int, default=8, help='batch size in training')
-    parser.add_argument('--epoch', default=700, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=800, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
