@@ -19,6 +19,8 @@ git push origin main
 git pull origin main
 
 
-
+# 强制同步到本地
+git reset --hard
+git pull origin main
 
 
