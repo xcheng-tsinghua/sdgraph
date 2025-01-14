@@ -1,10 +1,94 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from encoders.Dgcnn import DgcnnEncoder
-from encoders.PointNet2 import PointNet2Encoder
 from encoders.utils import full_connected
+
+import global_defs
+
+
+def down_sample(dim_in, dim_out, dropout=0.4):
+    """
+    将 dense graph 的每个笔划的点数调整为原来的 1/2
+    只能用于 dgraph 的特征采样
+    [bs, emb, n_stk, n_stk_pnt]
+    n_stk_pnt 必须能被 2 整除
+    :param dim_in:
+    :param dim_out:
+    :param dropout:
+    :return:
+    """
+    return nn.Sequential(
+        nn.Conv2d(
+            in_channels=dim_in,  # 输入通道数 (RGB)
+            out_channels=dim_out,  # 输出通道数 (保持通道数不变)
+            kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+            stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+            padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+        ),
+        nn.BatchNorm2d(dim_out),
+        nn.GELU(),
+        nn.Dropout2d(dropout)
+    )
+
+
+class DownSample(nn.Module):
+    """
+    将 dense graph 的每个笔划的点数调整为原来的 1/2
+    只能用于 dgraph 的特征采样，每个笔划上的点数必须能被 4 整除
+    """
+    def __init__(self, dim_in, dim_out, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        assert n_stk_pnt % 4 == 0
+
+        # 卷积层数
+        self.n_layers = n_stk_pnt // 4 + 1
+
+        # 计算各层通道递增量
+        emb_inc = (dim_out / dim_in) ** (1 / (self.n_layers - 1))
+
+        # 各模块
+        self.conv_layers = nn.ModuleList()
+        self.batch_normals = nn.ModuleList()
+        self.activates = nn.ModuleList()
+        self.drop_outs = nn.ModuleList()
+
+        local_in = dim_in
+
+        for i in range(self.n_layers - 2):
+
+            local_out = int(local_in * emb_inc)
+
+            self.conv_layers.append(nn.Conv2d(local_in, local_out, (1, 3)))
+            self.batch_normals.append(nn.BatchNorm2d(local_out))
+            self.activates.append(nn.GELU())
+            self.drop_outs.append(nn.Dropout2d(dropout))
+
+            local_in = local_out
+
+        # 最后一次卷积单独处理
+        self.outcv = nn.Conv2d(local_in, dim_out, (1, 3))
+        self.outbn = nn.BatchNorm2d(dim_out)
+        self.outat = nn.GELU()
+        self.outdp = nn.Dropout2d(dropout)
+
+    def forward(self, dense_fea):
+        """
+        :param dense_fea:
+        :return: [bs, emb, n_stk, n_stk_pnt]
+        """
+
+        for i in range(self.n_layers - 2):
+            cv = self.conv_layers[i]
+            bn = self.batch_normals[i]
+            at = self.activates[i]
+            dp = self.drop_outs[i]
+
+            dense_fea = dp(at(bn(cv(dense_fea))))
+
+        dense_fea = self.outdp(self.outat(self.outbn(self.outcv(dense_fea))))
+        return dense_fea
 
 
 class DenseToSparse(nn.Module):
@@ -42,58 +126,51 @@ class DenseToSparse(nn.Module):
 
 
 class SDGraphEncoder(nn.Module):
-    """
-    AttentionEncoder: update sparse graph
-    PointNet2Encoder: translate dense graph feature into sparse graph
-    DgcnnEncoder: update dense graph
-    """
-    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stroke, stroke_point):
+    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt):
         super().__init__()
-        self.n_stroke = n_stroke
-        self.stroke_point = stroke_point
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
 
-        # self.dense_to_sparse = PointNet2Encoder(dense_in, dense_in, 2)
         self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
-        self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out)
+        self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
+
+        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, n_stk_pnt)
 
     def forward(self, sparse_fea, dense_fea):
         """
-        :param xyz: [bs, 2, n_points]
-        :param sparse_fea: [bs, emb, n_stroke]
+        :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_point]
         :return:
         """
-        bs, emb, n_stroke = sparse_fea.size()
-        assert n_stroke == self.n_stroke
+        bs, emb, n_stk = sparse_fea.size()
+        assert n_stk == self.n_stk
 
         n_points = dense_fea.size()[2]
-        assert n_points == self.n_stroke * self.stroke_point
+        assert n_points == self.n_stk * self.n_stk_pnt
 
-        # -> [bs, emb, n_stroke, stroke_point]
-        dense_fea = dense_fea.view(bs, emb, self.n_stroke, self.stroke_point)
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
 
         # -> [bs, emb, n_stk]
         sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
-        assert sparse_feas_from_dense.size()[2] == self.n_stroke
+        assert sparse_feas_from_dense.size()[2] == self.n_stk
 
-        # -> [bs, emb, n_stroke]
+        # -> [bs, emb, n_stk]
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
-        assert union_sparse.size()[2] == self.n_stroke
+        assert union_sparse.size()[2] == self.n_stk
 
-        # union sparse fea to dense fea
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
+        assert dense_feas_from_sparse.size()[2] == self.n_stk and dense_feas_from_sparse.size()[3] == self.n_stk_pnt
 
-        # -> [bs, emb, n_stroke, stroke_point]
-        dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.stroke_point)
-        assert dense_feas_from_sparse.size()[2] == self.n_stroke and dense_feas_from_sparse.size()[3] == self.stroke_point
-
-        # -> [bs, emb, n_stroke, stroke_point]
+        # -> [bs, emb, n_stk, n_stk_pnt]
         union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
-        assert union_dense.size()[2] == self.n_stroke and union_dense.size()[3] == self.stroke_point
+        assert union_dense.size()[2] == self.n_stk and union_dense.size()[3] == self.n_stk_pnt
 
-        # -> [bs, emb, n_stroke * stroke_point]
-        union_dense = union_dense.view(bs, -1, self.n_stroke * self.stroke_point)
+        # -> [bs, emb, n_stk * n_stk_pnt]
+        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk * self.n_stk_pnt)
 
         # update sparse fea
         union_sparse = self.sparse_update(union_sparse)
@@ -101,33 +178,37 @@ class SDGraphEncoder(nn.Module):
         # update dense fea
         union_dense = self.dense_update(union_dense)
 
+        # down sample
+        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk, self.n_stk_pnt)
+        union_dense = self.sample(union_dense)
+
+        union_dense = union_dense.view(bs, union_dense.size(1), (self.n_stk * self.n_stk_pnt) // 2)
+
         return union_sparse, union_dense
 
 
 class SDGraph(nn.Module):
-    def __init__(self, n_class: int, n_stroke: int = 30, stroke_point: int = 32):
+    def __init__(self, n_class: int):
         """
         :param n_class: 总类别数
-        :param n_stroke: 每个草图中的笔划数
-        :param stroke_point: 每个笔划中的点数
         """
         super().__init__()
 
         print('cls 25.1.14版')
 
-        self.n_stroke = n_stroke
-        self.stroke_point = stroke_point
+        self.n_stk = global_defs.n_stk
+        self.n_stk_pnt = global_defs.n_stk_pnt
 
         # self.point_to_sparse = PointNet2Encoder(0, 32, 2)
         self.point_to_sparse = DenseToSparse(2, 32)
         self.point_to_dense = DgcnnEncoder(2, 32)
 
         self.sd1 = SDGraphEncoder(32, 512, 32, 512,
-                                  n_stroke=self.n_stroke, stroke_point=self.stroke_point
+                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt
                                   )
 
         self.sd2 = SDGraphEncoder(512, 1024, 512, 1024,
-                                  n_stroke=self.n_stroke, stroke_point=self.stroke_point
+                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2
                                   )
 
         # self.linear = full_connected(channels=[512 * 2, 512, 128, 64, n_class])
@@ -145,29 +226,15 @@ class SDGraph(nn.Module):
         xy = xy[:, :2, :]
 
         bs, channel, n_point = xy.size()
-        assert n_point == self.n_stroke * self.stroke_point
+        assert n_point == self.n_stk * self.n_stk_pnt
         assert channel == 2
 
         # -> [bs, channel, n_stroke, stroke_point]
-        xy = xy.view(bs, channel, self.n_stroke, self.stroke_point)
+        xy = xy.view(bs, channel, self.n_stk, self.n_stk_pnt)
 
         # 生成 sparse graph
-        # sparse_graph = []
-        #
-        # for i in range(self.n_stroke):
-        #     # -> [bs, emb]
-        #     stroke_fea = self.point_to_sparse(xy[:, :, i, :])
-        #
-        #     # -> [bs, emb, 1]
-        #     stroke_fea = stroke_fea.unsqueeze(2)
-        #
-        #     sparse_graph.append(stroke_fea)
-        #
-        # # -> [bs, emb, n_stroke]
-        # sparse_graph = torch.cat(sparse_graph, dim=2)
-
         sparse_graph = self.point_to_sparse(xy)
-        assert sparse_graph.size()[2] == self.n_stroke
+        assert sparse_graph.size()[2] == self.n_stk
 
         # -> [bs, 2, n_point]
         xy = xy.view(bs, channel, n_point)
