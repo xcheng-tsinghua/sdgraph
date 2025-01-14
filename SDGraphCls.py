@@ -7,6 +7,40 @@ from encoders.PointNet2 import PointNet2Encoder
 from encoders.utils import full_connected
 
 
+class DenseToSparse(nn.Module):
+    """
+    将 dense graph 的数据转移到 sparse graph
+    """
+    def __init__(self, dense_dim, sparse_dim, dropout=0.4):
+        super().__init__()
+
+        # 将 DGraph 的数据转移到 SGraph
+        ps_mid = int((dense_dim * sparse_dim) ** 0.5)
+        self.dense_to_sparse = nn.Sequential(
+            nn.Conv2d(in_channels=dense_dim, out_channels=ps_mid, kernel_size=(1, 3)),
+            nn.BatchNorm2d(ps_mid),
+            nn.GELU(),
+            nn.Dropout2d(dropout),
+
+            nn.Conv2d(in_channels=ps_mid, out_channels=sparse_dim, kernel_size=(1, 3)),
+            nn.BatchNorm2d(sparse_dim),
+            nn.GELU(),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :return:
+        """
+        # -> [bs, emb, n_stk, n_stk_pnt-2]
+        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+
+        # -> [bs, emb, n_stk]
+        sparse_feas_from_dense = torch.max(sparse_feas_from_dense, dim=3)[0]
+        return sparse_feas_from_dense
+
+
 class SDGraphEncoder(nn.Module):
     """
     AttentionEncoder: update sparse graph
@@ -18,12 +52,13 @@ class SDGraphEncoder(nn.Module):
         self.n_stroke = n_stroke
         self.stroke_point = stroke_point
 
-        self.dense_to_sparse = PointNet2Encoder(dense_in, dense_in, 2)
+        # self.dense_to_sparse = PointNet2Encoder(dense_in, dense_in, 2)
+        self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out)
 
-    def forward(self, xyz, sparse_fea, dense_fea):
+    def forward(self, sparse_fea, dense_fea):
         """
         :param xyz: [bs, 2, n_points]
         :param sparse_fea: [bs, emb, n_stroke]
@@ -39,19 +74,8 @@ class SDGraphEncoder(nn.Module):
         # -> [bs, emb, n_stroke, stroke_point]
         dense_fea = dense_fea.view(bs, emb, self.n_stroke, self.stroke_point)
 
-        # -> [bs, 2, n_stroke, stroke_point]
-        xyz = xyz.view(bs, 2, self.n_stroke, self.stroke_point)
-
-        # 将dense fea更新到sparse graph
-        sparse_feas_from_dense = []
-        for i in range(self.n_stroke):
-            # -> [bs, emb]
-            fea_from_dense = self.dense_to_sparse(xyz[:, :, i, :], dense_fea[:, :, i, :])
-
-            sparse_feas_from_dense.append(fea_from_dense.unsqueeze(2))
-
-        # -> [bs, emb, n_stroke]
-        sparse_feas_from_dense = torch.cat(sparse_feas_from_dense, dim=2)
+        # -> [bs, emb, n_stk]
+        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
         assert sparse_feas_from_dense.size()[2] == self.n_stroke
 
         # -> [bs, emb, n_stroke]
@@ -94,7 +118,8 @@ class SDGraph(nn.Module):
         self.n_stroke = n_stroke
         self.stroke_point = stroke_point
 
-        self.point_to_sparse = PointNet2Encoder(0, 32, 2)
+        # self.point_to_sparse = PointNet2Encoder(0, 32, 2)
+        self.point_to_sparse = DenseToSparse(2, 32)
         self.point_to_dense = DgcnnEncoder(2, 32)
 
         self.sd1 = SDGraphEncoder(32, 512, 32, 512,
@@ -127,19 +152,21 @@ class SDGraph(nn.Module):
         xy = xy.view(bs, channel, self.n_stroke, self.stroke_point)
 
         # 生成 sparse graph
-        sparse_graph = []
+        # sparse_graph = []
+        #
+        # for i in range(self.n_stroke):
+        #     # -> [bs, emb]
+        #     stroke_fea = self.point_to_sparse(xy[:, :, i, :])
+        #
+        #     # -> [bs, emb, 1]
+        #     stroke_fea = stroke_fea.unsqueeze(2)
+        #
+        #     sparse_graph.append(stroke_fea)
+        #
+        # # -> [bs, emb, n_stroke]
+        # sparse_graph = torch.cat(sparse_graph, dim=2)
 
-        for i in range(self.n_stroke):
-            # -> [bs, emb]
-            stroke_fea = self.point_to_sparse(xy[:, :, i, :])
-
-            # -> [bs, emb, 1]
-            stroke_fea = stroke_fea.unsqueeze(2)
-
-            sparse_graph.append(stroke_fea)
-
-        # -> [bs, emb, n_stroke]
-        sparse_graph = torch.cat(sparse_graph, dim=2)
+        sparse_graph = self.point_to_sparse(xy)
         assert sparse_graph.size()[2] == self.n_stroke
 
         # -> [bs, 2, n_point]
@@ -150,8 +177,8 @@ class SDGraph(nn.Module):
         dense_graph = self.point_to_dense(xy)
         assert dense_graph.size()[2] == n_point
 
-        sparse_graph, dense_graph = self.sd1(xy, sparse_graph, dense_graph)
-        sparse_graph, dense_graph = self.sd2(xy, sparse_graph, dense_graph)
+        sparse_graph, dense_graph = self.sd1(sparse_graph, dense_graph)
+        sparse_graph, dense_graph = self.sd2(sparse_graph, dense_graph)
 
         sparse_fea = torch.max(sparse_graph, dim=2)[0]
         dense_fea = torch.max(dense_graph, dim=2)[0]

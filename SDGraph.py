@@ -105,12 +105,12 @@ class DenseToSparse(nn.Module):
         # 将 DGraph 的数据转移到 SGraph
         ps_mid = int((dense_dim * sparse_dim) ** 0.5)
         self.dense_to_sparse = nn.Sequential(
-            nn.Conv2d(in_channels=dense_dim, out_channels=ps_mid, kernel_size=(1, 2)),
+            nn.Conv2d(in_channels=dense_dim, out_channels=ps_mid, kernel_size=(1, 3)),
             nn.BatchNorm2d(ps_mid),
             nn.GELU(),
             nn.Dropout2d(dropout),
 
-            nn.Conv2d(in_channels=ps_mid, out_channels=sparse_dim, kernel_size=(1, 2)),
+            nn.Conv2d(in_channels=ps_mid, out_channels=sparse_dim, kernel_size=(1, 3)),
             nn.BatchNorm2d(sparse_dim),
             nn.GELU(),
             nn.Dropout2d(dropout)

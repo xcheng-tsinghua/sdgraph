@@ -1,5 +1,5 @@
 
-
+## 同步到云端
 # 查看当前状态
 git status
 
@@ -16,8 +16,8 @@ git push origin main
 
 
 
+## 同步到本地
 git pull origin main
-
 
 # 强制同步到本地
 git reset --hard
