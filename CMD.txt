@@ -24,3 +24,9 @@ git reset --hard
 git pull origin main
 
 
+
+
+## 查看 nohup 的进程输出
+tail -f nohup.out
+
+

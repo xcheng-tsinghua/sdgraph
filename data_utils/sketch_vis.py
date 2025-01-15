@@ -7,7 +7,7 @@ from scipy.interpolate import splprep, splev
 import global_defs
 
 
-def show_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
+def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
     """
     显示原始采集的机械草图
     存储的每行应该为： [x, y, state]
@@ -48,7 +48,7 @@ def show_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_d
     plt.show()
 
 
-def show_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_scale=True, show_dot=False):
+def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_scale=True, show_dot=False):
     """
     显示原始采集的机械草图
     存储的每行应该为： [x, y, state]
@@ -86,7 +86,7 @@ def show_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_def
     plt.show()
 
 
-def show_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
+def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
     """
     显示笔划与笔划点归一化后的草图
     """
@@ -114,7 +114,7 @@ def show_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.
     plt.show()
 
 
-def show_sketch_list(strokes, show_dot=False):
+def vis_sketch_list(strokes, show_dot=False):
     for s in strokes:
         plt.plot(s[:, 0], -s[:, 1])
 
@@ -170,7 +170,7 @@ if __name__ == '__main__':
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
     # show_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\100350.txt', show_axis=True, show_dot=True)
-    show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\0bc12e6b9e792b74da4f7819d0041c9b_1.txt')
+    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\0bc12e6b9e792b74da4f7819d0041c9b_1.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
 

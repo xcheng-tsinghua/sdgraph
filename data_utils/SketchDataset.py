@@ -292,7 +292,7 @@ class QuickdrawDataset(Dataset):
         # sketch = sketch_std(sketch)
 
         if is_show_sketch:
-            vis.show_sketch_data(sketch, global_defs.pen_up, global_defs.pen_down, is_scale=False)
+            vis.vis_sketch_data(sketch, global_defs.pen_up, global_defs.pen_down, is_scale=False)
 
         return sketch
 

@@ -27,7 +27,8 @@ def down_sample(dim_in, dim_out, dropout=0.4):
             padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
         ),
         nn.BatchNorm2d(dim_out),
-        nn.GELU(),
+        # nn.GELU(),
+        nn.LeakyReLU(negative_slope=0.2),
         nn.Dropout2d(dropout)
     )
 
@@ -62,7 +63,7 @@ class DownSample(nn.Module):
 
             self.conv_layers.append(nn.Conv2d(local_in, local_out, (1, 3)))
             self.batch_normals.append(nn.BatchNorm2d(local_out))
-            self.activates.append(nn.GELU())
+            self.activates.append(nn.LeakyReLU(negative_slope=0.2),)
             self.drop_outs.append(nn.Dropout2d(dropout))
 
             local_in = local_out
@@ -70,7 +71,7 @@ class DownSample(nn.Module):
         # 最后一次卷积单独处理
         self.outcv = nn.Conv2d(local_in, dim_out, (1, 3))
         self.outbn = nn.BatchNorm2d(dim_out)
-        self.outat = nn.GELU()
+        self.outat = nn.LeakyReLU(negative_slope=0.2),
         self.outdp = nn.Dropout2d(dropout)
 
     def forward(self, dense_fea):
@@ -95,34 +96,114 @@ class DenseToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, dense_dim, sparse_dim, dropout=0.4):
+    def __init__(self, dense_in, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
-        # 将 DGraph 的数据转移到 SGraph
-        ps_mid = int((dense_dim * sparse_dim) ** 0.5)
-        self.dense_to_sparse = nn.Sequential(
-            nn.Conv2d(in_channels=dense_dim, out_channels=ps_mid, kernel_size=(1, 3)),
-            nn.BatchNorm2d(ps_mid),
-            nn.GELU(),
-            nn.Dropout2d(dropout),
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
 
-            nn.Conv2d(in_channels=ps_mid, out_channels=sparse_dim, kernel_size=(1, 3)),
-            nn.BatchNorm2d(sparse_dim),
-            nn.GELU(),
-            nn.Dropout2d(dropout)
+        self.dense_to_sparse = nn.Sequential(
+            nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
+            nn.BatchNorm2d(dense_in),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout),
         )
 
-    def forward(self, dense_fea):
+    def forward(self, sparse_fea, dense_fea):
         """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :return:
+        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :param sparse_fea: [bs, emb, n_stk]
+        :return: [bs, emb, n_stk]
         """
-        # -> [bs, emb, n_stk, n_stk_pnt-2]
+        bs, emb, _ = dense_fea.size()
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
         sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
 
         # -> [bs, emb, n_stk]
         sparse_feas_from_dense = torch.max(sparse_feas_from_dense, dim=3)[0]
-        return sparse_feas_from_dense
+        assert sparse_feas_from_dense.size(2) == self.n_stk
+
+        # -> [bs, emb, n_stk]
+        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
+
+        return union_sparse
+
+
+class PointToSparse(nn.Module):
+    """
+    将 dense graph 的数据转移到 sparse graph
+    """
+    def __init__(self, point_dim, sparse_out, n_stk, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        # 将 DGraph 的数据转移到 SGraph
+        mid_dim = int((point_dim * sparse_out) ** 0.5)
+        self.point_increase = nn.Sequential(
+            nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
+            nn.BatchNorm2d(mid_dim),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout),
+
+            nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
+            nn.BatchNorm2d(sparse_out),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout),
+        )
+
+    def forward(self, xy):
+        """
+        :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :return: [bs, emb, n_stk]
+        """
+        bs, emb, _ = xy.size()
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        xy = self.point_increase(xy)
+
+        # -> [bs, emb, n_stk]
+        xy = torch.max(xy, dim=3)[0]
+        assert xy.size(2) == self.n_stk
+
+        return xy
+
+
+class SparseToDense(nn.Module):
+    def __init__(self, n_stk, n_stk_pnt):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :param sparse_fea: [bs, emb, n_stk]
+        :return: [bs, emb, n_stk * n_stk_pnt]
+        """
+        bs, emb, _ = dense_fea.size()
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+
+        dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
+
+        # -> [bs, emb, n_stk * n_stk_pnt]
+        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk * self.n_stk_pnt)
+
+        return union_dense
 
 
 class SDGraphEncoder(nn.Module):
@@ -131,12 +212,14 @@ class SDGraphEncoder(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        self.dense_to_sparse = DenseToSparse(dense_in, dense_in)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
 
-        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, n_stk_pnt)
+        # self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, n_stk_pnt)
+        self.sample = down_sample(int((dense_in * dense_out) ** 0.5), dense_out)
 
     def forward(self, sparse_fea, dense_fea):
         """
@@ -150,38 +233,17 @@ class SDGraphEncoder(nn.Module):
         n_points = dense_fea.size()[2]
         assert n_points == self.n_stk * self.n_stk_pnt
 
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        # 信息交换
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
 
-        # -> [bs, emb, n_stk]
-        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
-        assert sparse_feas_from_dense.size()[2] == self.n_stk
-
-        # -> [bs, emb, n_stk]
-        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
-        assert union_sparse.size()[2] == self.n_stk
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
-        assert dense_feas_from_sparse.size()[2] == self.n_stk and dense_feas_from_sparse.size()[3] == self.n_stk_pnt
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
-        assert union_dense.size()[2] == self.n_stk and union_dense.size()[3] == self.n_stk_pnt
-
-        # -> [bs, emb, n_stk * n_stk_pnt]
-        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk * self.n_stk_pnt)
-
-        # update sparse fea
+        # 信息更新
         union_sparse = self.sparse_update(union_sparse)
-
-        # update dense fea
         union_dense = self.dense_update(union_dense)
 
-        # down sample
+        # 下采样
         union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk, self.n_stk_pnt)
         union_dense = self.sample(union_dense)
-
         union_dense = union_dense.view(bs, union_dense.size(1), (self.n_stk * self.n_stk_pnt) // 2)
 
         return union_sparse, union_dense
@@ -194,27 +256,34 @@ class SDGraph(nn.Module):
         """
         super().__init__()
 
-        print('cls 25.1.14版')
+        print('cls 25.1.15版')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
 
-        # self.point_to_sparse = PointNet2Encoder(0, 32, 2)
-        self.point_to_sparse = DenseToSparse(2, 32)
-        self.point_to_dense = DgcnnEncoder(2, 32)
+        sparse_l0 = 32
+        sparse_l1 = 512
+        sparse_l2 = 1024
 
-        self.sd1 = SDGraphEncoder(32, 512, 32, 512,
+        dense_l0 = 32
+        dense_l1 = 512
+        dense_l2 = 1024
+
+        self.point_to_sparse = PointToSparse(2, sparse_l0, self.n_stk, self.n_stk_pnt)
+        self.point_to_dense = DgcnnEncoder(2, dense_l0)
+
+        self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt
                                   )
 
-        self.sd2 = SDGraphEncoder(512, 1024, 512, 1024,
+        self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                   n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2
                                   )
 
-        # self.linear = full_connected(channels=[512 * 2, 512, 128, 64, n_class])
-
-        out_inc = (n_class / (1024 * 2)) ** (1 / 3)
-        outlayer_l0 = 1024 * 2
+        sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
+        dense_glo = dense_l0 + dense_l1 + dense_l2
+        out_inc = (n_class / (sparse_glo + dense_glo)) ** (1 / 3)
+        outlayer_l0 = sparse_glo + dense_glo
         outlayer_l1 = int(outlayer_l0 * out_inc)
         outlayer_l2 = int(outlayer_l1 * out_inc)
         outlayer_l3 = n_class
@@ -226,32 +295,32 @@ class SDGraph(nn.Module):
         xy = xy[:, :2, :]
 
         bs, channel, n_point = xy.size()
-        assert n_point == self.n_stk * self.n_stk_pnt
-        assert channel == 2
+        assert n_point == self.n_stk * self.n_stk_pnt and channel == 2
 
-        # -> [bs, channel, n_stroke, stroke_point]
-        xy = xy.view(bs, channel, self.n_stk, self.n_stk_pnt)
+        # 生成初始 sparse graph
+        sparse_graph0 = self.point_to_sparse(xy)
+        assert sparse_graph0.size()[2] == self.n_stk
 
-        # 生成 sparse graph
-        sparse_graph = self.point_to_sparse(xy)
-        assert sparse_graph.size()[2] == self.n_stk
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)
+        assert dense_graph0.size()[2] == n_point
 
-        # -> [bs, 2, n_point]
-        xy = xy.view(bs, channel, n_point)
-        assert xy.size()[1] == 2
+        # 交叉更新数据
+        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
+        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
 
-        # -> [bs, emb, n_point]
-        dense_graph = self.point_to_dense(xy)
-        assert dense_graph.size()[2] == n_point
+        # 提取全局特征
+        sparse_glo0 = torch.max(sparse_graph0, dim=2)[0]
+        sparse_glo1 = torch.max(sparse_graph1, dim=2)[0]
+        sparse_glo2 = torch.max(sparse_graph2, dim=2)[0]
 
-        sparse_graph, dense_graph = self.sd1(sparse_graph, dense_graph)
-        sparse_graph, dense_graph = self.sd2(sparse_graph, dense_graph)
+        dense_glo0 = torch.max(dense_graph0, dim=2)[0]
+        dense_glo1 = torch.max(dense_graph1, dim=2)[0]
+        dense_glo2 = torch.max(dense_graph2, dim=2)[0]
 
-        sparse_fea = torch.max(sparse_graph, dim=2)[0]
-        dense_fea = torch.max(dense_graph, dim=2)[0]
+        all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
 
-        all_fea = torch.cat([sparse_fea, dense_fea], dim=1)
-
+        # 利用全局特征分类
         cls = self.linear(all_fea)
         cls = F.log_softmax(cls, dim=1)
 
