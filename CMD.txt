@@ -30,3 +30,9 @@ git pull origin main
 tail -f nohup.out
 
 
+
+## 服务器训练
+nohup python train_cls.py --bs=32 --local=False
+
+
+

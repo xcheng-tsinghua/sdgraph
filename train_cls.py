@@ -240,8 +240,9 @@ def main(args):
 
         save_confusion_mat(pred_cls, target_cls, os.path.join(confusion_dir, f'train-{epoch}.png'))
 
-        acc_over_class = accuracy_over_class(target_cls, pred_cls, num_class)
-        logstr_trainaccu = f'\ttrain_instance_accu:\t{np.mean(mean_correct)}\ttrain_class_accu:\t{acc_over_class}'
+        train_ins_acc = np.mean(mean_correct)
+        train_cls_acc = accuracy_over_class(target_cls, pred_cls, num_class)
+        logstr_trainaccu = f'\ttrain_instance_accu:\t{train_ins_acc}\ttrain_class_accu:\t{train_cls_acc}'
 
         scheduler.step()
         torch.save(classifier.state_dict(), 'model_trained/' + save_str + '.pth')
@@ -289,22 +290,22 @@ def main(args):
             mAP = mean_average_precision(all_labels, all_preds, num_class)
 
             # 计算 Acc. over Instance
-            acc_over_instance = total_correct / float(total_testset)
+            test_ins_acc = total_correct / float(total_testset)
 
             # 计算 Acc. over Class
-            acc_over_class = accuracy_over_class(target_cls, pred_cls, num_class)
+            test_cls_acc = accuracy_over_class(target_cls, pred_cls, num_class)
 
             # 计算 F1-Score
             macro_f1_score = f1_score(target_cls, pred_cls, average='macro')
             weighted_f1_score = f1_score(target_cls, pred_cls, average='weighted')
 
-            accustr = f'\ttest_instance_accuracy\t{acc_over_instance}\ttest_class_accuracy\t{acc_over_class}\ttest_F1_Score\t{macro_f1_score}\tmAP\t{mAP}\twmAP\t{weighted_f1_score}'
+            accustr = f'\ttest_instance_accuracy\t{test_ins_acc}\ttest_class_accuracy\t{test_cls_acc}\ttest_F1_Score\t{macro_f1_score}\tmAP\t{mAP}\twmAP\t{weighted_f1_score}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
-            print(accustr.replace('\t', ' '))
+            print(f'train_ins_acc: {train_ins_acc}, test_ins_acc: {test_ins_acc}')
 
             # 额外保存最好的模型
-            if best_instance_accu < acc_over_class:
-                best_instance_accu = acc_over_class
+            if best_instance_accu < test_ins_acc:
+                best_instance_accu = test_ins_acc
                 torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
 
 
