@@ -262,12 +262,12 @@ class SDGraph(nn.Module):
         self.n_stk_pnt = global_defs.n_stk_pnt
 
         sparse_l0 = 32
-        sparse_l1 = 512
-        sparse_l2 = 1024
+        sparse_l1 = 128
+        sparse_l2 = 512
 
-        dense_l0 = 32
-        dense_l1 = 512
-        dense_l2 = 1024
+        dense_l0 = 16
+        dense_l1 = 64
+        dense_l2 = 256
 
         self.point_to_sparse = PointToSparse(2, sparse_l0, self.n_stk, self.n_stk_pnt)
         self.point_to_dense = DgcnnEncoder(2, dense_l0)
