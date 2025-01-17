@@ -13,7 +13,10 @@ git commit -m "change"
 git push origin main
 
 
-
+git status
+git add .
+git commit -m "change"
+git push origin main
 
 
 ## 同步到本地
@@ -28,6 +31,9 @@ git pull origin main
 
 ## 查看 nohup 的进程输出
 tail -f nohup.out
+
+## 查看 nohup 的进程
+ps -ef | grep python
 
 
 
