@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from encoders.Dgcnn import DgcnnEncoder
-from encoders.utils import full_connected
+from encoders.utils import full_connected, full_connected_conv2d
 
 import global_defs
 
@@ -133,6 +133,48 @@ class DenseToSparse(nn.Module):
         return union_sparse
 
 
+class DenseToSparseAttn(nn.Module):
+    """
+    使用注意力机制实现将 dgraph 的特征转移到 sgraph
+    使用向量注意力机制
+    :return:
+    """
+    def __init__(self, emb_sp, emb_dn, emb_final, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.n_stk_pnt = n_stk_pnt
+
+        self.sp_q = full_connected_conv2d([emb_sp, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.dn_k = full_connected_conv2d([emb_dn, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.sp_v = full_connected_conv2d([emb_sp, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.gamma = full_connected_conv2d([emb_final, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :return: [bs, emb, n_stk]
+        """
+        bs, emb, n_pnt = dense_fea.size()
+        dense_fea = dense_fea.view(bs, emb, global_defs.n_stk, self.n_stk_pnt)
+
+        # -> [bs, emb, n_stk, 1]
+        sparse_fea = sparse_fea.unsqueeze(3)
+        assert sparse_fea.size(2) == global_defs.n_stk
+
+        sp_q = self.sp_q(sparse_fea)  # -> [bs, emb, n_stk, 1]
+        dn_k = self.dn_k(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt]
+        sp_v = self.sp_v(sparse_fea)  # -> [bs, emb, n_stk, 1]
+
+        coef = F.softmax(self.gamma(sp_q - dn_k), dim=1)  # -> [bs, emb, n_stk, n_stk_pnt]
+        sp_v = coef * sp_v  # -> [bs, emb, n_stk, n_stk_pnt]
+        sp_v = torch.sum(sp_v, dim=3)  # -> [bs, emb, n_stk]
+
+        union_sparse = torch.cat([sparse_fea.squeeze(), sp_v], dim=1)
+
+        return union_sparse
+
+
 class PointToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
@@ -212,7 +254,8 @@ class SDGraphEncoder(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        # self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, dense_in, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
