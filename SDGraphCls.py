@@ -170,9 +170,52 @@ class DenseToSparseAttn(nn.Module):
         sp_v = coef * sp_v  # -> [bs, emb, n_stk, n_stk_pnt]
         sp_v = torch.sum(sp_v, dim=3)  # -> [bs, emb, n_stk]
 
-        union_sparse = torch.cat([sparse_fea.squeeze(), sp_v], dim=1)
+        # union_sparse = torch.cat([sparse_fea.squeeze(), sp_v], dim=1)
 
-        return union_sparse
+        return sp_v
+
+
+class SparseToDenseAttn(nn.Module):
+    """
+    使用注意力机制实现将 sgraph 的特征转移到 dgraph
+    使用线性注意力机制
+    :return:
+    """
+    def __init__(self, emb_sp, emb_dn, emb_final, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.emb_final = emb_final
+        self.n_stk_pnt = n_stk_pnt
+
+        self.dn_q = full_connected_conv2d([emb_dn, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.sp_k = full_connected_conv2d([emb_sp, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.dn_v = full_connected_conv2d([emb_dn, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+        self.gamma = full_connected_conv2d([emb_final, emb_final], bias=False, drop_rate=dropout, final_proc=True)
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :return: [bs, emb, n_stk * n_stk_pnt]
+        """
+        bs, emb, n_pnt = dense_fea.size()
+        dense_fea = dense_fea.view(bs, emb, global_defs.n_stk, self.n_stk_pnt)
+
+        # -> [bs, emb, n_stk, 1]
+        sparse_fea = sparse_fea.unsqueeze(3)
+        assert sparse_fea.size(2) == global_defs.n_stk
+
+        dn_q = self.dn_q(dense_fea)  # -> [bs, emb, n_stk, 1]
+        sp_k = self.sp_k(sparse_fea)  # -> [bs, emb, n_stk, n_stk_pnt]
+        dn_v = self.dn_v(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt]
+
+        # y_i = emb * F.softmax(self.gamma(fai_xi - psi_xj), dim=1)  # -> [bs, emb, n_stk, n_stk_pnt]
+        coef = F.softmax(self.gamma(dn_q - sp_k), dim=1)  # -> [bs, emb, n_stk, n_stk_pnt]
+        dn_v = coef * dn_v  # -> [bs, emb, n_stk, n_stk_pnt]
+
+        dn_v = dn_v.view(bs, self.emb_final, n_pnt)
+
+        return dn_v
 
 
 class PointToSparse(nn.Module):
@@ -255,7 +298,7 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         # self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
-        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, dense_in, n_stk_pnt)
+        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
