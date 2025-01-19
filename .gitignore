@@ -5,3 +5,4 @@ model_trained/
 data_utils/confusion/
 __pycache__/
 .idea/
+encoders/__pycache__/
