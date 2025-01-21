@@ -297,8 +297,8 @@ class SDGraphEncoder(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        # self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
-        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
