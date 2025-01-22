@@ -7,88 +7,38 @@ from encoders.utils import full_connected
 import global_defs
 
 
-def down_sample(dim_in, dim_out, dropout=0.4):
-    """
-    将 dense graph 的每个笔划的点数调整为原来的 1/2
-    只能用于 dgraph 的特征采样
-    [bs, emb, n_stk, n_stk_pnt]
-    n_stk_pnt 必须能被 2 整除
-    :param dim_in:
-    :param dim_out:
-    :param dropout:
-    :return:
-    """
-    return nn.Sequential(
-        nn.Conv2d(
-            in_channels=dim_in,  # 输入通道数 (RGB)
-            out_channels=dim_out,  # 输出通道数 (保持通道数不变)
-            kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
-            stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
-            padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
-        ),
-        nn.BatchNorm2d(dim_out),
-        # nn.GELU(),
-        nn.LeakyReLU(negative_slope=0.2),
-        nn.Dropout2d(dropout)
-    )
-
-
 class DownSample(nn.Module):
-    """
-    将 dense graph 的每个笔划的点数调整为原来的 1/2
-    只能用于 dgraph 的特征采样，每个笔划上的点数必须能被 4 整除
-    """
-    def __init__(self, dim_in, dim_out, n_stk_pnt, dropout=0.4):
+    def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
-        assert n_stk_pnt % 4 == 0
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
 
-        # 卷积层数
-        self.n_layers = n_stk_pnt // 4 + 1
-
-        # 计算各层通道递增量
-        emb_inc = (dim_out / dim_in) ** (1 / (self.n_layers - 1))
-
-        # 各模块
-        self.conv_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-
-        local_in = dim_in
-
-        for i in range(self.n_layers - 2):
-
-            local_out = int(local_in * emb_inc)
-
-            self.conv_layers.append(nn.Conv2d(local_in, local_out, (1, 3)))
-            self.batch_normals.append(nn.BatchNorm2d(local_out))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2),)
-            self.drop_outs.append(nn.Dropout2d(dropout))
-
-            local_in = local_out
-
-        # 最后一次卷积单独处理
-        self.outcv = nn.Conv2d(local_in, dim_out, (1, 3))
-        self.outbn = nn.BatchNorm2d(dim_out)
-        self.outat = nn.LeakyReLU(negative_slope=0.2),
-        self.outdp = nn.Dropout2d(dropout)
+        self.conv = nn.Sequential(
+            nn.Conv2d(
+                in_channels=dim_in,  # 输入通道数 (RGB)
+                out_channels=dim_out,  # 输出通道数 (保持通道数不变)
+                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dim_out),
+            # nn.GELU(),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout)
+        )
 
     def forward(self, dense_fea):
         """
-        :param dense_fea:
-        :return: [bs, emb, n_stk, n_stk_pnt]
+        :param dense_fea: [bs, emb, n_pnt]
         """
+        bs, emb, n_pnt = dense_fea.size()
+        assert n_pnt == self.n_stk * self.n_stk_pnt
 
-        for i in range(self.n_layers - 2):
-            cv = self.conv_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        dense_fea = self.conv(dense_fea)
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
 
-            dense_fea = dp(at(bn(cv(dense_fea))))
-
-        dense_fea = self.outdp(self.outat(self.outbn(self.outcv(dense_fea))))
         return dense_fea
 
 
@@ -209,17 +159,20 @@ class SparseToDense(nn.Module):
 class SDGraphEncoder(nn.Module):
     def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt):
         super().__init__()
+        # 输入到该 encoder 的草图的笔划数和单个笔划上的点数
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
+        # sdgraph 信息融合模块
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
+        # 单个 graph 的信息更新模块
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
 
-        # self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, n_stk_pnt)
-        self.sample = down_sample(int((dense_in * dense_out) ** 0.5), dense_out)
+        # dgraph 的下采样模块
+        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, self.n_stk, self.n_stk_pnt)
 
     def forward(self, sparse_fea, dense_fea):
         """
@@ -227,11 +180,10 @@ class SDGraphEncoder(nn.Module):
         :param dense_fea: [bs, emb, n_point]
         :return:
         """
+        # 保证输入到该模块的特征维度正确
         bs, emb, n_stk = sparse_fea.size()
-        assert n_stk == self.n_stk
-
         n_points = dense_fea.size()[2]
-        assert n_points == self.n_stk * self.n_stk_pnt
+        assert n_points == self.n_stk * self.n_stk_pnt and n_stk == self.n_stk
 
         # 信息交换
         union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
@@ -241,10 +193,8 @@ class SDGraphEncoder(nn.Module):
         union_sparse = self.sparse_update(union_sparse)
         union_dense = self.dense_update(union_dense)
 
-        # 下采样
-        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk, self.n_stk_pnt)
+        # 对 dgraph 下采样
         union_dense = self.sample(union_dense)
-        union_dense = union_dense.view(bs, union_dense.size(1), (self.n_stk * self.n_stk_pnt) // 2)
 
         return union_sparse, union_dense
 
@@ -256,22 +206,25 @@ class SDGraph(nn.Module):
         """
         super().__init__()
 
-        print('cls 25.1.15版')
+        print('cls 25.1.22版')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
 
+        # 各层特征维度
         sparse_l0 = 32
-        sparse_l1 = 512
-        sparse_l2 = 1024
+        sparse_l1 = 128
+        sparse_l2 = 512
 
-        dense_l0 = 32
-        dense_l1 = 512
-        dense_l2 = 1024
+        dense_l0 = 16
+        dense_l1 = 64
+        dense_l2 = 256
 
+        # 生成初始 sdgraph
         self.point_to_sparse = PointToSparse(2, sparse_l0, self.n_stk, self.n_stk_pnt)
         self.point_to_dense = DgcnnEncoder(2, dense_l0)
 
+        # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt
                                   )
@@ -280,9 +233,11 @@ class SDGraph(nn.Module):
                                   n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2
                                   )
 
+        # 利用输出特征进行分类
         sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
         dense_glo = dense_l0 + dense_l1 + dense_l2
         out_inc = (n_class / (sparse_glo + dense_glo)) ** (1 / 3)
+
         outlayer_l0 = sparse_glo + dense_glo
         outlayer_l1 = int(outlayer_l0 * out_inc)
         outlayer_l2 = int(outlayer_l1 * out_inc)

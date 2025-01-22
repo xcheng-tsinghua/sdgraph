@@ -16,7 +16,7 @@ import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-from SDGraphCls import SDGraph
+from SDGraphValid import SDGraph
 from data_utils.sketch_utils import save_confusion_mat
 from encoders.PointNet2 import PointNet2
 from encoders.Dgcnn import DGCNN
