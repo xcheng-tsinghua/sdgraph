@@ -11,22 +11,15 @@ sys.path.append(os.path.join(ROOT_DIR, 'data_utils'))
 
 # 工具包
 import torch
-import numpy as np
-import torch.nn.functional as F
 from datetime import datetime
 import logging # 记录日志信息
 import argparse
-from tqdm import tqdm
-from sklearn.metrics import f1_score
-from sklearn.metrics import average_precision_score
-from sklearn.preprocessing import label_binarize
-from colorama import Fore, Back, Style, init
-import shutil
+from colorama import Fore, Back, init
 
 # 自建模块
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from SDGraph import SDGraphUNet
+from bks.SDGraph import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
 
 
