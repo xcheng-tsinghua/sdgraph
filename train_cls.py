@@ -10,18 +10,14 @@ from tqdm import tqdm
 from sklearn.metrics import f1_score
 from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import label_binarize
-from colorama import Fore, Back, Style, init
+from colorama import Fore, Back, init
 import shutil
 import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-from SDGraphValid import SDGraph
+from encoders.sdgraph import SDGraphCls
 from data_utils.sketch_utils import save_confusion_mat
-from encoders.PointNet2 import PointNet2
-from encoders.Dgcnn import DGCNN
-from encoders.Attention import Attention
-from encoders.pointnet_cls import pointnet, get_loss
 
 
 def parse_args():
@@ -163,7 +159,7 @@ def main(args):
 
     '''MODEL LOADING'''
     # 获取分类模型
-    classifier = SDGraph(num_class)
+    classifier = SDGraphCls(num_class)
     # classifier = PointNet2(num_class)
     # classifier = DGCNN(num_class)
     # classifier = Attention(num_class)

@@ -1,21 +1,20 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from encoders.Dgcnn import DgcnnEncoder
 from encoders.utils import full_connected, full_connected_conv2d
 
 import encoders.sdgraph_utils as sdutils
 import global_defs
 
 
-class SDGraph(nn.Module):
+class SDGraphCls(nn.Module):
     def __init__(self, n_class: int):
         """
         :param n_class: 总类别数
         """
         super().__init__()
 
-        print('cls 25.1.15版')
+        print('cls 25.2.14版')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
@@ -103,4 +102,8 @@ def test():
 if __name__ == '__main__':
     test()
     print('---------------')
+
+
+
+
 
