@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import math
+from einops import rearrange
 
 from encoders.utils import full_connected_conv1d, full_connected_conv2d
 import global_defs
@@ -225,7 +227,7 @@ class PointToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, point_dim, sparse_out, n_stk, n_stk_pnt, dropout=0.4):
+    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
         super().__init__()
 
         self.n_stk = n_stk
@@ -398,7 +400,87 @@ class SDGraphEncoder(nn.Module):
         return union_sparse, union_dense
 
 
+class SinusoidalPosEmb(nn.Module):
+    """
+    将时间步t转化为embedding
+    """
+    def __init__(self, dim, theta):  # 256， 10000
+        super().__init__()
+        self.dim = dim
+        self.theta = theta
+
+    def forward(self, x):
+        """
+        :param x: 时间步 [bs, ]
+        :return:
+        """
+        device = x.device
+        half_dim = self.dim // 2  # 128
+        emb = math.log(self.theta) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
+        emb = x[:, None] * emb[None, :]
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
+        return emb
 
 
+class TimeMerge(nn.Module):
+    def __init__(self, dim_in, dim_out, time_emb_dim, dropout=0.):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.SiLU(),
+            nn.Linear(time_emb_dim, dim_out * 2)
+        )
+
+        self.block1 = Block(dim_in, dim_out, dropout=dropout)
+        self.block2 = Block(dim_out, dim_out)
+        self.res_conv = nn.Conv2d(dim_in, dim_out, 1) if dim_in != dim_out else nn.Identity()
+
+    def forward(self, x, time_emb):
+        time_emb = self.mlp(time_emb)
+        time_emb = rearrange(time_emb, 'b c -> b c 1')
+        scale_shift = time_emb.chunk(2, dim=1)
+
+        h = self.block1(x, scale_shift=scale_shift)
+        h = self.block2(h)
+
+        return h + self.res_conv(x)
 
 
+class Block(nn.Module):
+    def __init__(self, dim, dim_out, dropout=0.):
+        super().__init__()
+        self.proj = nn.Conv1d(dim, dim_out, 1)
+        self.norm = RMSNorm(dim_out)
+        self.act = nn.SiLU()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x, scale_shift=None):
+        """
+
+        :param x: [bs, channel, n_node]
+        :param scale_shift: [bs, ]
+        :return:
+        """
+        x = self.proj(x)
+        x = self.norm(x)
+
+        if scale_shift is not None:
+            scale, shift = scale_shift
+            x = x * (scale + 1) + shift
+
+        x = self.dropout(self.act(x))
+        return x
+
+
+class RMSNorm(nn.Module):
+    def __init__(self, dim):
+        """
+
+        :param dim: forward过程中输入x的特征长度
+        """
+        super().__init__()
+        self.scale = dim ** 0.5
+        self.g = nn.Parameter(torch.ones(1, dim, 1))
+
+    def forward(self, x):
+        return F.normalize(x, dim=1) * self.g * self.scale
