@@ -7,7 +7,7 @@ from encoders.utils import full_connected, full_connected_conv2d
 import global_defs
 
 
-def down_sample(dim_in, dim_out, dropout=0.4):
+class DownSample(nn.Module):
     """
     将 dense graph 的每个笔划的点数调整为原来的 1/2
     只能用于 dgraph 的特征采样
@@ -18,77 +18,29 @@ def down_sample(dim_in, dim_out, dropout=0.4):
     :param dropout:
     :return:
     """
-    return nn.Sequential(
-        nn.Conv2d(
-            in_channels=dim_in,  # 输入通道数 (RGB)
-            out_channels=dim_out,  # 输出通道数 (保持通道数不变)
-            kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
-            stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
-            padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
-        ),
-        nn.BatchNorm2d(dim_out),
-        # nn.GELU(),
-        nn.LeakyReLU(negative_slope=0.2),
-        nn.Dropout2d(dropout)
-    )
-
-
-class DownSample(nn.Module):
-    """
-    将 dense graph 的每个笔划的点数调整为原来的 1/2
-    只能用于 dgraph 的特征采样，每个笔划上的点数必须能被 4 整除
-    """
-    def __init__(self, dim_in, dim_out, n_stk_pnt, dropout=0.4):
+    def __init__(self, dim_in, dim_out, dropout=0.4):
         super().__init__()
 
-        assert n_stk_pnt % 4 == 0
-
-        # 卷积层数
-        self.n_layers = n_stk_pnt // 4 + 1
-
-        # 计算各层通道递增量
-        emb_inc = (dim_out / dim_in) ** (1 / (self.n_layers - 1))
-
-        # 各模块
-        self.conv_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-
-        local_in = dim_in
-
-        for i in range(self.n_layers - 2):
-
-            local_out = int(local_in * emb_inc)
-
-            self.conv_layers.append(nn.Conv2d(local_in, local_out, (1, 3)))
-            self.batch_normals.append(nn.BatchNorm2d(local_out))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2),)
-            self.drop_outs.append(nn.Dropout2d(dropout))
-
-            local_in = local_out
-
-        # 最后一次卷积单独处理
-        self.outcv = nn.Conv2d(local_in, dim_out, (1, 3))
-        self.outbn = nn.BatchNorm2d(dim_out)
-        self.outat = nn.LeakyReLU(negative_slope=0.2),
-        self.outdp = nn.Dropout2d(dropout)
+        self.encoder = nn.Sequential(
+            nn.Conv2d(
+                in_channels=dim_in,  # 输入通道数 (RGB)
+                out_channels=dim_out,  # 输出通道数 (保持通道数不变)
+                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dim_out),
+            # nn.GELU(),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout)
+        )
 
     def forward(self, dense_fea):
         """
         :param dense_fea:
         :return: [bs, emb, n_stk, n_stk_pnt]
         """
-
-        for i in range(self.n_layers - 2):
-            cv = self.conv_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
-
-            dense_fea = dp(at(bn(cv(dense_fea))))
-
-        dense_fea = self.outdp(self.outat(self.outbn(self.outcv(dense_fea))))
+        dense_fea = self.encoder(dense_fea)
         return dense_fea
 
 
@@ -297,15 +249,16 @@ class SDGraphEncoder(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
-        # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
-        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
+        # self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        # self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
+
+        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
+        self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
 
-        # self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, n_stk_pnt)
-        self.sample = down_sample(int((dense_in * dense_out) ** 0.5), dense_out)
+        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out)
 
     def forward(self, sparse_fea, dense_fea):
         """
