@@ -15,3 +15,6 @@ pen_up = 16  # 自建机械草图
 pen_down = 17  # 自建机械草图
 # pen_down = 1  # quickdraw
 
+# 单个草图中的总点数
+n_skh_pnt = n_stk * n_stk_pnt
+

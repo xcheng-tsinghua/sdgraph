@@ -1,4 +1,3 @@
-
 # 工具包
 import torch
 import numpy as np
@@ -11,7 +10,6 @@ from sklearn.metrics import f1_score
 from sklearn.metrics import average_precision_score
 from sklearn.preprocessing import label_binarize
 from colorama import Fore, Back, init
-import shutil
 import os
 
 # 自建模块
@@ -19,6 +17,7 @@ from data_utils.SketchDataset import SketchDataset
 from encoders.sdgraph import SDGraphCls
 # from encoders.sdgraph_valid import SDGraphCls
 from data_utils.sketch_utils import save_confusion_mat
+from encoders.utils import inplace_relu, clear_log, clear_confusion
 
 
 def parse_args():
@@ -31,7 +30,7 @@ def parse_args():
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--local', default='True', choices=['True', 'False'], type=str, help='---')
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
     parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch', help='---')
@@ -42,12 +41,6 @@ def parse_args():
     # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch_simplify2'
     # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch'
     return parser.parse_args()
-
-
-def inplace_relu(m):
-    classname = m.__class__.__name__
-    if classname.find('ReLU') != -1:
-        m.inplace = True
 
 
 def accuracy_over_class(all_labels: list, all_preds: list, n_classes: int):
@@ -88,36 +81,48 @@ def mean_average_precision(all_labels: list, all_preds: list, num_class: int):
     return mAP
 
 
-def clear_log(log_dir):
+def all_metric_cls(all_preds: list, all_labels: list):
     """
-    清空空白的log文件
+    计算分类评价指标：Acc.instance, Acc.class, F1-score, mAP
+    :param all_preds: [item0, item1, ...], item: [bs, n_classes]
+    :param all_labels: [item0, item1, ...], item: [bs, ]
+    :return: Acc.instance, Acc.class, F1-score-macro, F1-score-weighted, mAP
     """
-    os.makedirs(log_dir, exist_ok=True)
+    # 将所有batch的预测和真实标签整合在一起
+    all_preds = np.vstack(all_preds)  # 形状为 [n_samples, n_classes]
+    all_labels = np.hstack(all_labels)  # 形状为 [n_samples]
+    n_samples, n_classes = all_preds.shape
 
-    # 遍历文件夹中的所有文件
-    for filename in os.listdir(log_dir):
-        # 获取文件的完整路径
-        file_path = os.path.join(log_dir, filename)
-        # 检查是否为txt文件且为空
-        if filename.endswith('.txt') and os.path.isfile(file_path) and os.path.getsize(file_path) == 0:
-            os.remove(file_path)
-            print(f"Deleted empty file: {file_path}")
+    # ---------- 计算 Acc.Instance ----------
+    pred_choice = np.argmax(all_preds, axis=1)  # -> [n_samples, ]
+    correct = np.equal(pred_choice, all_labels).sum()
+    acc_ins = correct / n_samples
 
+    # ---------- 计算 Acc.class ----------
+    acc_cls = []
+    for class_idx in range(n_classes):
+        class_mask = (all_labels == class_idx)
+        if np.sum(class_mask) == 0:
+            continue
+        cls_acc_sig = np.mean(all_preds[class_mask] == all_labels[class_mask])
+        acc_cls.append(cls_acc_sig)
+    acc_cls = np.mean(acc_cls)
 
-def clear_confusion(root_dir='./data_utils/confusion', k=5):
-    """
-    遍历 root_dir 中的文件夹，删除文件数小于 k 的文件夹。
+    # ---------- 计算 F1-score ----------
+    f1_m = f1_score(all_labels, pred_choice, average='macro')
+    f1_w = f1_score(all_labels, pred_choice, average='weighted')
 
-    :param root_dir: 根目录
-    :param k: 文件数的阈值，小于 k 的文件夹会被删除
-    """
-    for foldername, subfolders, filenames in os.walk(root_dir, topdown=False):
-        # 遍历每个文件夹
-        num_files = len(filenames)
-        if num_files < k:
-            # 如果文件数小于 k，则删除整个文件夹
-            print(f"Deleting folder: {foldername} (contains {num_files} files)")
-            shutil.rmtree(foldername)
+    # ---------- 计算 mAP ----------
+    all_labels_one_hot = label_binarize(all_labels, classes=np.arange(n_classes))
+    ap_sig = []
+    # 计算单个类别的 ap
+    for i in range(n_classes):
+        ap = average_precision_score(all_labels_one_hot[:, i], all_preds[:, i])
+        ap_sig.append(ap)
+
+    mAP = np.mean(ap_sig)
+
+    return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
 def main(args):
@@ -296,9 +301,13 @@ def main(args):
             macro_f1_score = f1_score(target_cls, pred_cls, average='macro')
             weighted_f1_score = f1_score(target_cls, pred_cls, average='weighted')
 
-            accustr = f'\ttest_instance_accuracy\t{test_ins_acc}\ttest_class_accuracy\t{test_cls_acc}\ttest_F1_Score\t{macro_f1_score}\tmAP\t{mAP}\twmAP\t{weighted_f1_score}'
+            accustr = f'\ttest_instance_accuracy\t{test_ins_acc}\ttest_class_accuracy\t{test_cls_acc}\ttest_F1_Score_macro\t{macro_f1_score}\ttest_F1_Score_weighted\t{weighted_f1_score}\tmAP\t{mAP}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
             print(f'train_ins_acc: {train_ins_acc}, test_ins_acc: {test_ins_acc}')
+
+            all_metrics = all_metric_cls(all_preds, all_labels)
+            print(f'原始：{test_ins_acc}, {test_cls_acc}, {macro_f1_score}, {weighted_f1_score}, {mAP}')
+            print(f'新的：{all_metrics[0]}, {all_metrics[1]}, {all_metrics[2]}, {all_metrics[3]}, {all_metrics[4]}')
 
             # 额外保存最好的模型
             if best_instance_accu < test_ins_acc:

@@ -53,7 +53,10 @@ class SDGraphCls(nn.Module):
         self.linear = full_connected(channels=[outlayer_l0, outlayer_l1, outlayer_l2, outlayer_l3], final_proc=False)
 
     def forward(self, xy):
-        # -> [bs, 2, n_point]
+        """
+        :param xy: [bs, 2, n_skh_pnt]
+        :return: [bs, n_classes]
+        """
         xy = xy[:, :2, :]
 
         bs, channel, n_point = xy.size()
@@ -89,7 +92,7 @@ class SDGraphCls(nn.Module):
         return cls
 
 
-class SDGraphUNet(nn.Module):
+class SDGraphSeg(nn.Module):
     def __init__(self):
         super().__init__()
 
@@ -167,7 +170,11 @@ class SDGraphUNet(nn.Module):
         self.final_linear = full_connected_conv1d(channels=[final_in, int((2*final_in)**0.5), 2], final_proc=False)
 
     def forward(self, xy, time):
-        # -> [bs, 2, n_point]
+        """
+        :param xy: [bs, 2, n_skh_pnt]
+        :param time: [bs, ]
+        :return: [bs, 2, n_skh_pnt]
+        """
         xy = xy[:, :2, :]
 
         # 获取时间步特征
@@ -177,18 +184,11 @@ class SDGraphUNet(nn.Module):
         assert n_point == self.n_stk * self.n_stk_pnt
         assert channel == 2
 
-        # -> [bs, channel, n_stroke, stroke_point]
-        xy = xy.view(bs, channel, self.n_stk, self.n_stk_pnt)
-
         # 生成 sparse graph
         # -> [bs, emb, n_stk]
         sparse_graph_up0 = self.point_to_sparse(xy)
         sparse_graph_up0 = self.tm_sp_l0(sparse_graph_up0, time_emb)
         assert sparse_graph_up0.size()[2] == self.n_stk
-
-        # -> [bs, 2, n_point]
-        xy = xy.view(bs, channel, n_point)
-        assert xy.size()[1] == 2
 
         # 生成 dense graph
         # -> [bs, emb, n_point]
@@ -254,15 +254,20 @@ class SDGraphUNet(nn.Module):
 
 
 def test():
-    atensor = torch.rand([3, 2, 30 * 32]).cuda()
-    t1 = torch.randint(0, 1000, (3,)).long().cuda()
+    bs = 3
+    atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
+    t1 = torch.randint(0, 1000, (bs,)).long().cuda()
 
-    classifier = SDGraphCls(10).cuda()
-    cls11 = classifier(atensor)
+    classifier = SDGraphSeg().cuda()
+    cls11 = classifier(atensor, t1)
 
     print(cls11.size())
 
     print('---------------')
+
+
+
+
 
 
 

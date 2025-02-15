@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import os
+import shutil
 
 
 class full_connected_conv2d(nn.Module):
@@ -322,6 +323,58 @@ def index_vals(vals, inds):
     channel_indices = torch.arange(n_item, dtype=torch.long).view(view_shape).repeat(repeat_shape)
 
     return vals[batch_indices, channel_indices, inds]
+
+
+def inplace_relu(m):
+    classname = m.__class__.__name__
+    if classname.find('ReLU') != -1:
+        m.inplace = True
+
+
+def clear_log(folder_path, k=5):
+    """
+    遍历文件夹内的所有 .txt 文件，删除行数小于 k 的文件。
+
+    :param folder_path: 要处理的文件夹路径
+    :param k: 行数阈值，小于 k 的文件会被删除
+    """
+    os.makedirs(folder_path, exist_ok=True)
+
+    for filename in os.listdir(folder_path):
+        # 构造文件的完整路径
+        file_path = os.path.join(folder_path, filename)
+
+        # 检查是否为 .txt 文件
+        if os.path.isfile(file_path) and filename.endswith('.txt'):
+            try:
+                # 统计文件的行数
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    lines = file.readlines()
+                    num_lines = len(lines)
+
+                # 如果行数小于 k，则删除文件
+                if num_lines < k:
+                    print(f"Deleting file: {file_path} (contains {num_lines} lines)")
+                    os.remove(file_path)
+            except Exception as e:
+                # 捕获读取文件时的错误（如编码问题等）
+                print(f"Error reading file {file_path}: {e}")
+
+
+def clear_confusion(root_dir='./data_utils/confusion', k=5):
+    """
+    遍历 root_dir 中的文件夹，删除文件数小于 k 的文件夹。
+
+    :param root_dir: 根目录
+    :param k: 文件数的阈值，小于 k 的文件夹会被删除
+    """
+    for foldername, subfolders, filenames in os.walk(root_dir, topdown=False):
+        # 遍历每个文件夹
+        num_files = len(filenames)
+        if num_files < k:
+            # 如果文件数小于 k，则删除整个文件夹
+            print(f"Deleting folder: {foldername} (contains {num_files} files)")
+            shutil.rmtree(foldername)
 
 
 if __name__ == '__main__':

@@ -21,6 +21,7 @@ from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
 from bks.SDGraph import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
+from encoders.utils import clear_log
 
 
 def parse_args():
@@ -28,7 +29,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--batch_size', type=int, default=64, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=64, help='batch size in training')
     parser.add_argument('--epoch', default=000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -50,34 +51,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def clear_log(folder_path, k=5):
-    """
-    遍历文件夹内的所有 .txt 文件，删除行数小于 k 的文件。
 
-    :param folder_path: 要处理的文件夹路径
-    :param k: 行数阈值，小于 k 的文件会被删除
-    """
-    os.makedirs(folder_path, exist_ok=True)
-
-    for filename in os.listdir(folder_path):
-        # 构造文件的完整路径
-        file_path = os.path.join(folder_path, filename)
-
-        # 检查是否为 .txt 文件
-        if os.path.isfile(file_path) and filename.endswith('.txt'):
-            try:
-                # 统计文件的行数
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    lines = file.readlines()
-                    num_lines = len(lines)
-
-                # 如果行数小于 k，则删除文件
-                if num_lines < k:
-                    print(f"Deleting file: {file_path} (contains {num_lines} lines)")
-                    os.remove(file_path)
-            except Exception as e:
-                # 捕获读取文件时的错误（如编码问题等）
-                print(f"Error reading file {file_path}: {e}")
 
 
 def main(args):
@@ -97,8 +71,13 @@ def main(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
     # 定义数据集，训练集及对应加载器
-    train_dataset = DiffDataset(root=args.root)
-    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4)
+    if args.local == 'True':
+        data_root = args.root_local
+    else:
+        data_root = args.root_sever
+
+    train_dataset = DiffDataset(root=data_root)
+    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''MODEL LOADING'''
     model = SDGraphUNet()
