@@ -136,6 +136,41 @@ class DownSample(nn.Module):
         return dense_fea
 
 
+class UpSample(nn.Module):
+    def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels=dim_in,  # 输入通道数
+                out_channels=dim_out,  # 输出通道数
+                kernel_size=(1, 4),  # 卷积核大小：1x2，仅在宽度方向扩展
+                stride=(1, 2),  # 步幅：高度不变，宽度扩展为原来的 2 倍
+                padding=(0, 1),  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dim_out),
+            # nn.GELU(),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_pnt]
+        """
+        bs, emb, n_pnt = dense_fea.size()
+        assert n_pnt == self.n_stk * self.n_stk_pnt
+
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        dense_fea = self.conv(dense_fea)
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) * 2)
+
+        return dense_fea
+
+
 class SparseToDenseAttn(nn.Module):
     """
     使用注意力机制实现将 sgraph 的特征转移到 dgraph
@@ -354,7 +389,10 @@ class DenseToSparse(nn.Module):
 
 
 class SDGraphEncoder(nn.Module):
-    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt):
+    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt, sample_type='down_sample'):
+        """
+        :param sample_type: [down_sample, up_sample, none]
+        """
         super().__init__()
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
@@ -366,9 +404,17 @@ class SDGraphEncoder(nn.Module):
         # self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
-        self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
+        self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out)
 
-        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, self.n_stk, self.n_stk_pnt)
+        self.sample_type = sample_type
+        if self.sample_type == 'down_sample':
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt)
+        elif self.sample_type == 'up_sample':
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt)
+        elif self.sample_type == 'none':
+            self.sample = nn.Identity()
+        else:
+            raise ValueError('invalid sample type')
 
     def forward(self, sparse_fea, dense_fea):
         """
