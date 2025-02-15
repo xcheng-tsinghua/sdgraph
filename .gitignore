@@ -3,6 +3,8 @@ imgs_gen/
 log/
 model_trained/
 data_utils/confusion/
+data_utils/__pycache__/
 __pycache__/
 .idea/
 encoders/__pycache__/
+
