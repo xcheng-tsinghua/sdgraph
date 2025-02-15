@@ -102,20 +102,13 @@ class DgcnnEncoder(nn.Module):
 
 
 class DownSample(nn.Module):
-    """
-    将 dense graph 的每个笔划的点数调整为原来的 1/2
-    只能用于 dgraph 的特征采样
-    [bs, emb, n_stk, n_stk_pnt]
-    n_stk_pnt 必须能被 2 整除
-    :param dim_in:
-    :param dim_out:
-    :param dropout:
-    :return:
-    """
-    def __init__(self, dim_in, dim_out, dropout=0.4):
+    def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
-        self.encoder = nn.Sequential(
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        self.conv = nn.Sequential(
             nn.Conv2d(
                 in_channels=dim_in,  # 输入通道数 (RGB)
                 out_channels=dim_out,  # 输出通道数 (保持通道数不变)
@@ -131,10 +124,15 @@ class DownSample(nn.Module):
 
     def forward(self, dense_fea):
         """
-        :param dense_fea:
-        :return: [bs, emb, n_stk, n_stk_pnt]
+        :param dense_fea: [bs, emb, n_pnt]
         """
-        dense_fea = self.encoder(dense_fea)
+        bs, emb, n_pnt = dense_fea.size()
+        assert n_pnt == self.n_stk * self.n_stk_pnt
+
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        dense_fea = self.conv(dense_fea)
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
+
         return dense_fea
 
 
@@ -271,7 +269,7 @@ class PointToDense(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, point_dim, emb_dim, n_near=10, dropout=0.4):
+    def __init__(self, point_dim, emb_dim, n_near=10, dropout=0.0):
         super().__init__()
 
         self.encoder = DgcnnEncoder(point_dim, emb_dim, n_near, dropout)
@@ -361,16 +359,16 @@ class SDGraphEncoder(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        # self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
-        # self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
-        self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
+        # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
+        # self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
         self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
         self.dense_update = DgcnnEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5))
 
-        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out)
+        self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, self.n_stk, self.n_stk_pnt)
 
     def forward(self, sparse_fea, dense_fea):
         """
@@ -393,9 +391,7 @@ class SDGraphEncoder(nn.Module):
         union_dense = self.dense_update(union_dense)
 
         # 下采样
-        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk, self.n_stk_pnt)
         union_dense = self.sample(union_dense)
-        union_dense = union_dense.view(bs, union_dense.size(1), (self.n_stk * self.n_stk_pnt) // 2)
 
         return union_sparse, union_dense
 
