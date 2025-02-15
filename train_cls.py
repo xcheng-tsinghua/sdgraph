@@ -16,8 +16,8 @@ import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-# from encoders.sdgraph import SDGraphCls
-from encoders.sdgraph_valid import SDGraphCls
+from encoders.sdgraph import SDGraphCls
+# from encoders.sdgraph_valid import SDGraphCls
 from data_utils.sketch_utils import save_confusion_mat
 
 
