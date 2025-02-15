@@ -104,7 +104,7 @@ def all_metric_cls(all_preds: list, all_labels: list):
         class_mask = (all_labels == class_idx)
         if np.sum(class_mask) == 0:
             continue
-        cls_acc_sig = np.mean(all_preds[class_mask] == all_labels[class_mask])
+        cls_acc_sig = np.mean(pred_choice[class_mask] == all_labels[class_mask])
         acc_cls.append(cls_acc_sig)
     acc_cls = np.mean(acc_cls)
 
