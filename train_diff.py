@@ -1,25 +1,15 @@
-import os
-import sys
-
-# 获取当前文件的绝对路径
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = BASE_DIR
-
-# 将models文件夹的路径添加到sys.path中，使得models文件夹中的py文件能被本文件import
-sys.path.append(os.path.join(ROOT_DIR, 'encoders'))
-sys.path.append(os.path.join(ROOT_DIR, 'data_utils'))
-
 # 工具包
 import torch
-from datetime import datetime
+import os
 import logging # 记录日志信息
 import argparse
 from colorama import Fore, Back, init
+from datetime import datetime
 
 # 自建模块
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from bks.SDGraph import SDGraphUNet
+from encoders.sdgraph import SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
@@ -51,14 +41,16 @@ def parse_args():
     return parser.parse_args()
 
 
-
-
-
 def main(args):
     save_str = args.save_str
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
-    # 日志记录
+    '''创建文件夹'''
+    os.makedirs('model_trained/', exist_ok=True)
+    os.makedirs('imgs_gen/', exist_ok=True)
+    os.makedirs('log/', exist_ok=True)
+
+    '''日志记录'''
     logger = logging.getLogger("Model")
     logger.setLevel(logging.INFO)
     file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
@@ -67,22 +59,16 @@ def main(args):
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    '''HYPER PARAMETER'''
-    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
-
     # 定义数据集，训练集及对应加载器
     if args.local == 'True':
         data_root = args.root_local
     else:
         data_root = args.root_sever
-
     train_dataset = DiffDataset(root=data_root)
     trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''MODEL LOADING'''
-    model = SDGraphUNet()
-
-    os.makedirs('model_trained/', exist_ok=True)
+    model = SDGraphSeg()
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':

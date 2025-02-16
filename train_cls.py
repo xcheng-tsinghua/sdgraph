@@ -50,7 +50,6 @@ def main(args):
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     os.makedirs('log/', exist_ok=True)
-    os.makedirs('imgs_gen/', exist_ok=True)
 
     '''日志记录'''
     logger = logging.getLogger("Model")
