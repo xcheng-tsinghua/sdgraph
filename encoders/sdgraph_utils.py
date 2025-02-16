@@ -47,7 +47,10 @@ def get_graph_feature(x, k=20, idx=None):
     return feature
 
 
-class DgcnnEncoder(nn.Module):
+class GCNEncoder(nn.Module):
+    """
+    实际上是 DGCNN Encoder
+    """
     def __init__(self, emb_in, emb_out, n_near=10, dropout=0.0):
         super().__init__()
         self.n_near = n_near
@@ -304,10 +307,9 @@ class PointToDense(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, point_dim, emb_dim, n_near=10, dropout=0.0):
+    def __init__(self, point_dim, emb_dim):
         super().__init__()
-
-        self.encoder = DgcnnEncoder(point_dim, emb_dim, n_near, dropout)
+        self.encoder = GCNEncoder(point_dim, emb_dim)
 
     def forward(self, xy):
         """
@@ -403,8 +405,8 @@ class SDGraphEncoder(nn.Module):
         # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
         # self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
-        self.sparse_update = DgcnnEncoder(sparse_in + dense_in, sparse_out)
-        self.dense_update = DgcnnEncoder(dense_in + sparse_in, dense_out)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
