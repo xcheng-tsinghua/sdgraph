@@ -77,7 +77,7 @@ def main(args):
     trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
     testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
-    '''获取分类模型及权重'''
+    '''加载模型及权重'''
     classifier = SDGraphCls(num_class).cuda()
     # classifier = PointNet2(num_class)
     # classifier = DGCNN(num_class)

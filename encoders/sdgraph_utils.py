@@ -391,7 +391,8 @@ class DenseToSparse(nn.Module):
 
 
 class SDGraphEncoder(nn.Module):
-    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt, sample_type='down_sample'):
+    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt,
+                 sp_near=10, dn_near=10, sample_type='down_sample'):
         """
         :param sample_type: [down_sample, up_sample, none]
         """
@@ -405,8 +406,8 @@ class SDGraphEncoder(nn.Module):
         # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
         # self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
@@ -465,6 +466,25 @@ class SinusoidalPosEmb(nn.Module):
         emb = x[:, None] * emb[None, :]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
+
+
+class TimeEncode(nn.Module):
+    """
+    编码时间步
+    """
+    def __init__(self, channel_time):
+        super().__init__()
+        self.encoder = nn.Sequential(
+            SinusoidalPosEmb(channel_time // 4, theta=10000),
+            nn.Linear(channel_time // 4, channel_time // 2),
+            # nn.GELU(),
+            nn.LeakyReLU(negative_slope=0.2),
+            nn.Linear(channel_time // 2, channel_time)
+        )
+
+    def forward(self, x):
+        x = self.encoder(x)
+        return x
 
 
 class TimeMerge(nn.Module):

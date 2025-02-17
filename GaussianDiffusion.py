@@ -32,14 +32,15 @@ class GaussianDiffusion(Module):
     def __init__(
         self,
         model,
-        image_size=32,  # 生成图片大小
+        pnt_channel,
+        n_skh_pnt,
         timesteps=1000,  # diffusion 时间步
     ):
         super().__init__()
 
         self.model = model
-        self.channels = self.model.channels
-        self.image_size = self.model.n_pnts
+        self.pnt_channel = pnt_channel
+        self.n_skh_pnt = n_skh_pnt
         self.num_timesteps = timesteps
 
         # 基本参数数组
@@ -120,7 +121,7 @@ class GaussianDiffusion(Module):
         :return:
         """
         # 获取纯高斯噪音
-        img = torch.randn((batch_size, self.channels, self.image_size), device=self.device)
+        img = torch.randn((batch_size, self.pnt_channel, self.n_skh_pnt), device=self.device)
 
         # 倒着遍历所有时间步，从噪音还原图片
         for t in tqdm(reversed(range(self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):

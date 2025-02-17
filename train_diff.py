@@ -6,30 +6,29 @@ import argparse
 from colorama import Fore, Back, init
 from datetime import datetime
 
+import global_defs
 # 自建模块
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphSeg
+from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
 
 def parse_args():
-    '''PARAMETERS'''
-    # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=64, help='batch size in training')
-    parser.add_argument('--epoch', default=000, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
+    parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
+    parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_figgen', default=30, type=int, help='---')
     parser.add_argument('--local', default='True', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph_unet_valid', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc', help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default='/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk4_stkpnt32', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32', help='root of dataset')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
@@ -59,7 +58,7 @@ def main(args):
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    # 定义数据集，训练集及对应加载器
+    '''定义数据集'''
     if args.local == 'True':
         data_root = args.root_local
     else:
@@ -67,8 +66,8 @@ def main(args):
     train_dataset = DiffDataset(root=data_root)
     trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
-    '''MODEL LOADING'''
-    model = SDGraphSeg()
+    '''加载模型及权重'''
+    model = SDGraphSeg(2, 2)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
@@ -80,19 +79,19 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model)
+    diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
     optimizer = torch.optim.Adam(
         model.parameters(),
-        lr=args.learning_rate, # 0.001
+        lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
-        weight_decay=args.decay_rate # 1e-4
+        weight_decay=1e-4
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 
-    '''TRANING'''
+    '''训练'''
     for epoch_idx in range(args.epoch):
         diffusion = diffusion.train()
 
@@ -125,7 +124,7 @@ def main(args):
         scheduler.step()
         torch.save(model.state_dict(), 'model_trained/' + save_str + '.pth')
 
-    # 推理部分
+    '''生成图片'''
     with torch.no_grad():
         diffusion = diffusion.eval()
 
