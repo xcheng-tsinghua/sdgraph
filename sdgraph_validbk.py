@@ -339,7 +339,7 @@ class SDGraphUNet(nn.Module):
     """
     上采样阶段也使用 sd encoder
     """
-    def __init__(self):
+    def __init__(self, channel_in, channel_out):
         super().__init__()
 
         self.channels = 2
@@ -413,6 +413,9 @@ class SDGraphUNet(nn.Module):
         # 输出层
         final_in = dense_l0 + sparse_l0 + 2
         self.final_linear = full_connected_conv1d(channels=[final_in, int((2*final_in)**0.5), 2], final_proc=False)
+
+    def pnt_channel(self):
+        return self.channels
 
     def forward(self, xy, time):
         # -> [bs, 2, n_point]
