@@ -263,11 +263,13 @@ class PointToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
+    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4,
+                 with_time=False, time_emb_dim=0):
         super().__init__()
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
 
         # 将 DGraph 的数据转移到 SGraph
         mid_dim = int((point_dim * sparse_out) ** 0.5)
@@ -283,9 +285,13 @@ class PointToSparse(nn.Module):
             nn.Dropout2d(dropout),
         )
 
-    def forward(self, xy):
+        if self.with_time:
+            self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
+
+    def forward(self, xy, time_emb=None):
         """
         :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk]
         """
         bs, emb, _ = xy.size()
@@ -300,6 +306,10 @@ class PointToSparse(nn.Module):
         xy = torch.max(xy, dim=3)[0]
         assert xy.size(2) == self.n_stk
 
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            xy = self.time_merge(xy, time_emb)
+
         return xy
 
 
@@ -307,16 +317,26 @@ class PointToDense(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
     """
-    def __init__(self, point_dim, emb_dim):
+    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0):
         super().__init__()
         self.encoder = GCNEncoder(point_dim, emb_dim)
 
-    def forward(self, xy):
+        self.with_time = with_time
+        if self.with_time:
+            self.time_merge = TimeMerge(emb_dim, emb_dim, time_emb_dim)
+
+    def forward(self, xy, time_emb=None):
         """
         :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk * n_stk_pnt]
         """
         dense_emb = self.encoder(xy)
+
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            dense_emb = self.time_merge(dense_emb, time_emb)
+
         return dense_emb
 
 
@@ -392,13 +412,14 @@ class DenseToSparse(nn.Module):
 
 class SDGraphEncoder(nn.Module):
     def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt,
-                 sp_near=10, dn_near=10, sample_type='down_sample'):
+                 sp_near=10, dn_near=10, sample_type='down_sample', with_time=False, time_emb_dim=0):
         """
         :param sample_type: [down_sample, up_sample, none]
         """
         super().__init__()
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
 
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
@@ -419,10 +440,15 @@ class SDGraphEncoder(nn.Module):
         else:
             raise ValueError('invalid sample type')
 
-    def forward(self, sparse_fea, dense_fea):
+        if self.with_time:
+            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim)
+            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim)
+
+    def forward(self, sparse_fea, dense_fea, time_emb=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_point]
+        :param time_emb: [bs, emb]
         :return:
         """
         bs, emb, n_stk = sparse_fea.size()
@@ -441,6 +467,11 @@ class SDGraphEncoder(nn.Module):
 
         # 下采样
         union_dense = self.sample(union_dense)
+
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
+            union_dense = self.time_mlp_dn(union_dense, time_emb)
 
         return union_sparse, union_dense
 
