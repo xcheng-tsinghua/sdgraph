@@ -80,10 +80,10 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    # diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
-    diffusion = GaussianDiffusion(model)
+    diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
+    '''优化器'''
     optimizer = torch.optim.Adam(
         model.parameters(),
         lr=args.lr,
@@ -100,22 +100,10 @@ def main(args):
         print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
         for batch_idx, data in enumerate(trainDataLoader, 0):
+            points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
 
-            # -> [bs, n_points, 2]
-            points = data.float().cuda()
-
-            # -> [bs, 2, n_points]
-            points = points.permute(0, 2, 1)
-
-            channel = points.size()[1]
-            assert channel == 2
-
-            # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
-
             loss = diffusion(points)
-
-            # 利用loss更新参数
             loss.backward()
             optimizer.step()
 

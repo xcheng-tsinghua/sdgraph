@@ -1,46 +1,35 @@
+"""
+需要草图图片的 x, y 范围均在 [-1, 1] 之间
+"""
 from tqdm.auto import tqdm
-import torch
 from torch.nn import Module
+import torch
 import torch.nn.functional as F
 
 
 def extract(a, t, x_shape):
-    b, *_ = t.shape
-    out = a.gather(-1, t)
-    return out.reshape(b, *((1,) * (len(x_shape) - 1)))
-
-
-def normalize_to_neg_one_to_one(img):
     """
-    将转换到[0, 1]的图片还原，用于计算loss
-    :param img:
+    将 t 中数值作为索引，提取 a 中对应数值，并将其维度扩充至与 x_shape 维度数相同
+    :param a: 一维数组 [n, ]
+    :param t: 一维数组，表示批量内的全部时间步 [bs, ]
+    :param x_shape: 目标数组的大小 [bs, channel, n_skh_pnt]
     :return:
     """
-    return img * 2 - 1
-
-
-def unnormalize_to_zero_to_one(t):
-    """
-    将图片转换到[0, 1]用于可视化
-    :param t:
-    :return:
-    """
-    return (t + 1) * 0.5
+    bs = t.shape[0]
+    out = a.gather(-1, t)  # 从张量 a 的 -1 维度提取 t 索引数组对应值，out 与 t 形状相同
+    blank_channel = (1,) * (len(x_shape) - 1)  # -> [2, ], 元组乘法表示将其重复一定次数
+    out = out.reshape(bs, *blank_channel)  # -> [bs, 1, 1], len = len(x_shape)
+    return out
 
 
 class GaussianDiffusion(Module):
-    def __init__(
-        self,
-        model,
-        image_size=32,  # 生成图片大小
-        timesteps=1000,  # diffusion 时间步
-    ):
+    def __init__(self, model, pnt_channel, n_skh_pnt, timesteps=1000):
         super().__init__()
 
         self.model = model
-        self.channels = self.model.channels
-        self.image_size = self.model.n_pnts
-        self.num_timesteps = timesteps
+        self.pnt_channel = pnt_channel
+        self.n_skh_pnt = n_skh_pnt
+        self.timesteps = timesteps
 
         # 基本参数数组
         betas = torch.linspace(0.0001, 0.2, timesteps, dtype=torch.float64)
@@ -115,64 +104,52 @@ class GaussianDiffusion(Module):
     def sample(self, batch_size=20):
         """
         从扩散模型获取图片
-        :param batch_size:
-        :param return_all_timesteps:
+        :param batch_size: 生成图片数
         :return:
         """
         # 获取纯高斯噪音
-        img = torch.randn((batch_size, self.channels, self.image_size), device=self.device)
+        img = torch.randn((batch_size, self.pnt_channel, self.n_skh_pnt), device=self.device)
 
         # 倒着遍历所有时间步，从噪音还原图片
-        for t in tqdm(reversed(range(self.num_timesteps)), desc='sampling loop time step', total=self.num_timesteps):
+        for t in tqdm(reversed(range(self.timesteps)), desc='sampling loop time step', total=self.timesteps):
             img = self.inference_x_t_minus1(img, t)
-
-        # 将图片从[-1, 1]转化到[0, 1]，通过 (img + 1) / 2
-        # img = unnormalize_to_zero_to_one(img)
 
         return img
 
-    def noise_pred_loss(self, x_start, t):
+    def noise_pred_loss(self, x_0, t):
         """
         输入原始图片和时间步t，计算噪音预测的loss
-        :param x_start: 原始图片
-        :param t: 当前时间步
+        :param x_0: 原始图片 [bs, channel, n_skh_pnt]
+        :param t: 当前时间步 [bs, ]
         :return: 模型在当前时间步预测噪音的损失
         """
-        # -> x_start: [bs, channel, height, width]
-        # -> t: [bs, ]
-
         # 生成正态分布噪音
-        noise = torch.randn_like(x_start)
+        noise = torch.randn_like(x_0)
 
         # 获取 t 时间步下加噪后的图片
-        x_t = extract(self.sqrt_alphas_bar, t, x_start.shape) * x_start + extract(self.sqrt_1minus_alphas_bar, t, x_start.shape) * noise
+        x_t = extract(self.sqrt_1minus_alphas_bar, t, x_0.shape) * noise + extract(self.sqrt_alphas_bar, t, x_0.shape) * x_0
 
         # 获取模型预测的原始图片
-        model_out = self.model(x_t, t)
-        # model_out.clamp_(-1., 1.)  # ----------------------
+        x_0_pred = self.model(x_t, t)
+        x_0_pred.clamp_(-1., 1.)
 
-        return F.mse_loss(model_out, x_start)
+        return F.mse_loss(x_0_pred, noise)
 
         # 计算噪音
         # noise_pred = extract(self.sqrt_recip_1minus_alphas_bar, t, x_t.shape) * x_t - extract(self.sqrt_recip_recip_alphas_bar_minus1, t, x_t.shape) * x_0_pred
-
         # return F.mse_loss(noise_pred, noise) + F.mse_loss(x_0_pred, x_0)
 
     def forward(self, img):
-        # 输入img为原始图片
-
+        """
+        :param img: 原始草图 [bs, pnt_channel, n_skh_pnt]
+        :return: 噪音预测损失
+        """
         bs = img.size(0)
         device = img.device
 
-        # -> [bs, ], 为每个批量的图片生成时间步
-        t = torch.randint(0, self.num_timesteps, (bs,), device=device).long()
-
-        # 将 [0, 1] 的图片转化为 [-1, 1]，通过 img*2 - 1
-        # img = normalize_to_neg_one_to_one(img)
+        # 为每个批量的图片生成时间步
+        t = torch.randint(0, self.timesteps, (bs,), device=device).long()  # -> [bs, ]
 
         return self.noise_pred_loss(img, t)
-
-
-
 
 

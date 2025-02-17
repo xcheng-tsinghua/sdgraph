@@ -252,10 +252,6 @@ class SDGraphSeg2(nn.Module):
         super().__init__()
         print('2025.2.17 版本')
 
-        '''Diff 参数'''
-        self.channels = channel_in
-        self.n_pnts = global_defs.n_stk_pnt
-
         '''草图参数'''
         self.channel_in = channel_in
         self.n_stk = global_defs.n_stk
