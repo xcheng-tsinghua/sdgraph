@@ -10,7 +10,7 @@ from datetime import datetime
 import global_defs
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphSeg as SDGraphSeg
+from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
@@ -26,7 +26,7 @@ def parse_args():
     parser.add_argument('--n_figgen', default=100, type=int, help='---')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
-    parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph_unet_more', help='---')
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
 

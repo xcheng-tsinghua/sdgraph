@@ -123,11 +123,13 @@ class SDGraphSeg(nn.Module):
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1, self.n_stk, self.n_stk_pnt,
-                                       sp_near=2, dn_near=10, sample_type='down_sample',
+                                       sp_near=2, dn_near=10,
+                                       sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2, self.n_stk, self.n_stk_pnt // 2,
-                                       sp_near=2, dn_near=10, sample_type='down_sample',
+                                       sp_near=2, dn_near=10,
+                                       sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim)
 
         '''全局特征生成层'''
@@ -139,19 +141,23 @@ class SDGraphSeg(nn.Module):
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
                                      global_dim + dense_l2, dense_l2,
                                      n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 4,
-                                     sp_near=2, dn_near=10, sample_type='up_sample',
+                                     sp_near=2, dn_near=10,
+                                     sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim)
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
                                      n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2,
-                                     sp_near=2, dn_near=10, sample_type='up_sample',
+                                     sp_near=2, dn_near=10,
+                                     sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim)
 
         '''最终输出层'''
         final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
         self.final_linear = full_connected_conv1d(
-            channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out], final_proc=False)
+            channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out],
+            final_proc=False
+        )
 
     def pnt_channel(self):
         return self.channel_in
