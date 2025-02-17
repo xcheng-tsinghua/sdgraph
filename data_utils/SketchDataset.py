@@ -648,9 +648,8 @@ if __name__ == '__main__':
     # adataset.save_std(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\moon')
 
     # --------------------- 草图标准化
-    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32')
-    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',
-                      r'D:\document\DeepLearning\DataSet\unified_sketch')
+    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt64')
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
 
     # quickdraw_to_std(r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_apple.full.npz', r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple')
 

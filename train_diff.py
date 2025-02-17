@@ -6,8 +6,8 @@ import argparse
 from colorama import Fore, Back, init
 from datetime import datetime
 
-import global_defs
 # 自建模块
+import global_defs
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
 from encoders.sdgraph import SDGraphSeg as SDGraphSeg
@@ -18,7 +18,7 @@ from encoders.utils import clear_log
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=64, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=128, help='batch size in training')
     parser.add_argument('--epoch', default=10, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -27,8 +27,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
-    parser.add_argument('--root_sever', type=str, default='/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk5_stkpnt32', help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk5_stkpnt32', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
