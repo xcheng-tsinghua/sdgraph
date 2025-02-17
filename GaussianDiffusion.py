@@ -1,6 +1,6 @@
 from tqdm.auto import tqdm
-from torch.nn import Module
 import torch
+from torch.nn import Module
 import torch.nn.functional as F
 
 
