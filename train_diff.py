@@ -80,7 +80,8 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
+    # diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model)
     diffusion = diffusion.cuda()
 
     optimizer = torch.optim.Adam(
