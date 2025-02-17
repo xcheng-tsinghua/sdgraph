@@ -69,9 +69,7 @@ class GaussianDiffusion(Module):
         :return:
         """
         noise = self.model(x_t, t)
-
         x_0 = extract(self.sqrt_recip_alphas_bar, t, x_t.shape) * x_t - extract(self.sqrt_recip_alphas_bar_minus1, t, x_t.shape) * noise
-        # x_0.clamp_(-1., 1.)
 
         model_mean = extract(self.back_inf_mean_coef2, t, x_t.shape) * x_0 + extract(self.back_inf_mean_coef1, t, x_t.shape) * x_t
         model_std = extract(self.back_inf_std, t, x_t.shape)
@@ -131,7 +129,6 @@ class GaussianDiffusion(Module):
 
         # 获取模型预测的原始图片
         x_0_pred = self.model(x_t, t)
-        # x_0_pred.clamp_(-1., 1.)
 
         return F.mse_loss(x_0_pred, noise)
 
