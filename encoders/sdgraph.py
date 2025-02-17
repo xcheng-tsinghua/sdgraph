@@ -158,7 +158,8 @@ class SDGraphSeg(nn.Module):
         '''混合特征及最终输出层'''
         self.sd_merge = SDGraphEncoder(sparse_l1 + sparse_l0, sparse_l0,
                                      dense_l1 + dense_l0, dense_l0,
-                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt, sample_type='none')
+                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt,
+                                        sp_near=2, dn_near=10, sample_type='none')
         self.tm_sp_merge = TimeMerge(sparse_l0, sparse_l0, time_emb_dim)
         self.tm_dn_merge = TimeMerge(dense_l0, dense_l0, time_emb_dim)
 

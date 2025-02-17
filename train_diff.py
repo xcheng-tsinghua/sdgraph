@@ -10,8 +10,7 @@ import global_defs
 # 自建模块
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
-# from sdgraph_validbk import SDGraphUNet as SDGraphSeg
+from encoders.sdgraph import SDGraphSeg as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
