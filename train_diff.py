@@ -10,8 +10,8 @@ import global_defs
 # 自建模块
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-# from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
-from sdgraph_validbk import SDGraphUNet as SDGraphSeg
+from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
+# from sdgraph_validbk import SDGraphUNet as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
-    parser.add_argument('--root_sever', type=str, default='/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk4_stkpnt32', help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default='/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk5_stkpnt32', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk5_stkpnt32', help='root of dataset')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
