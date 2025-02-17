@@ -23,7 +23,7 @@ def parse_args():
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
     parser.add_argument('--n_figgen', default=30, type=int, help='---')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
