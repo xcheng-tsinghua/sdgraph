@@ -131,10 +131,10 @@ class GaussianDiffusion(Module):
 
         return img
 
-    def noise_pred_loss(self, x_0, t):
+    def noise_pred_loss(self, x_start, t):
         """
         输入原始图片和时间步t，计算噪音预测的loss
-        :param x_0: 原始图片
+        :param x_start: 原始图片
         :param t: 当前时间步
         :return: 模型在当前时间步预测噪音的损失
         """
@@ -142,20 +142,20 @@ class GaussianDiffusion(Module):
         # -> t: [bs, ]
 
         # 生成正态分布噪音
-        noise = torch.randn_like(x_0)
+        noise = torch.randn_like(x_start)
 
         # 获取 t 时间步下加噪后的图片
-        x_t = extract(self.sqrt_1minus_alphas_bar, t, x_0.shape) * noise + extract(self.sqrt_alphas_bar, t, x_0.shape) * x_0
+        x_t = extract(self.sqrt_alphas_bar, t, x_start.shape) * x_start + extract(self.sqrt_1minus_alphas_bar, t, x_start.shape) * noise
 
         # 获取模型预测的原始图片
-        x_0_pred = self.model(x_t, t)
-        # x_0_pred.clamp_(-1., 1.)  # ----------------------
+        model_out = self.model(x_t, t)
+        # model_out.clamp_(-1., 1.)  # ----------------------
 
-        return F.mse_loss(x_0_pred, x_0)
+        return F.mse_loss(model_out, x_start)
 
         # 计算噪音
         # noise_pred = extract(self.sqrt_recip_1minus_alphas_bar, t, x_t.shape) * x_t - extract(self.sqrt_recip_recip_alphas_bar_minus1, t, x_t.shape) * x_0_pred
-        #
+
         # return F.mse_loss(noise_pred, noise) + F.mse_loss(x_0_pred, x_0)
 
     def forward(self, img):
