@@ -414,9 +414,6 @@ class SDGraphUNet(nn.Module):
         final_in = dense_l0 + sparse_l0 + 2
         self.final_linear = full_connected_conv1d(channels=[final_in, int((2*final_in)**0.5), 2], final_proc=False)
 
-    def pnt_channel(self):
-        return self.channels
-
     def forward(self, xy, time):
         # -> [bs, 2, n_point]
         xy = xy[:, :2, :]
