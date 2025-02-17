@@ -435,7 +435,7 @@ class SDGraph(nn.Module):
 
 
 class SDGraphUNet(nn.Module):
-    def __init__(self):
+    def __init__(self, channel_in, channel_out):
         super().__init__()
         print('有效存档')
 

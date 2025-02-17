@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--n_figgen', default=30, type=int, help='---')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
-    parser.add_argument('--save_str', type=str, default='sdgraph_unet_valid', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
     parser.add_argument('--root_sever', type=str, default='/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk4_stkpnt32', help='root of dataset')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32', help='root of dataset')
 
