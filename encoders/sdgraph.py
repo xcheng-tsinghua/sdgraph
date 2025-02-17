@@ -95,7 +95,7 @@ class SDGraphCls(nn.Module):
 class SDGraphSeg(nn.Module):
     def __init__(self, channel_in, channel_out):
         super().__init__()
-        print('2025.2.17 精简版本')
+        print('2025.2.17 精简版本增加通道')
 
         '''草图参数'''
         self.channel_in = channel_in
