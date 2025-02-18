@@ -166,13 +166,14 @@ class DiffDataset(Dataset):
     def __init__(self,
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  shuffle_stk=False,  # 是否随机变换笔划顺序
-                 data_argumentation=False
+                 data_aug=False  # 是否进行数据增强
                  ):
 
-        print('diffusion dataset, from:' + root)
-        self.data_augmentation = data_argumentation
+        self.data_aug = data_aug
         self.shuffle_stk = shuffle_stk
         self.datapath = get_allfiles(root)
+
+        print('diffusion dataset, from:' + root + f'. shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
         print('number of instance all:', len(self.datapath))
 
     def __getitem__(self, index):
@@ -192,7 +193,7 @@ class DiffDataset(Dataset):
         coordinates = coordinates / dist
 
         # rotate and move
-        if self.data_augmentation:
+        if self.data_aug:
             theta = np.random.uniform(-0.5 * np.pi, 0.5 * np.pi)
             rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
             coordinates = coordinates @ rotation_matrix
