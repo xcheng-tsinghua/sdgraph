@@ -581,3 +581,41 @@ class RMSNorm(nn.Module):
 
     def forward(self, x):
         return F.normalize(x, dim=1) * self.g * self.scale
+
+
+def cross_sample(torch_array, dim, pool='none'):
+    """
+    将torch_array的dim维度拆分，奇数索引数据和偶数索引数据分别为放在两个数组，之后将这两个数组对应位置取pool
+    :param torch_array:
+    :param dim:
+    :param pool: none: 不池化, max_pool: 最大池化, avg_pool: 平均池化
+    :return:
+    """
+    device = torch_array.device
+    target_dim_size = torch_array.size(dim)
+
+    # 确保拆分维度的大小为偶数
+    if target_dim_size % 2 != 0:
+        raise ValueError(f"指定的维度{dim}的大小必须为偶数，以便进行奇偶拆分。")
+
+    # 先取奇数索引
+    odd_data = torch_array.index_select(dim, torch.arange(0, target_dim_size, step=2, device=device))
+    even_data = torch_array.index_select(dim, torch.arange(1, target_dim_size, step=2, device=device))
+
+    if pool == 'none':
+        res = odd_data
+    else:
+        odd_data = odd_data.unsqueeze(0)
+        even_data = even_data.unsqueeze(0)
+
+        combined_data = torch.cat([odd_data, even_data], dim=0)
+
+        if pool == 'max_pool':
+            res = combined_data.max(0)[0]
+        elif pool == 'avg_pool':
+            res = combined_data.mean(0)
+        else:
+            raise TypeError('error pool type')
+
+    return res
+

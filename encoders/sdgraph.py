@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from encoders.utils import full_connected, full_connected_conv1d
 
 import global_defs
-from encoders.sdgraph_utils import PointToSparse, PointToDense, TimeMerge, SDGraphEncoder, TimeEncode
+from encoders.sdgraph_utils import PointToSparse, PointToDense, TimeMerge, SDGraphEncoder, TimeEncode, cross_sample
 
 
 class SDGraphCls(nn.Module):
@@ -135,7 +135,7 @@ class SDGraphSeg(nn.Module):
                                        with_time=True, time_emb_dim=time_emb_dim)
 
         '''全局特征生成层'''
-        global_in = sparse_l0 + sparse_l1 + sparse_l2 + dense_l0 + dense_l1 + dense_l2
+        global_in = sparse_l2 + dense_l2
         self.global_linear = full_connected(
             channels=[global_in, int((global_in * global_dim) ** 0.5), global_dim],
             final_proc=True)
@@ -187,15 +187,10 @@ class SDGraphSeg(nn.Module):
         sparse_graph_up2, dense_graph_up2 = self.sd_down2(sparse_graph_up1, dense_graph_up1, time_emb)
 
         '''获取全局特征'''
-        sp_up0_glo = sparse_graph_up0.max(2)[0]
-        sp_up1_glo = sparse_graph_up1.max(2)[0]
         sp_up2_glo = sparse_graph_up2.max(2)[0]
-
-        dn_up0_glo = dense_graph_up0.max(2)[0]
-        dn_up1_glo = dense_graph_up1.max(2)[0]
         dn_up2_glo = dense_graph_up2.max(2)[0]
 
-        fea_global = torch.cat([sp_up0_glo, sp_up1_glo, sp_up2_glo, dn_up0_glo, dn_up1_glo, dn_up2_glo], dim=1)
+        fea_global = torch.cat([sp_up2_glo, dn_up2_glo], dim=1)
         fea_global = self.global_linear(fea_global)  # -> [bs, emb]
 
         '''将 sd_graph 融合全局特征'''
@@ -228,12 +223,154 @@ class SDGraphSeg(nn.Module):
         return noise
 
 
+class SDGraphSeg2(nn.Module):
+    def __init__(self, channel_in, channel_out):
+        super().__init__()
+        print('diff 2025.2.18')
+
+        '''草图参数'''
+        self.channel_in = channel_in
+        self.n_stk = global_defs.n_stk
+        self.n_stk_pnt = global_defs.n_stk_pnt
+
+        '''各层通道数'''
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
+
+        dense_l0 = 16 + 8
+        dense_l1 = 64 + 32
+        dense_l2 = 256 + 128
+
+        global_dim = 1024 + 512
+        time_emb_dim = 256 + 128
+
+        '''时间步特征生成层'''
+        self.time_encode = TimeEncode(time_emb_dim)
+
+        '''点坐标 -> 初始 sdgraph 生成层'''
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
+
+        '''下采样层 × 2'''
+        self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0 + self.channel_in, dense_l1,
+                                       self.n_stk, self.n_stk_pnt,
+                                       sp_near=2, dn_near=10,
+                                       sample_type='down_sample',
+                                       with_time=True, time_emb_dim=time_emb_dim)
+
+        self.sd_down2 = SDGraphEncoder(sparse_l1 + sparse_l0, sparse_l2, dense_l1 + dense_l0 + self.channel_in, dense_l2,
+                                       self.n_stk, self.n_stk_pnt // 2,
+                                       sp_near=2, dn_near=10,
+                                       sample_type='down_sample',
+                                       with_time=True, time_emb_dim=time_emb_dim)
+
+        '''全局特征生成层'''
+        global_in = sparse_l2 + dense_l2
+        self.global_linear = full_connected(
+            channels=[global_in, int((global_in * global_dim) ** 0.5), global_dim],
+            final_proc=True)
+
+        '''上采样层 × 2'''
+        self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
+                                     global_dim + dense_l2 + self.channel_in, dense_l2,
+                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 4,
+                                     sp_near=2, dn_near=10,
+                                     sample_type='up_sample',
+                                     with_time=True, time_emb_dim=time_emb_dim)
+
+        self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
+                                     dense_l1 + dense_l2 + self.channel_in, dense_l1,
+                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2,
+                                     sp_near=2, dn_near=10,
+                                     sample_type='up_sample',
+                                     with_time=True, time_emb_dim=time_emb_dim)
+
+        '''最终输出层'''
+        final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
+        self.final_linear = full_connected_conv1d(
+            channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out],
+            final_proc=False
+        )
+
+    def pnt_channel(self):
+        return self.channel_in
+
+    def forward(self, xy, time):
+        """
+        :param xy: [bs, channel_in, n_skh_pnt]
+        :param time: [bs, ]
+        :return: [bs, channel_out, n_skh_pnt]
+        """
+        '''生成时间步特征'''
+        time_emb = self.time_encode(time)
+
+        bs, channel_in, n_point = xy.size()
+        assert n_point == self.n_stk * self.n_stk_pnt and channel_in == self.channel_in
+
+        '''生成初始 sdgraph'''
+        sparse_graph_up0 = self.point_to_sparse(xy, time_emb)  # -> [bs, emb, n_stk]
+        dense_graph_up0 = self.point_to_dense(xy, time_emb)  # -> [bs, emb, n_point]
+        assert sparse_graph_up0.size()[2] == self.n_stk and dense_graph_up0.size()[2] == n_point
+
+        dense_graph_up0_div2 = cross_sample(dense_graph_up0, 2, 'max_pool')
+        xy_div2 = cross_sample(xy, 2, 'avg_pool')
+        xy_div4 = cross_sample(xy_div2, 2, 'avg_pool')
+
+        '''下采样'''
+        sparse_graph_up1, dense_graph_up1 = self.sd_down1(
+            sparse_graph_up0,
+            torch.cat([dense_graph_up0, xy], dim=1),
+            time_emb)
+
+        sparse_graph_up2, dense_graph_up2 = self.sd_down2(
+            torch.cat([sparse_graph_up1, sparse_graph_up0], dim=1),
+            torch.cat([dense_graph_up1, dense_graph_up0_div2, xy_div2], dim=1),
+            time_emb)
+
+        '''获取全局特征'''
+        sp_up2_glo = sparse_graph_up2.max(2)[0]
+        dn_up2_glo = dense_graph_up2.max(2)[0]
+
+        fea_global = torch.cat([sp_up2_glo, dn_up2_glo], dim=1)
+        fea_global = self.global_linear(fea_global)  # -> [bs, emb]
+
+        '''将 sd_graph 融合全局特征'''
+        sparse_fit = fea_global.unsqueeze(2).repeat(1, 1, self.n_stk)
+        sparse_graph_down2 = torch.cat([sparse_fit, sparse_graph_up2], dim=1)
+
+        dense_fit = fea_global.unsqueeze(2).repeat(1, 1, dense_graph_up2.size(2))
+        dense_graph_down2 = torch.cat([dense_fit, dense_graph_up2, xy_div4], dim=1)
+
+        '''上采样并融合UNet下采样阶段对应特征'''
+        sparse_graph_down1, dense_graph_down1 = self.sd_up2(sparse_graph_down2, dense_graph_down2, time_emb)  # -> [bs, sp_l2, n_stk], [bs, dn_l2, n_pnt]
+
+        sparse_graph_down1 = torch.cat([sparse_graph_down1, sparse_graph_up1], dim=1)
+        dense_graph_down1 = torch.cat([dense_graph_down1, dense_graph_up1, xy_div2], dim=1)
+
+        sparse_graph_down0, dense_graph_down0 = self.sd_up1(sparse_graph_down1, dense_graph_down1, time_emb)
+
+        sparse_graph = torch.cat([sparse_graph_down0, sparse_graph_up0], dim=1)  # -> [bs, sp_l0 + sp_l1, n_stk]
+        dense_graph = torch.cat([dense_graph_down0, dense_graph_up0], dim=1)  # -> [bs, dn_l0 + dn_l1, n_pnt]
+
+        '''将sparse graph及xy转移到dense graph并输出'''
+        sparse_graph = sparse_graph.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
+        dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk, self.n_stk_pnt)
+        xy = xy.view(bs, channel_in, self.n_stk, self.n_stk_pnt)
+
+        dense_graph = torch.cat([dense_graph, sparse_graph, xy], dim=1)
+        dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk * self.n_stk_pnt)
+
+        noise = self.final_linear(dense_graph)
+        return noise
+
+
 def test():
     bs = 3
     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
     t1 = torch.randint(0, 1000, (bs,)).long().cuda()
 
-    classifier = SDGraphSeg(2, 2).cuda()
+    classifier = SDGraphSeg2(2, 2).cuda()
     cls11 = classifier(atensor, t1)
 
     print(cls11.size())
