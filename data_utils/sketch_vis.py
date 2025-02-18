@@ -114,6 +114,31 @@ def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n
     plt.show()
 
 
+def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
+    """
+    显示笔划与笔划点归一化后的草图
+    """
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    coordinates = torch.from_numpy(coordinates)
+    coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
+
+    for i in range(n_stroke):
+        plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+
+        if show_dot:
+            plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+
+    # plt.axis('off')
+    plt.show()
+
+
 def vis_sketch_list(strokes, show_dot=False):
     for s in strokes:
         plt.plot(s[:, 0], -s[:, 1])

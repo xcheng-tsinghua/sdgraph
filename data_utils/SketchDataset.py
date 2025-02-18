@@ -165,11 +165,13 @@ class DiffDataset(Dataset):
     """
     def __init__(self,
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
+                 shuffle_stk=False,  # 是否随机变换笔划顺序
                  data_argumentation=False
                  ):
 
-        print('sketch dataset, from:' + root)
+        print('diffusion dataset, from:' + root)
         self.data_augmentation = data_argumentation
+        self.shuffle_stk = shuffle_stk
         self.datapath = get_allfiles(root)
         print('number of instance all:', len(self.datapath))
 
@@ -178,30 +180,38 @@ class DiffDataset(Dataset):
         :return: [stroke1, stroke2, ..., stroke_n] (list)
         stroke = [n_stroke_point, 2] (numpy.ndarray)
         """
-        fn = self.datapath[index]  # (‘plane’, Path1)
-
-        # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+        fn = self.datapath[index]
         sketch_data = np.loadtxt(fn, delimiter=',')
 
         # 2D coordinates
         coordinates = sketch_data[:, :2]
 
         # sketch mass move to (0, 0), x y scale to [-1, 1]
-        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0) # 实测是否加expand_dims效果一样
+        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)
         dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
         coordinates = coordinates / dist
 
         # rotate and move
         if self.data_augmentation:
-            theta = np.random.uniform(0, np.pi * 2)
+            theta = np.random.uniform(-0.5 * np.pi, 0.5 * np.pi)
             rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
             coordinates = coordinates @ rotation_matrix
             coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
+
+        # 随机变换笔划顺序
+        if self.shuffle_stk:
+            coordinates = coordinates.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
+            np.random.shuffle(coordinates)
+            coordinates = coordinates.reshape([global_defs.n_skh_pnt, 2])
 
         return coordinates
 
     def __len__(self):
         return len(self.datapath)
+
+    def vis_sketch(self, idx):
+        c_sketch = self.__getitem__(idx)
+        vis.vis_unified_sketch_data(c_sketch)
 
 
 class QuickdrawDataset(Dataset):
@@ -598,13 +608,13 @@ def std_unify_batched(source_dir=r'D:\document\DeepLearning\DataSet\sketch\sketc
                 warnings.warn(f'current point number is {transed_npnts}, skip file trans: {c_file}')
 
 
-def travese_quickdraw(root):
+def travese_quickdraw(root_npz):
     """
     显示root对应的npz文件里的所有的草图
-    :param root: quickdraw 数据集文件路径，例如 r'D:\quickdraw\sketchrnn_airplane.full.npz'
+    :param root_npz: quickdraw 数据集文件路径，例如 r'D:\quickdraw\sketchrnn_airplane.full.npz'
     :return:
     """
-    data = QuickdrawDataset(root=root)
+    data = QuickdrawDataset(root=root_npz)
     instance_all = len(data)
     print('instance all: ', instance_all)
 
@@ -631,6 +641,18 @@ def quickdraw_to_std(quickdraw_root, std_root):
 
 
 if __name__ == '__main__':
+    adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
+
+    for i in range(10):
+        adataset.vis_sketch(0)
+
+
+    # --------------------- 草图标准化
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+
+
     # travese_quickdraw(r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_airplane.full.npz')
 
     # path = r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_apple.npz'
@@ -647,9 +669,7 @@ if __name__ == '__main__':
     # adataset = QuickdrawDataset(root=r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_moon.full.npz')
     # adataset.save_std(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\moon')
 
-    # --------------------- 草图标准化
-    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
+
 
     # quickdraw_to_std(r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_apple.full.npz', r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple')
 
