@@ -30,10 +30,6 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch_cad_stk30_stkpnt32', help='---')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk30_stkpnt32', help='---')
 
-    # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
-    # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
-    # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch_simplify2'
-    # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch'
     return parser.parse_args()
 
 
@@ -45,10 +41,8 @@ def main(args):
     confusion_dir = save_str + '-' + datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     confusion_dir = os.path.join('data_utils', 'confusion', confusion_dir)
     os.makedirs(confusion_dir, exist_ok=True)
-
     os.makedirs('model_trained/', exist_ok=True)
     model_savepth = 'model_trained/' + save_str + '.pth'
-
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
@@ -70,12 +64,12 @@ def main(args):
     num_class = len(train_dataset.classes)
 
     # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
-    # trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
+    # train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
     # sampler = torch.utils.data.RandomSampler(test_dataset, num_samples=64, replacement=False)
-    # testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
+    # test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
 
-    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-    testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
     '''加载模型及权重'''
     classifier = SDGraphCls(num_class).cuda()
@@ -113,7 +107,7 @@ def main(args):
         all_preds = []
         all_labels = []
 
-        for batch_id, data in tqdm(enumerate(trainDataLoader, 0), total=len(trainDataLoader)):
+        for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
             points, target = data[0].float().cuda(), data[1].long().cuda()
 
             # -> [bs, 2, n_points]
@@ -151,7 +145,7 @@ def main(args):
             all_preds = []
             all_labels = []
 
-            for j, data in tqdm(enumerate(testDataLoader), total=len(testDataLoader)):
+            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
                 points, target = data[0].float().cuda(), data[1].long().cuda()
 
                 points = points.permute(0, 2, 1)

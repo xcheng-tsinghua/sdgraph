@@ -411,8 +411,13 @@ class DenseToSparse(nn.Module):
 
 
 class SDGraphEncoder(nn.Module):
-    def __init__(self, sparse_in, sparse_out, dense_in, dense_out, n_stk, n_stk_pnt,
-                 sp_near=10, dn_near=10, sample_type='down_sample', with_time=False, time_emb_dim=0):
+    def __init__(self,
+                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
+                 n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
+                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sample_type='down_sample',  # 采样类型
+                 with_time=False, time_emb_dim=0  # 是否附加时间步
+                 ):
         """
         :param sample_type: [down_sample, up_sample, none]
         """
@@ -423,9 +428,6 @@ class SDGraphEncoder(nn.Module):
 
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
-
-        # self.dense_to_sparse = DenseToSparseAttn(sparse_in, dense_in, sparse_in + dense_in, n_stk_pnt)
-        # self.sparse_to_dense = SparseToDenseAttn(sparse_in, dense_in, dense_in + sparse_in, n_stk_pnt)
 
         self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
         self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)

@@ -30,13 +30,6 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
 
-    # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
-    # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'
-    # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch_simplify2'
-    # 机械草图数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch'
-    # quickdraw 数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk5_stkpnt32'
-    # quickdraw 数据集（本地）：r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk10_stkpnt64'
-    # quickdraw 数据集（服务器）：r'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk5_stkpnt32'
     return parser.parse_args()
 
 
@@ -64,7 +57,7 @@ def main(args):
     else:
         data_root = args.root_sever
     train_dataset = DiffDataset(root=data_root)
-    trainDataLoader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
     model = SDGraphSeg(2, 2)
@@ -99,7 +92,7 @@ def main(args):
 
         print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
-        for batch_idx, data in enumerate(trainDataLoader, 0):
+        for batch_idx, data in enumerate(train_dataloader, 0):
             points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
 
             optimizer.zero_grad()
@@ -107,7 +100,7 @@ def main(args):
             loss.backward()
             optimizer.step()
 
-            state_str = f"Epoch {epoch_idx + 1}/{args.epoch}:, batch_idx {batch_idx + 1}/{len(trainDataLoader)}, Loss: {loss.detach().item():.4f}"
+            state_str = f"Epoch {epoch_idx + 1}/{args.epoch}:, batch_idx {batch_idx + 1}/{len(train_dataloader)}, Loss: {loss.detach().item():.4f}"
             print(state_str)
             logger.info(state_str)
 
