@@ -173,8 +173,9 @@ class DiffDataset(Dataset):
         self.shuffle_stk = shuffle_stk
         self.datapath = get_allfiles(root)
 
-        print('diffusion dataset, from:' + root + f'. shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
-        print('number of instance all:', len(self.datapath))
+        print(f'diffusion dataset, from: {root}')
+        print(f'shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
+        print(f'number of instance all: {len(self.datapath)}')
 
     def __getitem__(self, index):
         """
@@ -299,8 +300,6 @@ class QuickdrawDataset(Dataset):
         xy_data = sketch_std(xy_data)
 
         sketch[:, :2] = xy_data
-
-        # sketch = sketch_std(sketch)
 
         if is_show_sketch:
             vis.vis_sketch_data(sketch, global_defs.pen_up, global_defs.pen_down, is_scale=False)
@@ -644,7 +643,7 @@ def quickdraw_to_std(quickdraw_root, std_root):
 if __name__ == '__main__':
     adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
 
-    for i in range(10):
+    for _ in range(10):
         adataset.vis_sketch(0)
 
 
