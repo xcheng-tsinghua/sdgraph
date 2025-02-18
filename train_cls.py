@@ -27,8 +27,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch', help='---')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch', help='---')
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch_cad_stk30_stkpnt32', help='---')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk30_stkpnt32', help='---')
 
     # 参数化数据集：D:/document/DeepLearning/DataSet/data_set_p2500_n10000
     # 机械草图数据集（服务器）：r'/root/my_data/data_set/unified_sketch'

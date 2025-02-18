@@ -7,9 +7,9 @@ n_stk = 4  # quickdraw apple
 
 # 每个笔划中的点数
 # n_stk_pnt = 32  # 自建机械草图
-n_stk_pnt = 32  # quickdraw apple
+# n_stk_pnt = 32  # quickdraw apple
 # n_stk_pnt = 64  # quickdraw apple
-# n_stk_pnt = 16  # quickdraw apple
+n_stk_pnt = 16  # quickdraw apple
 
 
 # 笔划抬起时的后缀，该点为该笔划最后一个点
