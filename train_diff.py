@@ -10,23 +10,22 @@ from datetime import datetime
 import global_defs
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
+from encoders.sdgraph import SDGraphSeg as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
+    parser.add_argument('--save_str', type=str, default='sdgraph_unet_more', help='---')
 
     parser.add_argument('--bs', type=int, default=128, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--n_figgen', default=30, type=int, help='---')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
+    parser.add_argument('--n_skgen', default=30, type=int, help='---')
 
-    parser.add_argument('--save_str', type=str, default='sdgraph_unet_more', help='---')
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
 
@@ -111,7 +110,7 @@ def main(args):
         diffusion = diffusion.eval()
 
         print('generate images')
-        sample_epoch = args.n_figgen // 10
+        sample_epoch = args.n_skgen // 10
         gen_idx = 0
         for i in range(sample_epoch):
             print(f'generate {i * 10} to {(i + 1) * 10 - 1}')
