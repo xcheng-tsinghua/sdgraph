@@ -12,7 +12,7 @@ from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
 from encoders.sdgraph import SDGraphSeg2 as SDGraphSeg
 from GaussianDiffusion import GaussianDiffusion
-from encoders.utils import clear_log, inplace_relu
+from encoders.utils import clear_log
 
 
 def parse_args():
