@@ -61,7 +61,7 @@ def main(args):
 
     '''加载模型及权重'''
     model = SDGraphSeg(2, 2)
-    # model.apply(inplace_relu)
+    model.apply(inplace_relu)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
