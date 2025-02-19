@@ -571,7 +571,6 @@ class Block(nn.Module):
 class RMSNorm(nn.Module):
     def __init__(self, dim):
         """
-
         :param dim: forward过程中输入x的特征长度
         """
         super().__init__()
