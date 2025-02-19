@@ -546,9 +546,9 @@ class TimeMerge(nn.Module):
 class Block(nn.Module):
     def __init__(self, dim, dim_out, dropout=0.):
         super().__init__()
-        self.proj = nn.Conv1d(dim, dim_out, 1)
-        self.norm = RMSNorm(dim_out)
-        self.act = nn.SiLU()
+        self.conv = nn.Conv1d(dim, dim_out, 1)
+        self.norm = nn.BatchNorm1d(dim_out)
+        self.act = nn.LeakyReLU(negative_slope=0.2)
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, scale_shift=None):
@@ -557,7 +557,7 @@ class Block(nn.Module):
         :param scale_shift: [bs, ]
         :return:
         """
-        x = self.proj(x)
+        x = self.conv(x)
         x = self.norm(x)
 
         if scale_shift is not None:
@@ -566,6 +566,31 @@ class Block(nn.Module):
 
         x = self.dropout(self.act(x))
         return x
+
+
+# class Block(nn.Module):
+#     def __init__(self, dim, dim_out, dropout=0.):
+#         super().__init__()
+#         self.conv = nn.Conv1d(dim, dim_out, 1)
+#         self.norm = RMSNorm(dim_out)
+#         self.act = nn.SiLU()
+#         self.dropout = nn.Dropout(dropout)
+#
+#     def forward(self, x, scale_shift=None):
+#         """
+#         :param x: [bs, channel, n_node]
+#         :param scale_shift: [bs, ]
+#         :return:
+#         """
+#         x = self.conv(x)
+#         x = self.norm(x)
+#
+#         if scale_shift is not None:
+#             scale, shift = scale_shift
+#             x = x * (scale + 1) + shift
+#
+#         x = self.dropout(self.act(x))
+#         return x
 
 
 class RMSNorm(nn.Module):

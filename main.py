@@ -115,12 +115,19 @@ if __name__ == '__main__':
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
 
-    alist = [1, 2, 3, 4]
-    val0 = alist[0]
+    # alist = [1, 2, 3, 4]
+    # val0 = alist[0]
+    #
+    # alist[0] = 3
+    #
+    # print(val0)
 
-    alist[0] = 3
+    x = torch.tensor([[1.0, 2.0, 3.0],
+                      [4.0, 5.0, 6.0]])
 
-    print(val0)
+    x_normalized_dim0 = torch.nn.functional.normalize(x, dim=0)
+    print(x_normalized_dim0)
+    print(x_normalized_dim0.pow(2).sum(0))
 
 
 
