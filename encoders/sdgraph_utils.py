@@ -553,7 +553,6 @@ class Block(nn.Module):
 
     def forward(self, x, scale_shift=None):
         """
-
         :param x: [bs, channel, n_node]
         :param scale_shift: [bs, ]
         :return:
