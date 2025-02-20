@@ -193,7 +193,7 @@ class SDGraphSeg(nn.Module):
         fea_global = torch.cat([sp_up2_glo, dn_up2_glo], dim=1)
         fea_global = self.global_linear(fea_global)  # -> [bs, emb]
 
-        '''将 sd_graph 融合全局特征'''
+        '''将 sd_graph 融合全局特征 (直接拼接在后面)'''
         sparse_fit = fea_global.unsqueeze(2).repeat(1, 1, self.n_stk)
         sparse_graph_down2 = torch.cat([sparse_graph_up2, sparse_fit], dim=1)
 
@@ -208,8 +208,8 @@ class SDGraphSeg(nn.Module):
 
         sparse_graph_down0, dense_graph_down0 = self.sd_up1(sparse_graph_down1, dense_graph_down1, time_emb)
 
-        sparse_graph = torch.cat([sparse_graph_down0, sparse_graph_up0], dim=1)  # -> [bs, sp_l0 + sp_l1, n_stk]
-        dense_graph = torch.cat([dense_graph_down0, dense_graph_up0], dim=1)  # -> [bs, dn_l0 + dn_l1, n_pnt]
+        sparse_graph = torch.cat([sparse_graph_down0, sparse_graph_up0], dim=1)
+        dense_graph = torch.cat([dense_graph_down0, dense_graph_up0], dim=1)
 
         '''将sparse graph及xy转移到dense graph并输出'''
         sparse_graph = sparse_graph.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
