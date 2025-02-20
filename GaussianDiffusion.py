@@ -23,7 +23,7 @@ def extract(a, t, x_shape):
 
 
 class GaussianDiffusion(Module):
-    def __init__(self, model, pnt_channel, n_skh_pnt, timesteps=1000):  # 1000
+    def __init__(self, model, pnt_channel, n_skh_pnt, timesteps=2000):  # 1000
         super().__init__()
 
         self.model = model
