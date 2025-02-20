@@ -103,16 +103,16 @@ class SDGraphSeg(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         '''各层通道数'''
-        sparse_l0 = 32 + 16
-        sparse_l1 = 128 + 64
-        sparse_l2 = 512 + 256
+        sparse_l0 = 32
+        sparse_l1 = 128
+        sparse_l2 = 512
 
-        dense_l0 = 16 + 8
-        dense_l1 = 64 + 32
-        dense_l2 = 256 + 128
+        dense_l0 = 16
+        dense_l1 = 64
+        dense_l2 = 256
 
-        global_dim = 1024 + 512
-        time_emb_dim = 256 + 128
+        global_dim = 1024
+        time_emb_dim = 256
 
         '''时间步特征生成层'''
         self.time_encode = TimeEncode(time_emb_dim)
