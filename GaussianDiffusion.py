@@ -32,7 +32,7 @@ class GaussianDiffusion(Module):
         self.timesteps = timesteps
 
         # 基本参数数组
-        betas = torch.linspace(0.0001, 0.02, timesteps, dtype=torch.float64)  # 0.0001, 0.2
+        betas = torch.linspace(0.0001, 0.2, timesteps, dtype=torch.float64)  # 0.0001, 0.2
         alphas = 1. - betas
         alphas_bar = torch.cumprod(alphas, dim=0)
         alphas_bar_prev = F.pad(alphas_bar[:-1], (1, 0), value=1.)
