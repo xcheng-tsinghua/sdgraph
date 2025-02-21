@@ -201,8 +201,8 @@ def activate_func():
     :return:
     """
     # return nn.LeakyReLU(negative_slope=0.2)
-    return nn.GELU()
-    # return nn.SiLU()
+    # return nn.GELU()
+    return nn.SiLU()
 
 
 def square_distance(src, dst):
