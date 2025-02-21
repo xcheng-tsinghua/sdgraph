@@ -100,7 +100,7 @@ def main(args):
             optimizer.step()
 
             state_str = f"Epoch {epoch_idx + 1}/{args.epoch}:, batch_idx {batch_idx + 1}/{len(train_dataloader)}, Loss: {loss.detach().item():.4f}"
-            if batch_idx % args.n_print_skip:
+            if batch_idx % args.n_print_skip == 0:
                 print(state_str)
             logger.info(state_str)
 
