@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import xml.etree.ElementTree as ET
+from svgpathtools import parse_path
 
 import matplotlib.pyplot as plt
 import os
