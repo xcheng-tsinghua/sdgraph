@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from einops import rearrange
 
-from encoders.utils import full_connected_conv1d, full_connected_conv2d
+from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func
 import global_defs
 
 
@@ -120,8 +120,7 @@ class DownSample(nn.Module):
                 padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
             ),
             nn.BatchNorm2d(dim_out),
-            # nn.GELU(),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Dropout2d(dropout)
         )
 
@@ -155,8 +154,7 @@ class UpSample(nn.Module):
                 padding=(0, 1),  # 填充：在宽度方向保持有效中心对齐
             ),
             nn.BatchNorm2d(dim_out),
-            # nn.GELU(),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Dropout2d(dropout)
         )
 
@@ -276,12 +274,12 @@ class PointToSparse(nn.Module):
         self.point_increase = nn.Sequential(
             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
             nn.BatchNorm2d(mid_dim),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Dropout2d(dropout),
 
             nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
             nn.BatchNorm2d(sparse_out),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Dropout2d(dropout),
         )
 
@@ -382,7 +380,7 @@ class DenseToSparse(nn.Module):
         self.dense_to_sparse = nn.Sequential(
             nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
             nn.BatchNorm2d(dense_in),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Dropout2d(dropout),
         )
 
@@ -510,8 +508,7 @@ class TimeEncode(nn.Module):
         self.encoder = nn.Sequential(
             SinusoidalPosEmb(channel_time // 4, theta=10000),
             nn.Linear(channel_time // 4, channel_time // 2),
-            # nn.GELU(),
-            nn.LeakyReLU(negative_slope=0.2),
+            activate_func(),
             nn.Linear(channel_time // 2, channel_time)
         )
 
@@ -524,7 +521,7 @@ class TimeMerge(nn.Module):
     def __init__(self, dim_in, dim_out, time_emb_dim, dropout=0.):
         super().__init__()
         self.mlp = nn.Sequential(
-            nn.SiLU(),
+            activate_func(),
             nn.Linear(time_emb_dim, dim_out * 2)
         )
 
@@ -548,7 +545,7 @@ class Block(nn.Module):
         super().__init__()
         self.conv = nn.Conv1d(dim, dim_out, 1)
         self.norm = nn.BatchNorm1d(dim_out)
-        self.act = nn.GELU()
+        self.act = activate_func()
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, scale_shift=None):

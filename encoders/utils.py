@@ -33,13 +33,13 @@ class full_connected_conv2d(nn.Module):
         for i in range(self.n_layers - 2):
             self.linear_layers.append(nn.Conv2d(channels[i], channels[i + 1], 1, bias=bias))
             self.batch_normals.append(nn.BatchNorm2d(channels[i + 1]))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2))
+            self.activates.append(activate_func())
             self.drop_outs.append(nn.Dropout2d(drop_rate))
 
         self.outlayer = nn.Conv2d(channels[-2], channels[-1], 1, bias=bias)
 
         self.outbn = nn.BatchNorm2d(channels[-1])
-        self.outat = nn.LeakyReLU(negative_slope=0.2)
+        self.outat = activate_func()
         self.outdp = nn.Dropout2d(drop_rate)
 
     def forward(self, embeddings):
@@ -58,7 +58,6 @@ class full_connected_conv2d(nn.Module):
                 fea = dp(at(bn(fc(fea))))
             else:
                 fea = at(bn(fc(fea)))
-            # fea = drop(F.relu(bn(fc(fea))))
 
         fea = self.outlayer(fea)
 
@@ -96,13 +95,13 @@ class full_connected_conv1d(nn.Module):
         for i in range(self.n_layers - 2):
             self.linear_layers.append(nn.Conv1d(channels[i], channels[i + 1], 1, bias=bias))
             self.batch_normals.append(nn.BatchNorm1d(channels[i + 1]))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2))
+            self.activates.append(activate_func())
             self.drop_outs.append(nn.Dropout1d(drop_rate))
 
         self.outlayer = nn.Conv1d(channels[-2], channels[-1], 1, bias=bias)
 
         self.outbn = nn.BatchNorm1d(channels[-1])
-        self.outat = nn.LeakyReLU(negative_slope=0.2)
+        self.outat = activate_func()
         self.outdp = nn.Dropout1d(drop_rate)
 
     def forward(self, embeddings):
@@ -121,7 +120,6 @@ class full_connected_conv1d(nn.Module):
                 fea = dp(at(bn(fc(fea))))
             else:
                 fea = at(bn(fc(fea)))
-            # fea = drop(F.relu(bn(fc(fea))))
 
         fea = self.outlayer(fea)
 
@@ -159,13 +157,13 @@ class full_connected(nn.Module):
         for i in range(self.n_layers - 2):
             self.linear_layers.append(nn.Linear(channels[i], channels[i + 1], bias=bias))
             self.batch_normals.append(nn.BatchNorm1d(channels[i + 1]))
-            self.activates.append(nn.LeakyReLU(negative_slope=0.2))
+            self.activates.append(activate_func())
             self.drop_outs.append(nn.Dropout(drop_rate))
 
         self.outlayer = nn.Linear(channels[-2], channels[-1], bias=bias)
 
         self.outbn = nn.BatchNorm1d(channels[-1])
-        self.outat = nn.LeakyReLU(negative_slope=0.2)
+        self.outat = activate_func()
         self.outdp = nn.Dropout1d(drop_rate)
 
     def forward(self, embeddings):
@@ -184,7 +182,6 @@ class full_connected(nn.Module):
                 fea = dp(at(bn(fc(fea))))
             else:
                 fea = at(bn(fc(fea)))
-            # fea = dp(F.relu(bn(fc(fea))))
 
         fea = self.outlayer(fea)
 
@@ -196,6 +193,16 @@ class full_connected(nn.Module):
                 fea = self.outdp(fea)
 
         return fea
+
+
+def activate_func():
+    """
+    控制激活函数
+    :return:
+    """
+    # return nn.LeakyReLU(negative_slope=0.2)
+    return nn.GELU()
+    # return nn.SiLU()
 
 
 def square_distance(src, dst):
