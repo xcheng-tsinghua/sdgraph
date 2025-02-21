@@ -200,9 +200,9 @@ def activate_func():
     控制激活函数
     :return:
     """
-    # return nn.LeakyReLU(negative_slope=0.2)
+    return nn.LeakyReLU(negative_slope=0.2)
     # return nn.GELU()
-    return nn.SiLU()
+    # return nn.SiLU()
 
 
 def square_distance(src, dst):
