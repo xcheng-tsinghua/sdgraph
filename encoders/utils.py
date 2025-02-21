@@ -9,6 +9,68 @@ import numpy as np
 from data_utils.sketch_utils import save_confusion_mat
 
 
+class FullConnectedConvXd(nn.Module):
+    def __init__(self, dimension: int, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
+        '''
+        构建全连接层，输出层不接 BatchNormalization、ReLU、dropout、SoftMax、log_SoftMax
+        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
+        :param drop_rate: dropout 概率
+        '''
+        super().__init__()
+
+        self.linear_layers = nn.ModuleList()
+        self.batch_normals = nn.ModuleList()
+        self.activates = nn.ModuleList()
+        self.drop_outs = nn.ModuleList()
+        self.n_layers = len(channels)
+
+        self.final_proc = final_proc
+        if drop_rate == 0:
+            self.is_drop = False
+        else:
+            self.is_drop = True
+
+        for i in range(self.n_layers - 2):
+            self.linear_layers.append(eval(f'nn.Conv{dimension}d(channels[i], channels[i + 1], 1, bias=bias)'))
+            self.batch_normals.append(eval(f'nn.BatchNorm{dimension}d(channels[i + 1])'))
+            self.activates.append(activate_func())
+            self.drop_outs.append(eval(f'nn.Dropout{dimension}d(drop_rate)'))
+
+        self.outlayer = eval(f'nn.Conv{dimension}d(channels[-2], channels[-1], 1, bias=bias)')
+
+        self.outbn = eval(f'nn.BatchNorm{dimension}d(channels[-1])')
+        self.outat = activate_func()
+        self.outdp = eval(f'nn.Dropout{dimension}d(drop_rate)')
+
+    def forward(self, embeddings):
+        '''
+        :param embeddings: [bs, fea_in, n_row, n_col]
+        :return: [bs, fea_out, n_row, n_col]
+        '''
+        fea = embeddings
+        for i in range(self.n_layers - 2):
+            fc = self.linear_layers[i]
+            bn = self.batch_normals[i]
+            at = self.activates[i]
+            dp = self.drop_outs[i]
+
+            if self.is_drop:
+                fea = dp(at(bn(fc(fea))))
+            else:
+                fea = at(bn(fc(fea)))
+
+        fea = self.outlayer(fea)
+
+        if self.final_proc:
+            fea = self.outbn(fea)
+            fea = self.outat(fea)
+
+            if self.is_drop:
+                fea = self.outdp(fea)
+
+        return fea
+
+
 class full_connected_conv2d(nn.Module):
     def __init__(self, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
         '''
@@ -201,6 +263,7 @@ def activate_func():
     :return:
     """
     return nn.LeakyReLU(negative_slope=0.2)
+    # return nn.ReLU()
     # return nn.GELU()
     # return nn.SiLU()
 

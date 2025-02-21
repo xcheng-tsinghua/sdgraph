@@ -313,11 +313,11 @@ class PointToSparse(nn.Module):
 
 class PointToDense(nn.Module):
     """
-    将 dense graph 的数据转移到 sparse graph
+    利用点坐标生成 dense graph
     """
-    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0):
+    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10, dropout=0.2):
         super().__init__()
-        self.encoder = GCNEncoder(point_dim, emb_dim)
+        self.encoder = GCNEncoder(point_dim, emb_dim, n_near, dropout)
 
         self.with_time = with_time
         if self.with_time:
@@ -339,6 +339,9 @@ class PointToDense(nn.Module):
 
 
 class SparseToDense(nn.Module):
+    """
+    直接拼接
+    """
     def __init__(self, n_stk, n_stk_pnt):
         super().__init__()
 
@@ -414,7 +417,8 @@ class SDGraphEncoder(nn.Module):
                  n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
                  sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
                  sample_type='down_sample',  # 采样类型
-                 with_time=False, time_emb_dim=0  # 是否附加时间步
+                 with_time=False, time_emb_dim=0,  # 是否附加时间步
+                 dropout=0.2
                  ):
         """
         :param sample_type: [down_sample, up_sample, none]
@@ -424,17 +428,17 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
         self.with_time = with_time
 
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near, dropout)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt)
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt)
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:

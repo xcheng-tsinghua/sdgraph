@@ -93,7 +93,7 @@ class SDGraphCls(nn.Module):
 
 
 class SDGraphSeg(nn.Module):
-    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt):
+    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.2):
         super().__init__()
         print('diff 2025.2.19')
 
@@ -118,27 +118,29 @@ class SDGraphSeg(nn.Module):
         self.time_encode = TimeEncode(time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
-        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim, dropout=dropout)
+        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim, dropout=dropout)
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                        self.n_stk, self.n_stk_pnt,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
-                                       with_time=True, time_emb_dim=time_emb_dim)
+                                       with_time=True, time_emb_dim=time_emb_dim,
+                                       dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                        self.n_stk, self.n_stk_pnt // 2,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
-                                       with_time=True, time_emb_dim=time_emb_dim)
+                                       with_time=True, time_emb_dim=time_emb_dim,
+                                       dropout=dropout)
 
         '''全局特征生成层'''
         global_in = sparse_l2 + dense_l2
         self.global_linear = full_connected(
             channels=[global_in, int((global_in * global_dim) ** 0.5), global_dim],
-            final_proc=True)
+            final_proc=True, drop_rate=dropout)
 
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
@@ -146,20 +148,23 @@ class SDGraphSeg(nn.Module):
                                      n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 4,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
-                                     with_time=True, time_emb_dim=time_emb_dim)
+                                     with_time=True, time_emb_dim=time_emb_dim,
+                                     dropout=dropout)
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
                                      n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
-                                     with_time=True, time_emb_dim=time_emb_dim)
+                                     with_time=True, time_emb_dim=time_emb_dim,
+                                     dropout=dropout)
 
         '''最终输出层'''
         final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
         self.final_linear = full_connected_conv1d(
             channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out],
-            final_proc=False
+            final_proc=False,
+            drop_rate=dropout
         )
 
     def pnt_channel(self):
