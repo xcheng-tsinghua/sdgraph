@@ -548,7 +548,7 @@ class Block(nn.Module):
         super().__init__()
         self.conv = nn.Conv1d(dim, dim_out, 1)
         self.norm = nn.BatchNorm1d(dim_out)
-        self.act = nn.SiLU()
+        self.act = nn.GELU()
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x, scale_shift=None):
