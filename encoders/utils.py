@@ -313,6 +313,7 @@ def fps_2d(xyz, n_samples):
     distance = torch.ones(B, N).to(device) * 1e10
 
     # 生成随机整数tensor，整数范围在[0，N)之间，包含0不包含N，矩阵各维度长度必须用元组传入，因此写成(B,)
+    # 即生成初始点的随机索引
     farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
 
     # 生成 [0, B) 整数序列
@@ -321,6 +322,44 @@ def fps_2d(xyz, n_samples):
     for i in range(n_samples):
         centroids[:, i] = farthest
         centroid = xyz[batch_indices, farthest, :].view(B, 1, 2)
+        dist = torch.sum((xyz - centroid) ** 2, -1)
+        mask = dist < distance
+        distance[mask] = dist[mask].float()
+        farthest = torch.max(distance, -1)[1]
+
+    return centroids
+
+
+def fps(xyz, n_samples):
+    """
+    最远采样法进行采样，返回采样点的索引
+    Input:
+        xyz: pointcloud data, [batch_size, n_points_all, X]
+        n_samples: number of samples
+    Return:
+        centroids: sampled pointcloud index, [batch_size, n_samples]
+    """
+    device = xyz.device
+
+    # xyz: [24, 1024, 3], B: batch_size, N: number of points, C: channels
+    B, N, C = xyz.shape
+
+    # 生成 B 行，n_samples 列的全为零的矩阵
+    centroids = torch.zeros(B, n_samples, dtype=torch.long).to(device)
+
+    # 生成 B 行，N 列的矩阵，每个元素为 1e10
+    distance = torch.ones(B, N).to(device) * 1e10
+
+    # 生成随机整数tensor，整数范围在[0，N)之间，包含0不包含N，矩阵各维度长度必须用元组传入，因此写成(B,)
+    # 即生成初始点的随机索引
+    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
+
+    # 生成 [0, B) 整数序列
+    batch_indices = torch.arange(B, dtype=torch.long).to(device)
+
+    for i in range(n_samples):
+        centroids[:, i] = farthest
+        centroid = xyz[batch_indices, farthest, :].view(B, 1, C)
         dist = torch.sum((xyz - centroid) ** 2, -1)
         mask = dist < distance
         distance[mask] = dist[mask].float()
@@ -352,6 +391,11 @@ def knn(vertices, k: int):
 
 def index_points(points, idx):
     """
+    将索引值替换为对应的数值
+    :param points: [B, N, C] (维度数必须为3)
+    :param idx: [A, B, C, D, ..., X]
+    :return: [A, B, C, D, ..., X, C]
+
     索引数据时，相当于从[B, N, C]张量中，找到第二维度S个索引对应的数据
     输入[B, N, C], [B, S](int)
     输出[B, S, C]
@@ -506,4 +550,54 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
 
 
 if __name__ == '__main__':
+
+    import global_defs
+    from matplotlib import pyplot as plt
+
+    def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
+        """
+        显示笔划与笔划点归一化后的草图
+        """
+        # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+        sketch_data = np.loadtxt(root, delimiter=',')
+
+        # 2D coordinates
+        coordinates = sketch_data[:, :2]
+
+        # sketch mass move to (0, 0), x y scale to [-1, 1]
+        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+        coordinates = coordinates / dist
+
+        coordinates = torch.from_numpy(coordinates)
+        coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
+
+        coordinates = coordinates.unsqueeze(0).repeat(5, 1, 1, 1)
+
+        coordinates = coordinates.view(5, n_stroke, n_stk_pnt * 2)
+        idxs = torch.randint(0, n_stroke, (10, )).unsqueeze(0).repeat(5, 1)
+
+        print(idxs[0, :])
+
+        coordinates = index_points(coordinates, idxs)
+        coordinates = coordinates.view(5, 10, n_stk_pnt, 2)
+        coordinates = coordinates[0, :, :, :]
+
+
+        for i in range(10):
+            plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+
+            if show_dot:
+                plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+
+        # plt.axis('off')
+        plt.show()
+
+
+    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
+
+
+
+
+
     pass

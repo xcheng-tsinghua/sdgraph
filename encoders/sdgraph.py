@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from encoders.utils import full_connected, full_connected_conv1d
 
 import global_defs
-from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode, cross_sample
+from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode, cross_sample, SDGraphEncoderUNet
 
 
 class SDGraphCls(nn.Module):
@@ -38,6 +38,91 @@ class SDGraphCls(nn.Module):
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                   n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2
+                                  )
+
+        # 利用输出特征进行分类
+        sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
+        dense_glo = dense_l0 + dense_l1 + dense_l2
+        out_inc = (n_class / (sparse_glo + dense_glo)) ** (1 / 3)
+
+        out_l0 = sparse_glo + dense_glo
+        out_l1 = int(out_l0 * out_inc)
+        out_l2 = int(out_l1 * out_inc)
+        out_l3 = n_class
+
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False)
+
+    def forward(self, xy):
+        """
+        :param xy: [bs, 2, n_skh_pnt]
+        :return: [bs, n_classes]
+        """
+        xy = xy[:, :2, :]
+
+        bs, channel, n_point = xy.size()
+        assert n_point == self.n_stk * self.n_stk_pnt and channel == 2
+
+        # 生成初始 sparse graph
+        sparse_graph0 = self.point_to_sparse(xy)
+        assert sparse_graph0.size()[2] == self.n_stk
+
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)
+        assert dense_graph0.size()[2] == n_point
+
+        # 交叉更新数据
+        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
+        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
+
+        # 提取全局特征
+        sparse_glo0 = sparse_graph0.max(2)[0]
+        sparse_glo1 = sparse_graph1.max(2)[0]
+        sparse_glo2 = sparse_graph2.max(2)[0]
+
+        dense_glo0 = dense_graph0.max(2)[0]
+        dense_glo1 = dense_graph1.max(2)[0]
+        dense_glo2 = dense_graph2.max(2)[0]
+
+        all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
+
+        # 利用全局特征分类
+        cls = self.linear(all_fea)
+        cls = F.log_softmax(cls, dim=1)
+
+        return cls
+
+
+class SDGraphCls2(nn.Module):
+    def __init__(self, n_class: int):
+        """
+        :param n_class: 总类别数
+        """
+        super().__init__()
+        print('cls 25.2.15')
+
+        self.n_stk = global_defs.n_stk
+        self.n_stk_pnt = global_defs.n_stk_pnt
+
+        # 各层特征维度
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
+
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
+
+        # 生成初始 sdgraph
+        self.point_to_sparse = PointToSparse(2, sparse_l0)
+        self.point_to_dense = PointToDense(2, dense_l0)
+
+        # 利用 sdgraph 更新特征
+        self.sd1 = SDGraphEncoderUNet(sparse_l0, sparse_l1, dense_l0, dense_l1,
+                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt
+                                  )
+
+        self.sd2 = SDGraphEncoderUNet(sparse_l1, sparse_l2, dense_l1, dense_l2,
+                                  n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2
                                   )
 
         # 利用输出特征进行分类
@@ -233,8 +318,11 @@ def test():
     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
     t1 = torch.randint(0, 1000, (bs,)).long().cuda()
 
-    classifier = SDGraphSeg(2, 2).cuda()
-    cls11 = classifier(atensor, t1)
+    # classifier = SDGraphSeg(2, 2).cuda()
+    # cls11 = classifier(atensor, t1)
+
+    classifier = SDGraphCls2(10).cuda()
+    cls11 = classifier(atensor)
 
     print(cls11.size())
 

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from einops import rearrange
 
-from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func
+from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func, fps, index_points, square_distance
 import global_defs
 
 
@@ -105,9 +105,9 @@ class SDGraphEncoderUNet(nn.Module):
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = DownSample2(sparse_out, sparse_out, dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = UpSample2(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:
@@ -144,7 +144,7 @@ class SDGraphEncoderUNet(nn.Module):
         union_dense = self.dense_update(union_dense)
 
         # 下采样
-        union_dense = self.sample(union_dense)
+        union_sparse, union_dense = self.sample(union_sparse, union_dense)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -155,6 +155,12 @@ class SDGraphEncoderUNet(nn.Module):
 
 
 def knn(x, k):
+    """
+    找到最近的点的索引，包含自身
+    :param x:
+    :param k:
+    :return: [batch_size, num_points, k]
+    """
     # -> x: [bs, 2, n_point]
 
     inner = -2 * torch.matmul(x.transpose(2, 1), x)
@@ -285,6 +291,10 @@ class DownSample(nn.Module):
 
 
 class DownSample2(nn.Module):
+    """
+    对sdgraph同时进行下采样
+    该模块处理后笔划数和笔划中的点数同时降低为原来的1/2
+    """
     def __init__(self, sp_in, sp_out, dn_in, dn_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
@@ -318,18 +328,101 @@ class DownSample2(nn.Module):
         assert n_stk == self.n_stk
 
         # 使用FPS采样
+        fps_idx = fps(sparse_fea.permute(0, 2, 1), self.n_stk // 2)  # -> [bs, n_stk // 2]
+
+        # 然后找到特征空间中与之最近的笔划进行maxPooling
+        knn_idx = knn(sparse_fea, 2)  # -> [bs, n_stk, 2]
+        knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
+        sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
+        sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
+        sparse_fea = self.sp_conv(sparse_fea)
+
+        # 对dense fea进行下采样
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt // 2]
+        dense_fea_emb = dense_fea.size(1)
+        dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt // 2, emb]
+        dense_fea = dense_fea.reshape(bs, self.n_stk, (self.n_stk_pnt // 2) * dense_fea_emb)  # -> [bs, n_stk, (n_stk_pnt // 2) * emb]
+
+        # 取对应部分
+        dense_fea = index_points(dense_fea, knn_idx)  # -> [bs, n_stk // 2, 2, (n_stk_pnt // 2) * emb]
+        dense_fea = dense_fea.view(bs, self.n_stk // 2, 2, self.n_stk_pnt // 2, dense_fea_emb)  # -> [bs, n_stk // 2, 2, n_stk_pnt // 2, emb]
+        dense_fea = dense_fea.max(2)[0]  # -> [bs, n_stk // 2, n_stk_pnt // 2, emb]
+
+        dense_fea = dense_fea.view(bs, (self.n_stk * self.n_stk_pnt) // 4, dense_fea_emb).permute(0, 2, 1)  # -> [bs, emb, n_skh_pnt // 4]
+
+        return sparse_fea, dense_fea
+
+
+class UpSample(nn.Module):
+    def __init__(self, sp_in, sp_out, dn_in, dn_out, n_stk, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        self.sp_conv = full_connected_conv1d([sp_in, sp_out], True, dropout, True)
+
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels=dn_in,  # 输入通道数
+                out_channels=dn_out,  # 输出通道数
+                kernel_size=(1, 4),  # 卷积核大小：1x2，仅在宽度方向扩展
+                stride=(1, 2),  # 步幅：高度不变，宽度扩展为原来的 2 倍
+                padding=(0, 1),  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dn_out),
+            activate_func(),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, sparse_fea, dense_fea, sparse_fea_bef):
+        """
+        对于 sparse_fea_bef 中的某个点(center)，找到 sparse_fea 中与之最近的3个点(nears)，将nears的特征进行加权和，得到center的插值特征
+        nears中第i个点(near_i)特征的权重为 [1/d(near_i)]/sum(k=1->3)[1/d(near_k)]
+        d(near_i)为 center到near_i的距离，即距离越近，权重越大
+        之后拼接 sparse_fea_bef 与插值后的 sparse_fea，再利用MLP对每个点的特征单独进行处理
+
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_pnt]
+        :param sparse_fea_bef: [bs, emb, n_stk * 2] 下采样前的特征，大小应为 [bs, emb, 2 * n_stk]
+        """
+        bs, emb, n_pnt = dense_fea.size()
+        assert n_pnt == self.n_stk * self.n_stk_pnt
+
+        # 对sgraph进行上采样
+        # 计算sparse_fea_bef中的每个点到sparse_fea中每个点的距离 sparse_fea_bef:[bs, emb, n_stk * 2], sparse_fea:[bs, emb, n_stk], return: [bs, n_stk * 2, n_stk]
+        dists = square_distance(sparse_fea_bef.permute(0, 2, 1), sparse_fea.permute(0, 2, 1))
+
+        # 计算每个初始点到采样点距离最近的3个点，sort 默认升序排列, 取三个
+        dists, idx = dists.sort(dim=-1)
+        dists, idx = dists[:, :, :3], idx[:, :, :3]  # [B, N, 3]
+
+        # 最近距离的每行求倒数
+        dist_recip = 1.0 / (dists + 1e-8)
+        norm = torch.sum(dist_recip, dim=2, keepdim=True)
+
+        # 求倒数后每行中每个数除以该行之和
+        weight = dist_recip / norm  # ->[B, N, 3]
+
+        # index_points(points2, idx): 为原始点集中的每个点找到采样点集中与之最近的3个三个点的特征 -> [B, N, 3, D]
+        interpolated_points = torch.sum(index_points(points2, idx) * weight.view(B, N, 3, 1), dim=2)
 
 
 
 
         dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-        dense_fea = self.dn_conv(dense_fea)
-        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
+        dense_fea = self.conv(dense_fea)
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) * 2)
 
         return dense_fea
 
 
-class UpSample(nn.Module):
+class UpSample2(nn.Module):
+    """
+    对sdgraph同时进行上采样
+    上采样后笔划数及笔划上的点数均变为原来的2倍
+    """
     def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
