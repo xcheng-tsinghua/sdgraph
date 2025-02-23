@@ -10,7 +10,7 @@ import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-from encoders.sdgraph import SDGraphCls2 as SDGraphCls
+from encoders.sdgraph import SDGraphCls as SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
 
 
@@ -19,7 +19,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=16, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=64, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
