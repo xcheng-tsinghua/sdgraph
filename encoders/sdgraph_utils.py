@@ -331,15 +331,16 @@ class DownSample2(nn.Module):
         assert n_stk == self.n_stk
 
         # 使用FPS采样
-        fps_idx = fps(stk_fea.permute(0, 2, 1), self.n_stk // 2)  # -> [bs, n_stk // 2]
+        stk_fea = stk_fea.permute(0, 2, 1)
+        fps_idx = fps(stk_fea, self.n_stk // 2)  # -> [bs, n_stk // 2]
 
         # 然后找到特征空间中与之最近的笔划进行maxPooling
-        knn_idx = knn(stk_fea, 2)  # -> [bs, n_stk, 2]
+        knn_idx = knn(stk_fea.permute(0, 2, 1), 2)  # -> [bs, n_stk, 2]
         knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
         sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
         sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
         sparse_fea = self.sp_conv(sparse_fea)
-        stk_fea_sampled = index_points(stk_fea.permute(0, 2, 1), fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
+        stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
 
         # 对dense fea进行下采样
         dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)

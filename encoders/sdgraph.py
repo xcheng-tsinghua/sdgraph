@@ -155,9 +155,11 @@ class SDGraphCls2(nn.Module):
         dense_graph0 = self.point_to_dense(xy)
         assert dense_graph0.size()[2] == n_point
 
+        stk_fea_l0 = sparse_graph0
+
         # 交叉更新数据
-        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
-        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
+        sparse_graph1, dense_graph1, stk_fea_l1 = self.sd1(sparse_graph0, dense_graph0, stk_fea=stk_fea_l0)
+        sparse_graph2, dense_graph2, _ = self.sd2(sparse_graph1, dense_graph1, stk_fea=stk_fea_l1)
 
         # 提取全局特征
         sparse_glo0 = sparse_graph0.max(2)[0]
@@ -452,14 +454,29 @@ class SDGraphSeg2(nn.Module):
 
 
 def test():
-    bs = 3
-    atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
-    t1 = torch.randint(0, 1000, (bs,)).long().cuda()
+#     bs = 3
+#     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt]).cuda()
+#     t1 = torch.randint(0, 1000, (bs,)).long().cuda()
+#
+#     # classifier = SDGraphSeg2(2, 2).cuda()
+#     # cls11 = classifier(atensor, t1)
+#
+#     classifier = SDGraphCls2(10).cuda()
+#     cls11 = classifier(atensor)
+#
+#     print(cls11.size())
+#
+#     print('---------------')
 
-    classifier = SDGraphSeg2(2, 2).cuda()
+
+    bs = 3
+    atensor = torch.rand([bs, 2, global_defs.n_skh_pnt])
+    t1 = torch.randint(0, 1000, (bs,)).long()
+
+    classifier = SDGraphSeg2(2, 2)
     cls11 = classifier(atensor, t1)
 
-    # classifier = SDGraphCls2(10).cuda()
+    # classifier = SDGraphCls2(10)
     # cls11 = classifier(atensor)
 
     print(cls11.size())
