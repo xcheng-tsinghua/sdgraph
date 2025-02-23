@@ -143,9 +143,10 @@ class SDGraphEncoderUNet(nn.Module):
         union_sparse = self.sparse_update(union_sparse)
         union_dense = self.dense_update(union_dense)
 
-        # 下采样
+        # 采样
         union_sparse, union_dense, stk_fea_sampled = self.sample(union_sparse, union_dense, stk_fea, stk_fea_bef, 3)
-        assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(2) == self.n_stk // 2 or stk_fea_sampled.size(2) == self.n_stk * 2)
+        if stk_fea_sampled is not None:
+            assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(2) == self.n_stk // 2 or stk_fea_sampled.size(2) == self.n_stk * 2)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
