@@ -145,6 +145,7 @@ class SDGraphEncoderUNet(nn.Module):
 
         # 下采样
         union_sparse, union_dense, stk_fea_sampled = self.sample(union_sparse, union_dense, stk_fea, stk_fea_bef, 3)
+        assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(2) == self.n_stk // 2 or stk_fea_sampled.size(2) == self.n_stk * 2)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -336,21 +337,28 @@ class DownSample2(nn.Module):
 
         # 然后找到特征空间中与之最近的笔划进行maxPooling
         knn_idx = knn(stk_fea.permute(0, 2, 1), 2)  # -> [bs, n_stk, 2]
+        assert knn_idx.size(2) == 2
         knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
+        assert knn_idx.size(1) == self.n_stk // 2
         sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
+        assert sparse_fea.size(2) == self.n_stk // 2 and sparse_fea.size(3) == 2
         sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
+        assert sparse_fea.size(2) == self.n_stk // 2
         sparse_fea = self.sp_conv(sparse_fea)
         stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
+        assert stk_fea_sampled.size(2) == self.n_stk // 2
 
         # 对dense fea进行下采样
         dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
         dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt // 2]
         dense_fea_emb = dense_fea.size(1)
         dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt // 2, emb]
+        assert dense_fea.size(2) == self.n_stk_pnt // 2 and dense_fea.size(1) == self.n_stk
         dense_fea = dense_fea.reshape(bs, self.n_stk, (self.n_stk_pnt // 2) * dense_fea_emb)  # -> [bs, n_stk, (n_stk_pnt // 2) * emb]
 
         # 取对应部分
         dense_fea = index_points(dense_fea, knn_idx)  # -> [bs, n_stk // 2, 2, (n_stk_pnt // 2) * emb]
+        assert dense_fea.size(1) == self.n_stk // 2
         dense_fea = dense_fea.view(bs, self.n_stk // 2, 2, self.n_stk_pnt // 2, dense_fea_emb)  # -> [bs, n_stk // 2, 2, n_stk_pnt // 2, emb]
         dense_fea = dense_fea.max(2)[0]  # -> [bs, n_stk // 2, n_stk_pnt // 2, emb]
 
@@ -401,6 +409,7 @@ class UpSample2(nn.Module):
         # 对sgraph进行上采样
         # 计算sparse_fea_bef中的每个点到sparse_fea中每个点的距离 sparse_fea_bef:[bs, emb, n_stk * 2], sparse_fea:[bs, emb, n_stk], return: [bs, n_stk * 2, n_stk]
         dists = square_distance(stk_fea_bef.permute(0, 2, 1), stk_fea.permute(0, 2, 1))
+        assert dists.size(1) == self.n_stk * 2 and dists.size(2) == self.n_stk
 
         # 计算每个初始点到采样点距离最近的3个点，sort 默认升序排列, 取三个
         dists, idx = dists.sort(dim=-1)

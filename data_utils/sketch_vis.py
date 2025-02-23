@@ -201,7 +201,7 @@ if __name__ == '__main__':
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
 
-    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls\train\apple\337.txt')
+    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32\train\Bearing\00f45ba0a8f47a198aaa6ef095cb71a4_5.txt')
 
     pass
 
