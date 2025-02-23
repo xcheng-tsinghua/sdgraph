@@ -323,19 +323,27 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
                 target_stk = stroke_list[closest_idx]
                 if is_this_start and is_target_start:
                     min_stroke = np.flip(min_stroke, axis=0)
+                    if distance(min_stroke[-1, :], target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        min_stroke = min_stroke[: -1, :]
                     stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
 
                 # 情形2：起点到终点，this拼接在target后面：
                 elif is_this_start and (not is_target_start):
+                    if distance(target_stk[-1, :], min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        target_stk = target_stk[: -1, :]
                     stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
 
                 # 情形3：终点到起点，this拼接在target前面：
                 elif (not is_this_start) and is_target_start:
+                    if distance(min_stroke[-1, :], target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        min_stroke = min_stroke[: -1, :]
                     stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
 
                 # 情形4：终点到终点，target不动，this调转后拼接在后面：
                 elif (not is_this_start) and (not is_target_start):
                     min_stroke = np.flip(min_stroke, axis=0)
+                    if distance(target_stk[-1, :], min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        target_stk = target_stk[: -1, :]
                     stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
 
                 else:
@@ -364,7 +372,7 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
 
         # Split the largest array into two halves
         split_point = largest_array.shape[0] // 2
-        first_half = largest_array[:split_point, :]
+        first_half = largest_array[:split_point + 1, :]
         second_half = largest_array[split_point:, :]
 
         # Replace the largest array with the two halves

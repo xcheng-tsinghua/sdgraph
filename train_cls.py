@@ -106,7 +106,7 @@ def main(args):
     for epoch in range(args.epoch):
         classifier = classifier.train()
 
-        logstr_epoch = f'Epoch ({epoch + 1}/{args.epoch}):'
+        logstr_epoch = f'Epoch ({epoch}/{args.epoch}):'
         all_preds = []
         all_labels = []
 
@@ -163,7 +163,7 @@ def main(args):
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
-            print(f'train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
+            print(f'epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:

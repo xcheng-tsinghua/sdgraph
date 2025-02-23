@@ -143,6 +143,24 @@ if __name__ == '__main__':
 
     # vis.vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt\armchair\530.txt')
 
-    file_path = '/path/to/your/file.txt'
-    file_name = os.path.basename(file_path)
-    print(file_name)  # 输出：file.txt
+    def hausdorff_distance(curves1, curves2):
+        # 计算距离矩阵，形状为 (a, b)
+        dist_matrix = torch.cdist(curves1, curves2, p=2)  # p=2表示欧氏距离
+
+        # 对于curves1中的每条曲线，找到它到curves2的最小距离
+        min_dist_curves1 = dist_matrix.min(dim=2)[0]
+
+        # 对于curves2中的每条曲线，找到它到curves1的最小距离
+        min_dist_curves2 = dist_matrix.min(dim=1)[0]
+
+        # 计算Hausdorff距离
+        return max(min_dist_curves1.max(), min_dist_curves2.max())
+
+
+    # 示例数据
+    curves1 = torch.rand(3, 8, 2)
+    curves2 = torch.rand(4, 9, 2)
+
+    # 计算Hausdorff距离
+    distance = hausdorff_distance(curves1, curves2)
+    print(f"Hausdorff Distance: {distance.item()}")

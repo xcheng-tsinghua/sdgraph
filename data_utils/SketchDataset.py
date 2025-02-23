@@ -93,6 +93,7 @@ class SketchDataset(Dataset):
         self.classes = dict(zip(sorted(category_path), range(len(category_path))))  # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0,1
         print(self.classes)
         print('number of instance all:', len(self.datapath))
+        print('number of classes all:', len(self.classes))
 
     def __getitem__(self, index):
         """
