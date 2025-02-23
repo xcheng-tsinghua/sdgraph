@@ -10,7 +10,7 @@ import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-from encoders.sdgraph import SDGraphCls2 as SDGraphCls
+from encoders.sdgraph import SDGraphCls as SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
 
 
@@ -27,8 +27,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch_cad_stk32_stkpnt32', help='---')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32', help='---')
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/TU_Berlin_std_cls', help='---')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls', help='---')
 
     # r'/root/my_data/data_set/unified_sketch_cad_stk30_stkpnt32'
     # r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk30_stkpnt32'
