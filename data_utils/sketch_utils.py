@@ -462,7 +462,7 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
 
 def std_unify_batched(source_dir=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', target_dir=r'D:\document\DeepLearning\DataSet\unified_sketch', is_mix_proc=True):
     """
-    将 source_dir 文件夹中的全部 std 草图转化为 unified_std 草图，并保存到 target_dir
+    将 source_dir 文件夹中的全部 txt 草图转化为 unified_std 草图，并保存到 target_dir
     :param source_dir:
     :param target_dir:
     :return:
@@ -578,8 +578,9 @@ if __name__ == '__main__':
 
 
     # --------------------- 草图标准化
-    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
-    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
 
     pass
 
