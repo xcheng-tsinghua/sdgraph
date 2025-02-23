@@ -150,11 +150,12 @@ def vis_sketch_list(strokes, show_dot=False):
     plt.show()
 
 
-def save_format_sketch(sketch_points, file_path):
+def save_format_sketch(sketch_points, file_path, is_smooth=False):
     """
     保存设定格式的草图
     :param sketch_points: [2, n_stk * n_stk_pnt]
     :param file_path:
+    :param is_smooth: 是否保存光顺后的草图
     :return:
     """
 
@@ -177,16 +178,17 @@ def save_format_sketch(sketch_points, file_path):
     plt.axis('off')
     plt.savefig(file_path)
 
-    plt.clf()
-    for stk_idx in range(n_stk):
-        c_stk = sketch_points[:, stk_idx, :]
-        fit_x, fit_y = curve_smooth(c_stk[0, :], c_stk[1, :])
-        plt.plot(fit_x, -fit_y)
-        # plt.scatter(s[:, 0], -s[:, 1])
+    if is_smooth:
+        plt.clf()
+        for stk_idx in range(n_stk):
+            c_stk = sketch_points[:, stk_idx, :]
+            fit_x, fit_y = curve_smooth(c_stk[0, :], c_stk[1, :])
+            plt.plot(fit_x, -fit_y)
+            # plt.scatter(s[:, 0], -s[:, 1])
 
-    plt.axis('off')
-    ahead, ext = os.path.splitext(file_path)
-    plt.savefig(ahead + 'smooth' + ext)
+        plt.axis('off')
+        ahead, ext = os.path.splitext(file_path)
+        plt.savefig(ahead + 'smooth' + ext)
 
 
 if __name__ == '__main__':
@@ -194,10 +196,12 @@ if __name__ == '__main__':
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt\train\Bolt\0e697fb4c47314eeaf2dbf6108f69040_1.txt', show_axis=True, show_dot=True)
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt\train\Bolt\0e697fb4c47314eeaf2dbf6108f69040_1.txt', show_axis=True, show_dot=True)
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\0bc12e6b9e792b74da4f7819d0041c9b_1.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
+
+    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls\train\ant\264.txt')
 
     pass
 

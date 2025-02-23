@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
-import xml.etree.ElementTree as ET
-from svgpathtools import parse_path
+import svgpathtools
+from svgpathtools import svg2paths2
 
 import matplotlib.pyplot as plt
 import os
 import numpy as np
 from scipy.interpolate import splprep, splev
+
+# import data_utils.sketch_vis as vis
+# from data_utils.sketch_utils import svg_to_txt
 
 
 def curve_fit(x, y, k):
@@ -113,6 +116,7 @@ def find_files_with_line_count_not_equal(directory, k):
     return files_with_wrong_line_count
 
 
+
 if __name__ == '__main__':
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
@@ -124,13 +128,21 @@ if __name__ == '__main__':
     #
     # print(val0)
 
-    x = torch.tensor([[1.0, 2.0, 3.0],
-                      [4.0, 5.0, 6.0]])
+    # x = torch.tensor([[1.0, 2.0, 3.0],
+    #                   [4.0, 5.0, 6.0]])
+    #
+    # x_normalized_dim0 = torch.nn.functional.normalize(x, dim=0)
+    # print(x_normalized_dim0)
+    # print(x_normalized_dim0.pow(2).sum(0))
 
-    x_normalized_dim0 = torch.nn.functional.normalize(x, dim=0)
-    print(x_normalized_dim0)
-    print(x_normalized_dim0.pow(2).sum(0))
+    # svg_file = r'D:\document\DeepLearning\DataSet\TU-Berlin\sketches\airplane\1.svg'  # 输入的SVG文件路径
+    # output_file = r'C:\Users\ChengXi\Desktop\1.txt'  # 输出的文本文件路径
+    #
+    # svg_to_txt(svg_file, output_file)
+    # vis.vis_sketch_orig(output_file)
 
+    # vis.vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt\armchair\530.txt')
 
-
-
+    file_path = '/path/to/your/file.txt'
+    file_name = os.path.basename(file_path)
+    print(file_name)  # 输出：file.txt
