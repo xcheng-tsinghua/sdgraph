@@ -10,7 +10,7 @@ import os
 
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-from encoders.sdgraph import SDGraphCls as SDGraphCls
+from encoders.sdgraph import SDGraphCls2 as SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
 
 
