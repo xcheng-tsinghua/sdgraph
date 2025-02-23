@@ -566,7 +566,12 @@ def cls_distribute(source_dir, target_dir, test_rate=0.2):
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
-    cls_distribute(r'D:\document\DeepLearning\DataSet\TU_Berlin_std', r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls')
+    # cls_distribute(r'D:\document\DeepLearning\DataSet\TU_Berlin_std', r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls')
+
+
+    # --------------------- 草图标准化
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
+    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     pass
 

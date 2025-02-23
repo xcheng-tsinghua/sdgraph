@@ -8,6 +8,152 @@ from encoders.utils import full_connected_conv1d, full_connected_conv2d, activat
 import global_defs
 
 
+class SDGraphEncoder(nn.Module):
+    def __init__(self,
+                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
+                 n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
+                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sample_type='down_sample',  # 采样类型
+                 with_time=False, time_emb_dim=0,  # 是否附加时间步
+                 dropout=0.2
+                 ):
+        """
+        :param sample_type: [down_sample, up_sample, none]
+        """
+        super().__init__()
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
+
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
+        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
+
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near, dropout)
+
+        self.sample_type = sample_type
+        if self.sample_type == 'down_sample':
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+        elif self.sample_type == 'up_sample':
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+        elif self.sample_type == 'none':
+            self.sample = nn.Identity()
+        else:
+            raise ValueError('invalid sample type')
+
+        if self.with_time:
+            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim)
+            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim)
+
+    def forward(self, sparse_fea, dense_fea, time_emb=None):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_point]
+        :param time_emb: [bs, emb]
+        :return:
+        """
+        bs, emb, n_stk = sparse_fea.size()
+        assert n_stk == self.n_stk
+
+        n_points = dense_fea.size()[2]
+        assert n_points == self.n_stk * self.n_stk_pnt
+
+        # 信息交换
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
+
+        # 信息更新
+        union_sparse = self.sparse_update(union_sparse)
+        union_dense = self.dense_update(union_dense)
+
+        # 下采样
+        union_dense = self.sample(union_dense)
+
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
+            union_dense = self.time_mlp_dn(union_dense, time_emb)
+
+        return union_sparse, union_dense
+
+
+class SDGraphEncoderUNet(nn.Module):
+    """
+    包含笔划及笔划中的点层级的下采样与上采样
+    """
+    def __init__(self,
+                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
+                 n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
+                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sample_type='down_sample',  # 采样类型
+                 with_time=False, time_emb_dim=0,  # 是否附加时间步
+                 dropout=0.2
+                 ):
+        """
+        :param sample_type: [down_sample, up_sample, none]
+        """
+        super().__init__()
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
+
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
+        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
+
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near, dropout)
+
+        self.sample_type = sample_type
+        if self.sample_type == 'down_sample':
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+        elif self.sample_type == 'up_sample':
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+        elif self.sample_type == 'none':
+            self.sample = nn.Identity()
+        else:
+            raise ValueError('invalid sample type')
+
+        if self.with_time:
+            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim)
+            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim)
+
+    def forward(self, sparse_fea, dense_fea, time_emb=None, sparse_fea_bef=None, dense_fea_bef=None):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_point]
+        :param sparse_fea_bef: UNet 对应位置的 sgraph，仅在upsample时启用
+        :param dense_fea_bef: UNet 对应位置的 dgraph，仅在upsample时启用
+        :param time_emb: [bs, emb]
+        :return:
+        """
+        # 确保在上采样时sparse_fea_bef及dense_fea_bef均不为None，且下采样时sparse_fea_bef及dense_fea_bef均为None， ^ :异或，两者不同为真
+        assert (self.sample_type == 'up_sample') ^ (sparse_fea_bef is None or dense_fea_bef is None)
+
+        bs, emb, n_stk = sparse_fea.size()
+        assert n_stk == self.n_stk
+
+        n_points = dense_fea.size()[2]
+        assert n_points == self.n_stk * self.n_stk_pnt
+
+        # 信息交换
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
+
+        # 信息更新
+        union_sparse = self.sparse_update(union_sparse)
+        union_dense = self.dense_update(union_dense)
+
+        # 下采样
+        union_dense = self.sample(union_dense)
+
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
+            union_dense = self.time_mlp_dn(union_dense, time_emb)
+
+        return union_sparse, union_dense
+
+
 def knn(x, k):
     # -> x: [bs, 2, n_point]
 
@@ -133,6 +279,51 @@ class DownSample(nn.Module):
 
         dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
         dense_fea = self.conv(dense_fea)
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
+
+        return dense_fea
+
+
+class DownSample2(nn.Module):
+    def __init__(self, sp_in, sp_out, dn_in, dn_out, n_stk, n_stk_pnt, dropout=0.4):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+
+        self.sp_conv = full_connected_conv1d([sp_in, sp_out], True, dropout, True)
+
+        self.dn_conv = nn.Sequential(
+            nn.Conv2d(
+                in_channels=dn_in,  # 输入通道数 (RGB)
+                out_channels=dn_out,  # 输出通道数 (保持通道数不变)
+                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dn_out),
+            activate_func(),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_pnt]
+        """
+        bs, emb, n_pnt = dense_fea.size()
+        assert n_pnt == self.n_stk * self.n_stk_pnt
+
+        n_stk = sparse_fea.size(2)
+        assert n_stk == self.n_stk
+
+        # 使用FPS采样
+
+
+
+
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        dense_fea = self.dn_conv(dense_fea)
         dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
 
         return dense_fea
@@ -409,75 +600,6 @@ class DenseToSparse(nn.Module):
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
 
         return union_sparse
-
-
-class SDGraphEncoder(nn.Module):
-    def __init__(self,
-                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
-                 n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
-                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
-                 sample_type='down_sample',  # 采样类型
-                 with_time=False, time_emb_dim=0,  # 是否附加时间步
-                 dropout=0.2
-                 ):
-        """
-        :param sample_type: [down_sample, up_sample, none]
-        """
-        super().__init__()
-        self.n_stk = n_stk
-        self.n_stk_pnt = n_stk_pnt
-        self.with_time = with_time
-
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
-        self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
-
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near, dropout)
-
-        self.sample_type = sample_type
-        if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
-        elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
-        elif self.sample_type == 'none':
-            self.sample = nn.Identity()
-        else:
-            raise ValueError('invalid sample type')
-
-        if self.with_time:
-            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim)
-            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim)
-
-    def forward(self, sparse_fea, dense_fea, time_emb=None):
-        """
-        :param sparse_fea: [bs, emb, n_stk]
-        :param dense_fea: [bs, emb, n_point]
-        :param time_emb: [bs, emb]
-        :return:
-        """
-        bs, emb, n_stk = sparse_fea.size()
-        assert n_stk == self.n_stk
-
-        n_points = dense_fea.size()[2]
-        assert n_points == self.n_stk * self.n_stk_pnt
-
-        # 信息交换
-        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
-        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
-
-        # 信息更新
-        union_sparse = self.sparse_update(union_sparse)
-        union_dense = self.dense_update(union_dense)
-
-        # 下采样
-        union_dense = self.sample(union_dense)
-
-        assert self.with_time ^ (time_emb is None)
-        if self.with_time:
-            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
-            union_dense = self.time_mlp_dn(union_dense, time_emb)
-
-        return union_sparse, union_dense
 
 
 class SinusoidalPosEmb(nn.Module):

@@ -349,9 +349,7 @@ if __name__ == '__main__':
         adataset.vis_sketch(0)
 
 
-    # --------------------- 草图标准化
-    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch\sketch_txt',r'D:\document\DeepLearning\DataSet\unified_sketch')
-    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
 
 
 

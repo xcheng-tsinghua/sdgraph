@@ -3,7 +3,7 @@
 # n_stk = 30  # 自建机械草图
 # n_stk = 5  # quickdraw apple
 # n_stk = 4  # quickdraw apple
-n_stk = 8  # quickdraw apple
+n_stk = 16  # quickdraw apple
 # n_stk = 32  # Tu-Berlin
 
 # 每个笔划中的点数
