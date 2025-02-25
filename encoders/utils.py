@@ -5,6 +5,8 @@ import shutil
 from sklearn.metrics import f1_score, average_precision_score
 from sklearn.preprocessing import label_binarize
 import numpy as np
+import re
+import matplotlib.pyplot as plt
 
 from data_utils.sketch_utils import save_confusion_mat
 
@@ -549,55 +551,105 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
+def vis_cls_log(log_file):
+    # 定义正则表达式，匹配浮点数
+    float_pattern = r'[-+]?\d*\.\d+|\d+\.\d*e[-+]?\d+'
+
+    # 用于存储提取的浮点数
+    floats = []
+
+    # 打开文件并逐行读取
+    with open(log_file, 'r') as file:
+        for line in file:
+            c_line = []
+            # 查找所有匹配的浮点数
+            matches = re.findall(float_pattern, line)
+            for match in matches:
+                # 将匹配的字符串转换为浮点数
+                num = float(match)
+                # 如果是整数，则跳过
+                if num.is_integer():
+                    continue
+                # 将浮点数添加到列表中
+                c_line.append(num)
+
+            floats.append(c_line)
+
+    floats = np.array(floats)
+
+    # 绘图
+    plt.figure(figsize=(10, 5))
+    n = floats.shape[0]
+    x = np.arange(n)
+
+    y1 = floats[:, 0]
+    y2 = floats[:, 2]
+
+    # 绘制第一条折线
+    plt.plot(x, y1, label='train ins acc', linestyle='-', color='b')
+
+    # 绘制第二条折线
+    plt.plot(x, y2, label='eval ins acc', linestyle='-', color='r')
+
+    # 添加标题和标签
+    plt.xlabel('epoch')
+    plt.ylabel('accuracy')
+
+    plt.legend()
+    plt.grid(True, linestyle='--', color='gray', alpha=0.7)
+
+    # 显示图形
+    plt.show()
+
+
 if __name__ == '__main__':
+    #
+    # import global_defs
+    # from matplotlib import pyplot as plt
+    #
+    # def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
+    #     """
+    #     显示笔划与笔划点归一化后的草图
+    #     """
+    #     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+    #     sketch_data = np.loadtxt(root, delimiter=',')
+    #
+    #     # 2D coordinates
+    #     coordinates = sketch_data[:, :2]
+    #
+    #     # sketch mass move to (0, 0), x y scale to [-1, 1]
+    #     coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    #     dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    #     coordinates = coordinates / dist
+    #
+    #     coordinates = torch.from_numpy(coordinates)
+    #     coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
+    #
+    #     coordinates = coordinates.unsqueeze(0).repeat(5, 1, 1, 1)
+    #
+    #     coordinates = coordinates.view(5, n_stroke, n_stk_pnt * 2)
+    #     idxs = torch.randint(0, n_stroke, (10, )).unsqueeze(0).repeat(5, 1)
+    #
+    #     print(idxs[0, :])
+    #
+    #     coordinates = index_points(coordinates, idxs)
+    #     coordinates = coordinates.view(5, 10, n_stk_pnt, 2)
+    #     coordinates = coordinates[0, :, :, :]
+    #
+    #
+    #     for i in range(10):
+    #         plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+    #
+    #         if show_dot:
+    #             plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+    #
+    #     # plt.axis('off')
+    #     plt.show()
+    #
+    #
+    # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
+    #
 
-    import global_defs
-    from matplotlib import pyplot as plt
-
-    def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
-        """
-        显示笔划与笔划点归一化后的草图
-        """
-        # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-        sketch_data = np.loadtxt(root, delimiter=',')
-
-        # 2D coordinates
-        coordinates = sketch_data[:, :2]
-
-        # sketch mass move to (0, 0), x y scale to [-1, 1]
-        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-        coordinates = coordinates / dist
-
-        coordinates = torch.from_numpy(coordinates)
-        coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
-
-        coordinates = coordinates.unsqueeze(0).repeat(5, 1, 1, 1)
-
-        coordinates = coordinates.view(5, n_stroke, n_stk_pnt * 2)
-        idxs = torch.randint(0, n_stroke, (10, )).unsqueeze(0).repeat(5, 1)
-
-        print(idxs[0, :])
-
-        coordinates = index_points(coordinates, idxs)
-        coordinates = coordinates.view(5, 10, n_stk_pnt, 2)
-        coordinates = coordinates[0, :, :, :]
-
-
-        for i in range(10):
-            plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
-
-            if show_dot:
-                plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
-
-        # plt.axis('off')
-        plt.show()
-
-
-    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
-
-
-
-
+    vis_cls_log(r'C:\Users\ChengXi\Desktop\log\Tuberlin-origsd-2025-02-23 14-07-18(1).txt')
 
     pass

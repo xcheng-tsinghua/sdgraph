@@ -7,6 +7,7 @@ import warnings
 import shutil
 import math
 from tqdm import tqdm
+import requests
 
 import global_defs
 import encoders.spline as sp
@@ -473,6 +474,7 @@ def std_unify_batched(source_dir=r'D:\document\DeepLearning\DataSet\sketch\sketc
     shutil.rmtree(target_dir)
 
     # 在target_dir中创建与source_dir相同的目录层级
+    print('create dirs')
     for root, dirs, files in os.walk(source_dir):
         # 计算目标文件夹中的对应路径
         relative_path = os.path.relpath(root, source_dir)
@@ -552,8 +554,7 @@ def cls_distribute(source_dir, target_dir, test_rate=0.2):
     # 复制文件
     # 获取全部类别
     classes_all = get_subdirs(source_dir)
-    for c_class in classes_all:
-        print(c_class)
+    for c_class in tqdm(classes_all, total=len(classes_all)):
 
         c_class_dir = os.path.join(source_dir, c_class)
         c_files = get_allfiles(c_class_dir)
@@ -571,6 +572,30 @@ def cls_distribute(source_dir, target_dir, test_rate=0.2):
                 shutil.copy(c_files[i], os.path.join(c_target_train, base_name))
 
 
+def quickdraw_download(target_dir):
+    # 先提取全部类别
+    class_file = r'C:\Users\ChengXi\Desktop\quickdraw.txt'
+    class_all = []
+
+    with open(class_file, 'r') as f:
+        for c_line in f.readlines():
+            c_line = c_line.strip()
+            if 'full' in c_line:
+                class_all.append(c_line.split('/')[-2])
+
+    # print(class_all)
+    # print(len(class_all))
+
+    os.makedirs(target_dir, exist_ok=True)
+
+    for category in tqdm(class_all, total=len(class_all)):
+        url = f"https://storage.googleapis.com/quickdraw_dataset/sketchrnn/{category}"
+        response = requests.get(url)
+        with open(os.path.join(target_dir, category), "wb") as f:
+            f.write(response.content)
+        print(f"Downloaded {category}")
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -578,8 +603,11 @@ if __name__ == '__main__':
 
 
     # --------------------- 草图标准化
-    std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    quickdraw_download(r'D:\document\DeepLearning\DataSet\quickdraw_all')
+
 
 
     pass

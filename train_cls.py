@@ -28,10 +28,10 @@ def parse_args():
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
     parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/TU_Berlin_std_cls', help='---')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls', help='---')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_std_cls', help='---')
 
-    # r'/root/my_data/data_set/unified_sketch_cad_stk30_stkpnt32'
-    # r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk30_stkpnt32'
+    # r'/root/my_data/data_set/unified_sketch_cad_stk32_stkpnt32'
+    # r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32'
     # r'/root/my_data/data_set/TU_Berlin_std_cls'
     # r'D:\document\DeepLearning\DataSet\TU_Berlin_std_cls'
 
@@ -108,7 +108,7 @@ def main(args):
     for epoch in range(args.epoch):
         classifier = classifier.train()
 
-        logstr_epoch = f'Epoch ({epoch}/{args.epoch}):'
+        logstr_epoch = f'Epoch({epoch}/{args.epoch}):'
         all_preds = []
         all_labels = []
 
@@ -165,7 +165,7 @@ def main(args):
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
-            print(f'epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
+            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:

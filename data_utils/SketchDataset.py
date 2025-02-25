@@ -343,11 +343,27 @@ def quickdraw_to_std(quickdraw_root, std_root):
     adataset.save_std(std_root)
 
 
-if __name__ == '__main__':
-    adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
+def quickdraw_to_std_batched(root_npz, root_txt):
 
-    for _ in range(10):
-        adataset.vis_sketch(0)
+    # 找到全部文件
+    npz_all = get_allfiles(root_npz, 'npz')
+
+    for c_npz in npz_all:
+        c_class = os.path.basename(c_npz).split('.')[0]
+        print(c_class)
+        c_class_dir = os.path.join(root_txt, c_class)
+        os.makedirs(c_class_dir)
+
+        quickdraw_to_std(c_npz, c_class_dir)
+
+
+if __name__ == '__main__':
+    # adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
+    #
+    # for _ in range(10):
+    #     adataset.vis_sketch(0)
+
+    quickdraw_to_std_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\txt')
 
 
 

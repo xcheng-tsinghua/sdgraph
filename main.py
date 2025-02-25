@@ -143,24 +143,114 @@ if __name__ == '__main__':
 
     # vis.vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt\armchair\530.txt')
 
-    def hausdorff_distance(curves1, curves2):
-        # 计算距离矩阵，形状为 (a, b)
-        dist_matrix = torch.cdist(curves1, curves2, p=2)  # p=2表示欧氏距离
+    # def hausdorff_distance(curves1, curves2):
+    #     # 计算距离矩阵，形状为 (a, b)
+    #     dist_matrix = torch.cdist(curves1, curves2, p=2)  # p=2表示欧氏距离
+    #
+    #     # 对于curves1中的每条曲线，找到它到curves2的最小距离
+    #     min_dist_curves1 = dist_matrix.min(dim=2)[0]
+    #
+    #     # 对于curves2中的每条曲线，找到它到curves1的最小距离
+    #     min_dist_curves2 = dist_matrix.min(dim=1)[0]
+    #
+    #     # 计算Hausdorff距离
+    #     return max(min_dist_curves1.max(), min_dist_curves2.max())
+    #
+    #
+    # # 示例数据
+    # curves1 = torch.rand(3, 8, 2)
+    # curves2 = torch.rand(4, 9, 2)
+    #
+    # # 计算Hausdorff距离
+    # distance = hausdorff_distance(curves1, curves2)
+    # print(f"Hausdorff Distance: {distance.item()}")
 
-        # 对于curves1中的每条曲线，找到它到curves2的最小距离
-        min_dist_curves1 = dist_matrix.min(dim=2)[0]
 
-        # 对于curves2中的每条曲线，找到它到curves1的最小距离
-        min_dist_curves2 = dist_matrix.min(dim=1)[0]
+    def idx_step(idx_list: list, max_idx):
+        """
+        根据当前索引计算下一个索引
+        :param idx_list:
+        :param max_idx: 目标数组长度
+        :return:
+        """
+        # 防止对参数进行修改
+        idx_local = idx_list.copy()
 
-        # 计算Hausdorff距离
-        return max(min_dist_curves1.max(), min_dist_curves2.max())
+        # 插入辅助索引，以使最后一个索引和其他索引有相同的判断条件
+        idx_local.append(max_idx)
+
+        # 定位到最初尝试移动的索引
+        last_pointer = len(idx_local) - 2
+        last_pointer_max = len(idx_local) - 2
+
+        # 当前状态下索引课否移动
+        is_success = False
+
+        while True:
+            # 如果最后一个不能向前，尝试移动前一位
+            if (idx_local[last_pointer] + 1) == idx_local[last_pointer + 1]:
+                last_pointer = last_pointer - 1
+
+            else:
+                idx_local[last_pointer] = idx_local[last_pointer] + 1
+
+                # 不移动最后一个索引时，需要将当前移动的索引及之后的索引构建成自然升序
+                if last_pointer != last_pointer_max:
+                    former_part = idx_local[:last_pointer]
+
+                    len_later = last_pointer_max - last_pointer + 1
+                    began_later = idx_local[last_pointer]
+                    later_part = list(range(began_later, began_later + len_later + 1))
+
+                    idx_local = former_part + later_part
+
+                is_success = True
+                break
+
+            # 全部不能移动时跳出循环
+            if last_pointer < 0:
+                break
+
+        # 删除辅助索引
+        idx_local.pop()
+
+        return is_success, idx_local
 
 
-    # 示例数据
-    curves1 = torch.rand(3, 8, 2)
-    curves2 = torch.rand(4, 9, 2)
+    def search_idx(k=3):
+        idx = list(range(k))
 
-    # 计算Hausdorff距离
-    distance = hausdorff_distance(curves1, curves2)
-    print(f"Hausdorff Distance: {distance.item()}")
+        all_idx = [[]]
+
+        for i in range(1, len(idx) + 1):
+            c_idx = list(range(i))
+            all_idx.append(c_idx.copy())
+
+            while True:
+                c_res = idx_step(c_idx, k)
+
+                if not c_res[0]:
+                    break
+                else:
+                    c_idx = c_res[1]
+                    all_idx.append(c_res[1].copy())
+
+        return all_idx
+
+    def search_sub_set(target: list):
+        all_idx = search_idx(len(target))
+
+        all_vals = []
+        for c_idx in all_idx:
+            c_val = [target[i] for i in c_idx]
+            all_vals.append(c_val)
+
+        return all_vals
+
+    all_sub_set = search_sub_set([0, 1, 2, 3, 4, 5])
+
+    for c_subset in all_sub_set:
+        print(c_subset)
+    print(len(all_sub_set))
+
+    pass
