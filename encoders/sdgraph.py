@@ -28,7 +28,7 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=0.4)
+        self.point_to_sparse = PointToSparse(2, sparse_l0)
         self.point_to_dense = PointToDense(2, dense_l0)
 
         # 利用 sdgraph 更新特征
