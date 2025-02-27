@@ -490,7 +490,7 @@ class SDGraph(nn.Module):
         """
         super().__init__()
 
-        print('cls 25.1.22版')
+        print('cls valid backup')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
