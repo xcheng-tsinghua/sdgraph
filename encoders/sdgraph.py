@@ -475,11 +475,11 @@ def test():
     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt])
     t1 = torch.randint(0, 1000, (bs,)).long()
 
-    classifier = SDGraphSeg2(2, 2)
-    cls11 = classifier(atensor, t1)
+    # classifier = SDGraphSeg2(2, 2)
+    # cls11 = classifier(atensor, t1)
 
-    # classifier = SDGraphCls2(10)
-    # cls11 = classifier(atensor)
+    classifier = SDGraphCls(10)
+    cls11 = classifier(atensor)
 
     print(cls11.size())
 
