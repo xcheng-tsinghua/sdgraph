@@ -12,7 +12,7 @@ class SDGraphEncoder(nn.Module):
     def __init__(self,
                  sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
                  n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
-                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sp_near=2, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
                  sample_type='down_sample',  # 采样类型
                  with_time=False, time_emb_dim=0,  # 是否附加时间步
                  dropout=0.2
@@ -571,7 +571,8 @@ class DenseToSparseAttn(nn.Module):
 
 class PointToSparse(nn.Module):
     """
-    将 dense graph 的数据转移到 sparse graph
+    将 dense graph 的数据转移到 sparse graph'
+    使用一维卷积及最大池化方式
     """
     def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4,
                  with_time=False, time_emb_dim=0):
@@ -626,6 +627,7 @@ class PointToSparse(nn.Module):
 class PointToDense(nn.Module):
     """
     利用点坐标生成 dense graph
+    使用DGCNN直接为每个点生成对应特征
     """
     def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10, dropout=0.2):
         super().__init__()
@@ -652,7 +654,8 @@ class PointToDense(nn.Module):
 
 class SparseToDense(nn.Module):
     """
-    直接拼接
+    将sgraph转移到dgraph
+    直接拼接到该笔划对应的点
     """
     def __init__(self, n_stk, n_stk_pnt):
         super().__init__()
@@ -685,6 +688,7 @@ class SparseToDense(nn.Module):
 class DenseToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
+    通过卷积然后最大池化到一个特征，然后拼接
     """
     def __init__(self, dense_in, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
