@@ -8,6 +8,7 @@ from tqdm import tqdm
 from colorama import Fore, Back, init
 import os
 
+import global_defs
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
 from encoders.sdgraph import SDGraphCls as SDGraphCls
@@ -27,8 +28,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/unified_sketch_cad_stk32_stkpnt32', help='---')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
 
     # r'/root/my_data/data_set/unified_sketch_cad_stk32_stkpnt32'
     # r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32'
