@@ -8,7 +8,7 @@ from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, 
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int):
+    def __init__(self, n_class: int, dropout=0.4):
         """
         :param n_class: 总类别数
         """
@@ -28,8 +28,8 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0)
-        self.point_to_dense = PointToDense(2, dense_l0)
+        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=dropout)
+        self.point_to_dense = PointToDense(2, dense_l0, dropout=dropout)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
