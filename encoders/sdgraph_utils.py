@@ -15,7 +15,7 @@ class SDGraphEncoder(nn.Module):
                  sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
                  sample_type='down_sample',  # 采样类型
                  with_time=False, time_emb_dim=0,  # 是否附加时间步
-                 dropout=0.2
+                 dropout=0.4
                  ):
         """
         :param sample_type: [down_sample, up_sample, none]
@@ -25,15 +25,15 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
         self.with_time = with_time
 
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, 0.4)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, 0)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, 0)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)  # dp-0
+        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, dropout)  # dp-0
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, self.n_stk, self.n_stk_pnt, 0.4)
+            self.sample = DownSample(int((dense_in * dense_out) ** 0.5), dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'up_sample':
             self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'none':
