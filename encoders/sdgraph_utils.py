@@ -15,7 +15,7 @@ class SDGraphEncoder(nn.Module):
                  sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
                  sample_type='down_sample',  # 采样类型
                  with_time=False, time_emb_dim=0,  # 是否附加时间步
-                 dropout=0.4
+                 dropout=0.0
                  ):
         """
         :param sample_type: [down_sample, up_sample, none]
@@ -28,8 +28,8 @@ class SDGraphEncoder(nn.Module):
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, 0)  # dp-0
-        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, 0)  # dp-0
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)  # dp-0
+        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near)  # dp-0
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
@@ -205,7 +205,7 @@ class GCNEncoder(nn.Module):
     """
     实际上是 DGCNN Encoder
     """
-    def __init__(self, emb_in, emb_out, n_near=10, dropout=0.0):
+    def __init__(self, emb_in, emb_out, n_near=10):
         super().__init__()
         self.n_near = n_near
 
@@ -232,7 +232,7 @@ class GCNEncoder(nn.Module):
                                            )
 
         self.conv3 = full_connected_conv1d([emb_l3_0, emb_l3_1, emb_l3_2],
-                                           final_proc=True, drop_rate=dropout
+                                           final_proc=True, drop_rate=0.0
                                            )
 
     def forward(self, x):
