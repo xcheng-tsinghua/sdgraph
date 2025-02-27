@@ -224,11 +224,11 @@ class GCNEncoder(nn.Module):
 
         self.conv1 = full_connected_conv2d([emb_l1_0, emb_l1_1, emb_l1_2],
                                            final_proc=True,
-                                           drop_rate=dropout
+                                           drop_rate=0.0
                                            )
         self.conv2 = full_connected_conv2d([emb_l2_0, emb_l2_1, emb_l2_2],
                                            final_proc=True,
-                                           drop_rate=dropout
+                                           drop_rate=0.0
                                            )
 
         self.conv3 = full_connected_conv1d([emb_l3_0, emb_l3_1, emb_l3_2],
