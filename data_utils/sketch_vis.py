@@ -5,6 +5,21 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 
 import global_defs
+from data_utils.sketch_utils import get_allfiles, get_subdirs
+
+import encoders.spline as sp
+
+
+def vis_sketch_folder(root):
+    classes = get_subdirs(root)
+    for c_class in classes:
+        c_dir = os.path.join(root, c_class)
+        c_files = get_allfiles(c_dir)
+
+        for idx in range(3):
+            c_file_show = c_files[idx]
+            print(c_file_show)
+            vis_sketch_orig(c_file_show)
 
 
 def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
@@ -34,14 +49,32 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     # 最后一行最后一个数改为17，防止出现空数组
     sketch_data[-1, 2] = pen_down
 
+    # -------------------------------
+    # 去掉点数过少的笔划
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
+
     # split all strokes
     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
 
-    for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
+    # 重采样，使得点之间的距离近似相等
+    strokes = sp.batched_spline_approx(
+        point_list=strokes,
+        median_ratio=0.1,
+        approx_mode='uni-arclength'
+    )
+
+    colors = [[31/255,119/255,180/255], [255/255,127/255,14/255], [44/255,160/255,44/255], [214/255,39/255,40/255], [148/255,103/255,189/255], [140/255,86/255,75/255], [227/255,119/255,194/255]]
+
+    for s, color in zip(strokes, colors):
+        s = s[::105]  # 45
+        # plt.plot(s[:, 0], -s[:, 1], color=color)
 
         if show_dot:
-            plt.scatter(s[:, 0], -s[:, 1])
+            plt.scatter(s[:, 0], -s[:, 1], s=80, color=[31/255,119/255,180/255])
+
+        # if not show_axis:
+        #     plt.axis('off')
+        # plt.show()
 
     if not show_axis:
         plt.axis('off')
@@ -201,7 +234,12 @@ if __name__ == '__main__':
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
 
-    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32\train\Gear\0dd1520e215d8d4c3cdbfe889316ba33_4.txt')
+    # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32\train\Gear\0dd1520e215d8d4c3cdbfe889316ba33_4.txt')
+
+    # --- vis
+    # vis_sketch_folder(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt\train')
+
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt\train\Screw\00059b629114c82c98cd287b6d2a5d4c_1.txt', show_dot=True)
 
     pass
 

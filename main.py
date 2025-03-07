@@ -10,6 +10,7 @@ from scipy.interpolate import splprep, splev
 
 # import data_utils.sketch_vis as vis
 # from data_utils.sketch_utils import svg_to_txt
+import data_utils.sketch_utils as skutils
 
 
 def curve_fit(x, y, k):
@@ -116,56 +117,7 @@ def find_files_with_line_count_not_equal(directory, k):
     return files_with_wrong_line_count
 
 
-
-if __name__ == '__main__':
-    # curve_fit()
-    # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
-
-    # alist = [1, 2, 3, 4]
-    # val0 = alist[0]
-    #
-    # alist[0] = 3
-    #
-    # print(val0)
-
-    # x = torch.tensor([[1.0, 2.0, 3.0],
-    #                   [4.0, 5.0, 6.0]])
-    #
-    # x_normalized_dim0 = torch.nn.functional.normalize(x, dim=0)
-    # print(x_normalized_dim0)
-    # print(x_normalized_dim0.pow(2).sum(0))
-
-    # svg_file = r'D:\document\DeepLearning\DataSet\TU-Berlin\sketches\airplane\1.svg'  # 输入的SVG文件路径
-    # output_file = r'C:\Users\ChengXi\Desktop\1.txt'  # 输出的文本文件路径
-    #
-    # svg_to_txt(svg_file, output_file)
-    # vis.vis_sketch_orig(output_file)
-
-    # vis.vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt\armchair\530.txt')
-
-    # def hausdorff_distance(curves1, curves2):
-    #     # 计算距离矩阵，形状为 (a, b)
-    #     dist_matrix = torch.cdist(curves1, curves2, p=2)  # p=2表示欧氏距离
-    #
-    #     # 对于curves1中的每条曲线，找到它到curves2的最小距离
-    #     min_dist_curves1 = dist_matrix.min(dim=2)[0]
-    #
-    #     # 对于curves2中的每条曲线，找到它到curves1的最小距离
-    #     min_dist_curves2 = dist_matrix.min(dim=1)[0]
-    #
-    #     # 计算Hausdorff距离
-    #     return max(min_dist_curves1.max(), min_dist_curves2.max())
-    #
-    #
-    # # 示例数据
-    # curves1 = torch.rand(3, 8, 2)
-    # curves2 = torch.rand(4, 9, 2)
-    #
-    # # 计算Hausdorff距离
-    # distance = hausdorff_distance(curves1, curves2)
-    # print(f"Hausdorff Distance: {distance.item()}")
-
-
+def subset_search():
     def idx_step(idx_list: list, max_idx):
         """
         根据当前索引计算下一个索引
@@ -253,4 +205,76 @@ if __name__ == '__main__':
         print(c_subset)
     print(len(all_sub_set))
 
+
+if __name__ == '__main__':
+    # curve_fit()
+    # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
+
+    # alist = [1, 2, 3, 4]
+    # val0 = alist[0]
+    #
+    # alist[0] = 3
+    #
+    # print(val0)
+
+    # x = torch.tensor([[1.0, 2.0, 3.0],
+    #                   [4.0, 5.0, 6.0]])
+    #
+    # x_normalized_dim0 = torch.nn.functional.normalize(x, dim=0)
+    # print(x_normalized_dim0)
+    # print(x_normalized_dim0.pow(2).sum(0))
+
+    # svg_file = r'D:\document\DeepLearning\DataSet\TU-Berlin\sketches\airplane\1.svg'  # 输入的SVG文件路径
+    # output_file = r'C:\Users\ChengXi\Desktop\1.txt'  # 输出的文本文件路径
+    #
+    # svg_to_txt(svg_file, output_file)
+    # vis.vis_sketch_orig(output_file)
+
+    # vis.vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt\armchair\530.txt')
+
+    # def hausdorff_distance(curves1, curves2):
+    #     # 计算距离矩阵，形状为 (a, b)
+    #     dist_matrix = torch.cdist(curves1, curves2, p=2)  # p=2表示欧氏距离
+    #
+    #     # 对于curves1中的每条曲线，找到它到curves2的最小距离
+    #     min_dist_curves1 = dist_matrix.min(dim=2)[0]
+    #
+    #     # 对于curves2中的每条曲线，找到它到curves1的最小距离
+    #     min_dist_curves2 = dist_matrix.min(dim=1)[0]
+    #
+    #     # 计算Hausdorff距离
+    #     return max(min_dist_curves1.max(), min_dist_curves2.max())
+    #
+    #
+    # # 示例数据
+    # curves1 = torch.rand(3, 8, 2)
+    # curves2 = torch.rand(4, 9, 2)
+    #
+    # # 计算Hausdorff距离
+    # distance = hausdorff_distance(curves1, curves2)
+    # print(f"Hausdorff Distance: {distance.item()}")
+
+    mcba_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_A\train')
+    mcbb_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_B\train')
+
+    set_mcba = set(mcba_cat)
+    set_mcbb = set(mcbb_cat)
+
+    # 相同元素（交集）
+    common_elements = list(set_mcba & set_mcbb)
+
+    # 不同元素（对称差集）
+    different_elements = list(set_mcba ^ set_mcbb)
+
+    print(set_mcba)
+    print(set_mcbb)
+
+
+    print("相同元素:", common_elements)
+    print("不同元素:", different_elements)
+
     pass
+
+
+
+

@@ -596,6 +596,46 @@ def quickdraw_download(target_dir):
         print(f"Downloaded {category}")
 
 
+def pen_updown_alt(input_path, output_path):
+    with open(input_path, 'r') as f_in, open(output_path, 'w') as f_out:
+        for line in f_in:
+            # 去除换行符并分割字段
+            parts = line.strip().split(',')
+            if len(parts) != 4:
+                continue  # 跳过格式不正确的行（可选）
+
+            a, b, c, d = parts
+
+            # 转换c字段：16→0，17→1
+            new_c = '0' if c == '16' else '1'
+
+            # 构造新行并写入（自动添加换行符）
+            f_out.write(f"{a},{b},{new_c}\n")
+
+def pen_updown_alt_batched(source_dir, target_dir, up_before=16, down_before=17, up_after=0, down_after=1):
+    """
+    修改源文件夹里的草图的up down指令
+    :param source_dir:
+    :param target_dir:
+    :param up_before:
+    :param down_before:
+    :param up_after:
+    :param down_after:
+    :return:
+    """
+    # 先在target_dir创建与source_dir相同的目录层级
+    print('clear dir:', target_dir)
+    os.makedirs(target_dir, exist_ok=True)
+    shutil.rmtree(target_dir)
+    create_tree_like(source_dir, target_dir)
+
+    files_all = get_allfiles(source_dir)
+
+    for c_file in tqdm(files_all, total=len(files_all)):
+        target_file = c_file.replace(source_dir, target_dir)
+        pen_updown_alt(c_file, target_file)
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -606,9 +646,9 @@ if __name__ == '__main__':
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple', f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
-    quickdraw_download(r'D:\document\DeepLearning\DataSet\quickdraw_all')
+    # quickdraw_download(r'D:\document\DeepLearning\DataSet\quickdraw_all')
 
-
+    pen_updown_alt_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', r'D:\document\DeepLearning\DataSet\sketch_cad\new')
 
     pass
 

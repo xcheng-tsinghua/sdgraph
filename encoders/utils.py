@@ -536,6 +536,11 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
 
     # ---------- 计算 mAP ----------
     all_labels_one_hot = label_binarize(all_labels, classes=np.arange(n_classes))
+
+    if n_classes == 2:
+        all_labels_one_hot_rev = 1 - all_labels_one_hot
+        all_labels_one_hot = np.concatenate([all_labels_one_hot_rev, all_labels_one_hot], axis=1)
+
     ap_sig = []
     # 计算单个类别的 ap
     for i in range(n_classes):

@@ -38,4 +38,100 @@ ps -ef | grep python
 nohup python train_cls.py --bs=32 --local=False
 
 
+python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_50 --prism_angle=50 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_60 --prism_angle=60 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_70 --prism_angle=70 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_80 --prism_angle=80 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_82 --prism_angle=82 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_85 --prism_angle=85 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_87 --prism_angle=87 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_89 --prism_angle=89
+
+python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_50 --prism_angle=50 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_60 --prism_angle=60 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_70 --prism_angle=70 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_80 --prism_angle=80 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_82 --prism_angle=82 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_85 --prism_angle=85 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_87 --prism_angle=87 && python train_cls_cp.py --model=DGCNN --save_str=DGCNN_cp_89 --prism_angle=89
+
+python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_50 --prism_angle=50 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_60 --prism_angle=60 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_70 --prism_angle=70 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_80 --prism_angle=80 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_82 --prism_angle=82 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_85 --prism_angle=85 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_87 --prism_angle=87 && python train_cls_cp.py --model=PointNet --save_str=PointNet_cp_89 --prism_angle=89
+
+python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_50 --prism_angle=50 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_60 --prism_angle=60 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_70 --prism_angle=70 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_80 --prism_angle=80 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_82 --prism_angle=82 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_85 --prism_angle=85 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_87 --prism_angle=87 && python train_cls_cp.py --model=PointConv --save_str=PointConv_cp_89 --prism_angle=89
+
+python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_50 --prism_angle=50 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_60 --prism_angle=60 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_70 --prism_angle=70 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_80 --prism_angle=80 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_82 --prism_angle=82 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_85 --prism_angle=85 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_87 --prism_angle=87 && python train_cls_cp.py --bs=280 --model=PointCNN --save_str=PointCNN_cp_89 --prism_angle=89
+
+python train_cls_cp.py --is_load_weight=True --bs=280 --epoch=5 --model=PointCNN --save_str=PointCNN_cp_50 --prism_angle=50 && python train_cls_cp.py --epoch=15 --bs=280 --model=PointCNN --save_str=PointCNN_cp_60 --prism_angle=60 && python train_cls_cp.py --epoch=20 --bs=280 --model=PointCNN --save_str=PointCNN_cp_70 --prism_angle=70 && python train_cls_cp.py --epoch=25 --bs=280 --model=PointCNN --save_str=PointCNN_cp_80 --prism_angle=80 && python train_cls_cp.py --epoch=30 --bs=280 --model=PointCNN --save_str=PointCNN_cp_82 --prism_angle=82 && python train_cls_cp.py --epoch=15 --bs=280 --model=PointCNN --save_str=PointCNN_cp_85 --prism_angle=85 && python train_cls_cp.py --epoch=10 --bs=280 --model=PointCNN --save_str=PointCNN_cp_87 --prism_angle=87 && python train_cls_cp.py --epoch=10 --bs=280 --model=PointCNN --save_str=PointCNN_cp_89 --prism_angle=89
+
+---
+python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_50 --prism_angle=50 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_60 --prism_angle=60 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_70 --prism_angle=70 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_80 --prism_angle=80 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_82 --prism_angle=82 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_85 --prism_angle=85 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_87 --prism_angle=87 && python train_cls_cp.py --bs=10 --model=PPFNet --save_str=PPFNet_cp_89 --prism_angle=89
+
+
+python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_50 --prism_angle=50 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_60 --prism_angle=60 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_70 --prism_angle=70 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_80 --prism_angle=80 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_82 --prism_angle=82 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_85 --prism_angle=85 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_87 --prism_angle=87 && python train_cls_cp.py --bs=100 --model=PPFNet --save_str=N_PPFNet_cp_89 --prism_angle=89
+
+
+
+# 旋转训练
+python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_45 --rotate=45 && python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_90 --rotate=90 && python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_135 --rotate=135 && python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_180 --rotate=180
+
+python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_45 --rotate=45 && python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_90 --rotate=90 && python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_135 --rotate=135 && python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_180 --rotate=180
+
+python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_45 --rotate=45 && python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_90 --rotate=90 && python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_135 --rotate=135 && python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_180 --rotate=180
+
+python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_45 --rotate=45 && python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_90 --rotate=90 && python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_135 --rotate=135 && python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_180 --rotate=180
+
+python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_45 --rotate=45 && python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_90 --rotate=90 && python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_135 --rotate=135 && python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_180 --rotate=180
+
+python eval_rot_cls_o.py --bs=280 --model=PointCNN --save_str=rot_PointCNN_45 --rotate=45 && python eval_rot_cls_o.py --bs=280 --model=PointCNN --save_str=rot_PointCNN_90 --rotate=90 && python eval_rot_cls_o.py --bs=280 --model=PointCNN --save_str=rot_PointCNN_135 --rotate=135 && python eval_rot_cls_o.py --bs=280 --model=PointCNN --save_str=rot_PointCNN_180 --rotate=180
+
+---
+python eval_rot_cls_o.py --bs=100 --model=PPFNet --save_str=rot_PPFNet_0 --rotate=0 && python eval_rot_cls_o.py --bs=100 --model=PPFNet --save_str=rot_PPFNet_45 --rotate=45 && python eval_rot_cls_o.py --bs=100 --model=PPFNet --save_str=rot_PPFNet_90 --rotate=90 && python eval_rot_cls_o.py --bs=100 --model=PPFNet --save_str=rot_PPFNet_135 --rotate=135 && python eval_rot_cls_o.py --bs=100 --model=PPFNet --save_str=rot_PPFNet_180 --rotate=180
+
+
+
+python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_0 &&
+python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_0 &&
+python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_0 &&
+python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_0 &&
+python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_0 &&
+python eval_rot_cls_o.py --bs=10 --model=PPFNet --save_str=rot_PPFNet_0
+
+
+python eval_rot_cls_o.py --model=GCN3D --save_str=rot_GCN3D_0 --is_load_weight=True && python eval_rot_cls_o.py --model=DGCNN --save_str=rot_DGCNN_0
+
+python eval_rot_cls_o.py --model=PointNet --save_str=rot_PointNet_0 && python eval_rot_cls_o.py --model=PointNet2 --save_str=rot_PointNet2_0 && python eval_rot_cls_o.py --model=PointConv --save_str=rot_PointConv_0 && python eval_rot_cls_o.py --bs=10 --model=PPFNet --save_str=rot_PPFNet_0
+
+-----
+python train_cls_with_cst.py --save_str=pcst_GCN3D --model=GCN3D --is_use_pred_addattr=True && python train_cls_with_cst.py --save_str=pcst_PointNet2 --model=PointNet2 --is_use_pred_addattr=True && python train_cls_with_cst.py --save_str=lcst_GCN3D --model=GCN3D --is_use_pred_addattr=False && python train_cls_with_cst.py --save_str=lcst_PointNet2 --model=PointNet2 --is_use_pred_addattr=False
+
+
+python train_cls_with_cst.py --save_str=pcst_DGCNN --model=DGCNN --is_use_pred_addattr=True && python train_cls_with_cst.py --save_str=pcst_PointNet --model=PointNet --is_use_pred_addattr=True && python train_cls_with_cst.py --save_str=lcst_DGCNN --model=DGCNN --is_use_pred_addattr=False && python train_cls_with_cst.py --save_str=lcst_PointNet --model=PointNet --is_use_pred_addattr=False
+
+
+------
+约束预测
+
+python train_cst_pred.py --model=hpnet --save_str=hpnet && python train_cst_pred.py --model=parsenet --save_str=parsenet
+
+python train_cst_pred.py --model=hpnet --abc_pack=1 --save_str=hpnet_abc && python train_cst_pred.py --model=hpnet --abc_pack=2 --save_str=hpnet_abc && python train_cst_pred.py --model=hpnet --abc_pack=3 --save_str=hpnet_abc
+
+python train_cst_pred.py --abc_pack=1 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=2 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=3 --model=parsenet --save_str=parsenet_abc
+
+
+-----
+python train_cst_pred.py --abc_pack=4 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=5 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=6 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=7 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=8 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=9 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=10 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=11 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=12 --model=hpnet --save_str=hpnet_abc
+python train_cst_pred.py --abc_pack=4 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=5 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=6 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=7 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=8 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=9 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=10 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=11 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=12 --model=parsenet --save_str=parsenet_abc
+
+
+
+
+python train_cst_pred.py --abc_pack=4 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=4 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=5 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=5 --model=parsenet --save_str=parsenet_abc && python train_cst_pred.py --abc_pack=6 --model=hpnet --save_str=hpnet_abc && python train_cst_pred.py --abc_pack=6 --model=parsenet --save_str=parsenet_abc
+
+
+
+python train_cls_with_cst.py --save_str=pcst_CstNet --model=CstNet --is_use_pred_addattr=True --bs=16
+python train_cls_with_cst.py --save_str=lcst_CstNet --model=CstNet --is_use_pred_addattr=False --bs=64
+
+---
+测试hpnet和parsenet
+python eval_cst_pred.py --model=hpnet --save_str=hpnet_abc
+python eval_cst_pred.py --model=parsenet --save_str=parsenet_abc
+
+
+--
+训练cst-pcd
+python train_cst_pred.py --model=cstpcd --save_str=cst_pcd_abc25t --abc_pack=21
+
+python train_cst_pred.py --model=cstpcd --save_str=cst_pcd_abc26t --abc_pack=21 --bs=16
+
+
+
+
 
