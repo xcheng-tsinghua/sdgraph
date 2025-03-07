@@ -11,8 +11,8 @@ import os
 import global_defs
 # 自建模块
 from data_utils.SketchDataset import SketchDataset
-# from encoders.sdgraph import SDGraphCls as SDGraphCls
-from encoders.sdgraph_valid_bk import SDGraph as SDGraphCls
+from encoders.sdgraph import SDGraphCls as SDGraphCls
+# from encoders.sdgraph_valid_bk import SDGraph as SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
 
 
@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/TU_Berlin_std_cls', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
 
     # rf'/root/my_data/data_set/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}'
