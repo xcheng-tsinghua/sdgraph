@@ -556,7 +556,7 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
-def vis_cls_log(log_file):
+def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=2):
     # 定义正则表达式，匹配浮点数
     float_pattern = r'[-+]?\d*\.\d+|\d+\.\d*e[-+]?\d+'
 

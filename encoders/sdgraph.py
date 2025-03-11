@@ -8,12 +8,12 @@ from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, 
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, dropout=0.4):
+    def __init__(self, n_class: int, dropout=0.3):
         """
         :param n_class: 总类别数
         """
         super().__init__()
-        print('cls 25.2.27 仿照有效版')
+        print('cls 25.3.11')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
@@ -28,8 +28,8 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0)
-        self.point_to_dense = PointToDense(2, dense_l0)
+        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=dropout)
+        self.point_to_dense = PointToDense(2, dense_l0, dropout=dropout)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
@@ -52,7 +52,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False)
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
     def forward(self, xy):
         """
