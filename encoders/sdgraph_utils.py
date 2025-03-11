@@ -28,7 +28,7 @@ class SDGraphEncoder(nn.Module):
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout=0.0)
         self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, dropout)
 
         self.sample_type = sample_type
@@ -224,15 +224,15 @@ class GCNEncoder(nn.Module):
 
         self.conv1 = full_connected_conv2d([emb_l1_0, emb_l1_1, emb_l1_2],
                                            final_proc=True,
-                                           drop_rate=0.0
+                                           drop_rate=dropout
                                            )
         self.conv2 = full_connected_conv2d([emb_l2_0, emb_l2_1, emb_l2_2],
                                            final_proc=True,
-                                           drop_rate=0.0
+                                           drop_rate=dropout
                                            )
 
         self.conv3 = full_connected_conv1d([emb_l3_0, emb_l3_1, emb_l3_2],
-                                           final_proc=True, drop_rate=0.0
+                                           final_proc=True, drop_rate=dropout
                                            )
 
     def forward(self, x):
