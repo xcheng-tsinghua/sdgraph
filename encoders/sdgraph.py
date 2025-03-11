@@ -8,7 +8,7 @@ from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, 
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, dropout=0.0):
+    def __init__(self, n_class: int, dropout=0.4):
         """
         :param n_class: 总类别数
         """
