@@ -232,7 +232,7 @@ class GCNEncoder(nn.Module):
                                            )
 
         self.conv3 = full_connected_conv1d([emb_l3_0, emb_l3_1, emb_l3_2],
-                                           final_proc=True, drop_rate=dropout
+                                           final_proc=True, drop_rate=0.0
                                            )
 
     def forward(self, x):
