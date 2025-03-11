@@ -631,7 +631,7 @@ class PointToDense(nn.Module):
     """
     def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10, dropout=0.):
         super().__init__()
-        self.encoder = GCNEncoder(point_dim, emb_dim, n_near)
+        self.encoder = GCNEncoder(point_dim, emb_dim, n_near, dropout=dropout)
 
         self.with_time = with_time
         if self.with_time:
