@@ -29,7 +29,7 @@ class SDGraphEncoder(nn.Module):
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout=0.0)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, dropout)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, int((dense_in * dense_out) ** 0.5), dn_near, dropout=0.0)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
