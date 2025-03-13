@@ -34,12 +34,12 @@ class SDGraphCls(nn.Module):
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   self.n_stk, self.n_stk_pnt,
-                                  dropout=dropout
+                                  dropout=0.0
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                   self.n_stk, self.n_stk_pnt // 2,
-                                  dropout=dropout
+                                  dropout=0.0
                                   )
 
         # 利用输出特征进行分类
