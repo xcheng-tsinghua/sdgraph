@@ -28,8 +28,8 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=0.0)  # 这里dropout要用零
-        self.point_to_dense = PointToDense(2, dense_l0, dropout=0.0)
+        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=0.0)  # 这里dropout要用零，否则准确率大幅下降
+        self.point_to_dense = PointToDense(2, dense_l0, dropout=0.0)  # 这里dropout要用零，否则准确率小幅下降
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
@@ -52,7 +52,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=0.0)
 
     def forward(self, xy):
         """
