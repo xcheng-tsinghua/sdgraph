@@ -25,7 +25,7 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_pnt = n_stk_pnt
         self.with_time = with_time
 
-        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
+        self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, 0.0)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
         self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout=0.0)
