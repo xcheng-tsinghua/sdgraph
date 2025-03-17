@@ -52,7 +52,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=0.0)  # 这里dropout=0在初始加快收敛，但后续几乎无影响，可加可不加
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)  # 这里dropout=0在初始加快收敛，但后续几乎无影响，可加可不加
 
     def forward(self, xy):
         """

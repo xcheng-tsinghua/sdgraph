@@ -1,4 +1,7 @@
 
+cd ./my_data/networks/sdgraph/
+conda activate dp
+
 ## 同步到云端
 # 查看当前状态
 git status
