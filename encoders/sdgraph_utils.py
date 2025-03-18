@@ -100,8 +100,8 @@ class SDGraphEncoderUNet(nn.Module):
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near, dropout)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near, dropout)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
@@ -574,7 +574,7 @@ class PointToSparse(nn.Module):
     将 dense graph 的数据转移到 sparse graph'
     使用一维卷积及最大池化方式
     """
-    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4,
+    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
                  with_time=False, time_emb_dim=0):
         super().__init__()
 
@@ -588,12 +588,12 @@ class PointToSparse(nn.Module):
             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
             nn.BatchNorm2d(mid_dim),
             activate_func(),
-            nn.Dropout2d(dropout),
+            # nn.Dropout2d(dropout),
 
             nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
             nn.BatchNorm2d(sparse_out),
             activate_func(),
-            nn.Dropout2d(dropout),
+            # nn.Dropout2d(dropout),
         )
 
         if self.with_time:
@@ -629,9 +629,9 @@ class PointToDense(nn.Module):
     利用点坐标生成 dense graph
     使用DGCNN直接为每个点生成对应特征
     """
-    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10, dropout=0.):
+    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10):
         super().__init__()
-        self.encoder = GCNEncoder(point_dim, emb_dim, n_near, dropout=dropout)
+        self.encoder = GCNEncoder(point_dim, emb_dim, n_near)
 
         self.with_time = with_time
         if self.with_time:
