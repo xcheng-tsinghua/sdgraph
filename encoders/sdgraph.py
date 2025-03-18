@@ -8,7 +8,7 @@ from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, 
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, dropout=0.4):
+    def __init__(self, n_class: int, dropout=0.3):
         """
         :param n_class: 总类别数
         """
@@ -52,7 +52,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)  # 当前更改，将此处变为dropout，变更前150 epoch收敛0.68
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
     def forward(self, xy):
         """
