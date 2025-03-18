@@ -33,9 +33,9 @@ class SDGraphEncoder(nn.Module):
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)  # 这里当前测试为零
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:
@@ -232,7 +232,7 @@ class GCNEncoder(nn.Module):
                                            )
 
         self.conv3 = full_connected_conv1d([emb_l3_0, emb_l3_1, emb_l3_2],
-                                           final_proc=True, drop_rate=dropout
+                                           final_proc=True, drop_rate=0.0  # 当前更改，将此处dropout=0
                                            )
 
     def forward(self, x):
