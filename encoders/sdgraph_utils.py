@@ -33,9 +33,9 @@ class SDGraphEncoder(nn.Module):
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)  # 当前测试，这里设为零
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)  # 这里dropout不能为零
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)  # 当前测试，这里设为零
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)  # 这里dropout不能为零
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:

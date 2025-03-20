@@ -8,7 +8,7 @@ from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, 
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, dropout=0.4):
+    def __init__(self, n_class: int, dropout=0.3):
         """
         :param n_class: 总类别数
         """
@@ -182,7 +182,7 @@ class SDGraphCls2(nn.Module):
 
 
 class SDGraphSeg(nn.Module):
-    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
+    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.3):
         super().__init__()
         print('diff 2025.2.19')
 
@@ -207,8 +207,8 @@ class SDGraphSeg(nn.Module):
         self.time_encode = TimeEncode(time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim, dropout=dropout)
-        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim, dropout=dropout)
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,

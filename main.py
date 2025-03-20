@@ -214,32 +214,56 @@ def vis_stk_score():
 
     S1, S2, S3, X, Y = data[:, 0], data[:, 1], data[:, 2], data[:, 3], data[:, 4]
 
-    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+    fig, axes = plt.subplots(1, 5, figsize=(20, 5))
 
-    scatter1 = axes[0].scatter(X, Y, c=S1, cmap='viridis', edgecolor='none')
+    x_v = []
+    y_v = []
+    c1_v = []
+    c2_v = []
+    c3_v = []
+    c_seg = []
+
+    x_seg = []
+    y_seg = []
+
+    for i in range(len(S1)):
+        x_seg.append(X[i])
+        y_seg.append(Y[i])
+
+        if S1[i] == 0 and S2[i] == 0 and S3[i] == 0:
+            c_seg.append(1.0)
+        elif S1[i] == 0.5 and S2[i] == 0.5 and S3[i] == 0.5:
+            c_seg.append(0.5)
+        else:
+            c1_v.append(S1[i])
+            c2_v.append(S2[i])
+            c3_v.append(S3[i])
+            x_v.append(X[i])
+            y_v.append(Y[i])
+
+            c_seg.append(0.0)
+
+    scatter1 = axes[0].scatter(x_v, y_v, c=c1_v, cmap='viridis', edgecolor='none')
     axes[0].set_title("Scatter plot colored by S1")
     fig.colorbar(scatter1, ax=axes[0], label='S1')
 
-    scatter2 = axes[1].scatter(X, Y, c=S2, cmap='plasma', edgecolor='none')
+    scatter2 = axes[1].scatter(x_v, y_v, c=c2_v, cmap='plasma', edgecolor='none')
     axes[1].set_title("Scatter plot colored by S2")
     fig.colorbar(scatter2, ax=axes[1], label='S2')
 
-    scatter3 = axes[2].scatter(X, Y, c=S3, cmap='coolwarm', edgecolor='none')
+    scatter3 = axes[2].scatter(x_v, y_v, c=c3_v, cmap='coolwarm', edgecolor='none')
     axes[2].set_title("Scatter plot colored by S3")
     fig.colorbar(scatter3, ax=axes[2], label='S3')
 
     # 显示分割点
-    color = []
-    for i in range(len(S1)):
-        if S1[i] == 0 and S2[i] == 0 and S3[i] == 0:
-            color.append(1.0)
-        else:
-            color.append(0.0)
-
-    scatter3 = axes[3].scatter(X, Y, c=color, cmap='viridis', edgecolor='none')
+    scatter4 = axes[3].scatter(x_seg, y_seg, c=c_seg, cmap='viridis', edgecolor='none')
     axes[3].set_title("Splits")
-    fig.colorbar(scatter3, ax=axes[3], label='splits')
+    fig.colorbar(scatter4, ax=axes[3], label='splits')
 
+    axes[4].plot(c1_v, c2_v)
+    x_base = [c1_v[0], c1_v[-1]]
+    y_base = [max(c2_v) * 0.8, max(c2_v) * 0.8]
+    axes[4].plot(x_base, y_base)
 
     for ax in axes:
         ax.set_xlabel("X")
