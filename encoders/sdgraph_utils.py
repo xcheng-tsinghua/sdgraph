@@ -33,17 +33,17 @@ class SDGraphEncoder(nn.Module):
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = DownSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)  # 当前测试，这里设为零
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = UpSample(dense_out, dense_out, self.n_stk, self.n_stk_pnt, 0.0)  # 当前测试，这里设为零
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:
             raise ValueError('invalid sample type')
 
         if self.with_time:
-            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, 0.0)  # 当前测试，这里设为零
-            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, 0.0)  # 当前测试，这里设为零
+            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)  # 这里dropout不能为零
+            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, dropout)  # 这里dropout不能为零
 
     def forward(self, sparse_fea, dense_fea, time_emb=None):
         """
