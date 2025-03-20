@@ -42,8 +42,8 @@ class SDGraphEncoder(nn.Module):
             raise ValueError('invalid sample type')
 
         if self.with_time:
-            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)
-            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, dropout)
+            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, 0.0)  # 当前测试，这里设为零
+            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, 0.0)  # 当前测试，这里设为零
 
     def forward(self, sparse_fea, dense_fea, time_emb=None):
         """

@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import svgpathtools
 from svgpathtools import svg2paths2
+import pandas as pd
+import ruptures as rpt
 
 import matplotlib.pyplot as plt
 import os
@@ -206,6 +208,104 @@ def subset_search():
     print(len(all_sub_set))
 
 
+def vis_stk_score():
+    # 读取文件
+    data = np.loadtxt(r'C:/Users/ChengXi/Desktop/sketch_test/scores.txt', delimiter=',')
+
+    S1, S2, S3, X, Y = data[:, 0], data[:, 1], data[:, 2], data[:, 3], data[:, 4]
+
+    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+    scatter1 = axes[0].scatter(X, Y, c=S1, cmap='viridis', edgecolor='none')
+    axes[0].set_title("Scatter plot colored by S1")
+    fig.colorbar(scatter1, ax=axes[0], label='S1')
+
+    scatter2 = axes[1].scatter(X, Y, c=S2, cmap='plasma', edgecolor='none')
+    axes[1].set_title("Scatter plot colored by S2")
+    fig.colorbar(scatter2, ax=axes[1], label='S2')
+
+    scatter3 = axes[2].scatter(X, Y, c=S3, cmap='coolwarm', edgecolor='none')
+    axes[2].set_title("Scatter plot colored by S3")
+    fig.colorbar(scatter3, ax=axes[2], label='S3')
+
+    # 显示分割点
+    color = []
+    for i in range(len(S1)):
+        if S1[i] == 0 and S2[i] == 0 and S3[i] == 0:
+            color.append(1.0)
+        else:
+            color.append(0.0)
+
+    scatter3 = axes[3].scatter(X, Y, c=color, cmap='viridis', edgecolor='none')
+    axes[3].set_title("Splits")
+    fig.colorbar(scatter3, ax=axes[3], label='splits')
+
+
+    for ax in axes:
+        ax.set_xlabel("X")
+        ax.set_ylabel("Y")
+
+    plt.tight_layout()
+    plt.show()
+
+
+def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
+    """
+    从指定的 Excel 文件和表单中读取波形数据，检测方波并画图。
+
+    参数说明：
+    ----------
+    xlsx_file : str
+        Excel 文件路径（后缀 .xlsx）。
+    sheet_name : str
+        要读取的表名，默认为 "Sheet1"。
+    pen : float
+        ruptures 中的惩罚项，越大分段越少，默认为 10。
+
+    使用示例：
+    ----------
+    detect_and_plot_square_wave("data.xlsx", sheet_name="Signal", pen=8)
+    """
+
+    # 1. 读取 Excel 数据（假设第 1 行是表头，实际数据从第 2 行开始）
+    df = pd.read_excel(xlsx_file, sheet_name=sheet_name, header=0)
+
+    # 如果你的 Excel 确实在第 2 行开始才是数据，可以通过 df.iloc 进一步裁剪
+    df = df.iloc[1:, :]  # 如果确实要跳过第一行之外的更多行，可自行调整
+
+    # 2. 提取 x、y 坐标 (这里假设第 1 列是 x, 第 2 列是 y)
+    x = df.iloc[:, 0].values
+    y = df.iloc[:, 1].values
+
+    # 3. 使用 ruptures 进行变点检测（以 Pelt 算法为例）
+    model = rpt.Pelt(model="l2").fit(y)
+    # 根据 pen 值寻找变点，返回的 result 列表包含所有分段末端的索引（包含 len(y)）
+    result = model.predict(pen=pen)
+
+    # 4. 构造方波：将每一段用该段的均值替代
+    segData = np.zeros_like(y)
+    start_idx = 0
+    for end_idx in result:
+        # 注意 end_idx 是分段末端+1 的位置，因此 segData[start_idx:end_idx]
+        # 包含了该段的所有采样点
+        segData[start_idx:end_idx] = y[start_idx:end_idx].mean()
+        start_idx = end_idx
+
+    # 5. 画图
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, y, label="Raw Data", linewidth=1)
+    plt.plot(x, segData, label="Detected Square Wave", linewidth=2)
+    plt.title("Original Wave vs. Detected Square Wave")
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    return x, y, segData
+
+
+
 if __name__ == '__main__':
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
@@ -254,24 +354,28 @@ if __name__ == '__main__':
     # distance = hausdorff_distance(curves1, curves2)
     # print(f"Hausdorff Distance: {distance.item()}")
 
-    mcba_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_A\train')
-    mcbb_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_B\train')
+    # mcba_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_A\train')
+    # mcbb_cat = skutils.get_subdirs(r'D:\document\DeepLearning\DataSet\MCB_PointCloud\MCB_B\train')
+    #
+    # set_mcba = set(mcba_cat)
+    # set_mcbb = set(mcbb_cat)
+    #
+    # # 相同元素（交集）
+    # common_elements = list(set_mcba & set_mcbb)
+    #
+    # # 不同元素（对称差集）
+    # different_elements = list(set_mcba ^ set_mcbb)
+    #
+    # print(set_mcba)
+    # print(set_mcbb)
+    #
+    #
+    # print("相同元素:", common_elements)
+    # print("不同元素:", different_elements)
 
-    set_mcba = set(mcba_cat)
-    set_mcbb = set(mcbb_cat)
+    vis_stk_score()
 
-    # 相同元素（交集）
-    common_elements = list(set_mcba & set_mcbb)
-
-    # 不同元素（对称差集）
-    different_elements = list(set_mcba ^ set_mcbb)
-
-    print(set_mcba)
-    print(set_mcbb)
-
-
-    print("相同元素:", common_elements)
-    print("不同元素:", different_elements)
+    # detect_and_plot_square_wave(r'C:\Users\ChengXi\Desktop\wave_data.xlsx')
 
     pass
 
