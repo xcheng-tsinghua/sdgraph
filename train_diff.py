@@ -34,6 +34,8 @@ def parse_args():
 
 
 def main(args):
+    print(args)
+
     save_str = args.save_str
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
