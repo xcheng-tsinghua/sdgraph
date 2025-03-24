@@ -182,7 +182,7 @@ class SDGraphCls2(nn.Module):
 
 
 class SDGraphSeg(nn.Module):
-    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
+    def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.3):
         super().__init__()
         print('diff 2025.2.19')
 
