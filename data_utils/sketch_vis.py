@@ -66,8 +66,8 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     colors = [[31/255,119/255,180/255], [255/255,127/255,14/255], [44/255,160/255,44/255], [214/255,39/255,40/255], [148/255,103/255,189/255], [140/255,86/255,75/255], [227/255,119/255,194/255]]
 
     for s, color in zip(strokes, colors):
-        s = s[::105]  # 45
-        # plt.plot(s[:, 0], -s[:, 1], color=color)
+        # s = s[::105]  # 45
+        plt.plot(s[:, 0], -s[:, 1], color=color)
 
         if show_dot:
             plt.scatter(s[:, 0], -s[:, 1], s=80, color=[31/255,119/255,180/255])
@@ -239,7 +239,7 @@ if __name__ == '__main__':
     # --- vis
     # vis_sketch_folder(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt\train')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt\train\Screw\00059b629114c82c98cd287b6d2a5d4c_1.txt', show_dot=True)
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\1.txt', show_dot=False)
 
     pass
 
