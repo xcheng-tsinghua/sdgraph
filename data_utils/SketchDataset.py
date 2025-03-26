@@ -344,6 +344,13 @@ def quickdraw_to_std(quickdraw_root, std_root):
 
 
 def quickdraw_to_std_batched(root_npz, root_txt):
+    """
+    将root_npz下的全部npz文件转化为std草图（非unified std草图）
+    一个npz转对应一个文件夹
+    :param root_npz:
+    :param root_txt:
+    :return:
+    """
 
     # 找到全部文件
     npz_all = get_allfiles(root_npz, 'npz')
