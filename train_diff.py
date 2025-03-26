@@ -56,14 +56,6 @@ def main(args):
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 
-    '''定义数据集'''
-    if args.local == 'True':
-        data_root = args.root_local
-    else:
-        data_root = args.root_sever
-    train_dataset = DiffDataset(root=data_root, shuffle_stk=True)
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-
     '''加载模型及权重'''
     model = SDGraphSeg(2, 2)
     model_savepth = 'model_trained/' + save_str + '.pth'
@@ -80,37 +72,47 @@ def main(args):
     diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
-    '''优化器'''
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=args.lr,
-        betas=(0.9, 0.999),
-        eps=1e-08,
-        weight_decay=1e-4
-    )
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+    if args.epoch > 0:
 
-    '''训练'''
-    for epoch_idx in range(args.epoch):
-        diffusion = diffusion.train()
+        '''定义数据集'''
+        if args.local == 'True':
+            data_root = args.root_local
+        else:
+            data_root = args.root_sever
+        train_dataset = DiffDataset(root=data_root, shuffle_stk=True)
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
-        print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
+        '''优化器'''
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=args.lr,
+            betas=(0.9, 0.999),
+            eps=1e-08,
+            weight_decay=1e-4
+        )
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 
-        for batch_idx, data in enumerate(train_dataloader, 0):
-            points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
+        '''训练'''
+        for epoch_idx in range(args.epoch):
+            diffusion = diffusion.train()
 
-            optimizer.zero_grad()
-            loss = diffusion(points)
-            loss.backward()
-            optimizer.step()
+            print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
-            state_str = f"Epoch {epoch_idx}/{args.epoch}:, batch_idx {batch_idx}/{len(train_dataloader)}, Loss: {loss.detach().item():.4f}"
-            if batch_idx % args.n_print_skip == 0:
-                print(state_str)
-            logger.info(state_str)
+            for batch_idx, data in enumerate(train_dataloader, 0):
+                points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
 
-        scheduler.step()
-        torch.save(model.state_dict(), 'model_trained/' + save_str + '.pth')
+                optimizer.zero_grad()
+                loss = diffusion(points)
+                loss.backward()
+                optimizer.step()
+
+                state_str = f"Epoch {epoch_idx}/{args.epoch}:, batch_idx {batch_idx}/{len(train_dataloader)}, Loss: {loss.detach().item():.4f}"
+                if batch_idx % args.n_print_skip == 0:
+                    print(state_str)
+                logger.info(state_str)
+
+            scheduler.step()
+            torch.save(model.state_dict(), 'model_trained/' + save_str + '.pth')
 
     '''生成图片'''
     with torch.no_grad():
