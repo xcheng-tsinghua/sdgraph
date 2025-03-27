@@ -94,7 +94,7 @@ class SDGraphCls(nn.Module):
         return cls
 
 
-class SDGraphSeg(nn.Module):
+class SDGraphUNet(nn.Module):
     def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
         print('diff drop 0')
@@ -169,7 +169,7 @@ class SDGraphSeg(nn.Module):
             drop_rate=dropout
         )
 
-    def pnt_channel(self):
+    def channels(self):
         return self.channel_in
 
     def forward(self, xy, time):

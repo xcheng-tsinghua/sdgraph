@@ -10,7 +10,7 @@ from datetime import datetime
 import global_defs
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphSeg as SDGraphSeg
+from encoders.sdgraph import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
@@ -57,7 +57,7 @@ def main(args):
     logger.addHandler(file_handler)
 
     '''加载模型及权重'''
-    model = SDGraphSeg(2, 2)
+    model = SDGraphUNet(2, 2)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
@@ -69,7 +69,7 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.pnt_channel(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model, model.channels(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
     if args.epoch > 0:
