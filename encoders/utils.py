@@ -556,7 +556,7 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
-def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=2):
+def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=1):
     # 定义正则表达式，匹配浮点数
     float_pattern = r'[-+]?\d*\.\d+|\d+\.\d*e[-+]?\d+'
 
@@ -587,8 +587,8 @@ def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=2):
     n = floats.shape[0]
     x = np.arange(n)
 
-    y1 = floats[:, 0]
-    y2 = floats[:, 2]
+    y1 = floats[:, floats_idx_1]
+    y2 = floats[:, floats_idx_2]
 
     # 绘制第一条折线
     plt.plot(x, y1, label='train ins acc', linestyle='-', color='b')
@@ -655,6 +655,6 @@ if __name__ == '__main__':
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
     #
 
-    vis_cls_log(r'C:\Users\ChengXi\Desktop\log\cad_skh_origsd-2025-02-25 11-41-13.txt')
+    vis_cls_log(r'C:\Users\ChengXi\Desktop\sdgraph-2025-03-27 02-36-16.txt')
 
     pass
