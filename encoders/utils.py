@@ -482,7 +482,7 @@ def clear_log(folder_path, k=5):
                 print(f"Error reading file {file_path}: {e}")
 
 
-def clear_confusion(root_dir='./data_utils/confusion', k=5):
+def clear_confusion(root_dir='./data_utils/confusion', k=2):
     """
     遍历 root_dir 中的文件夹，删除文件数小于 k 的文件夹。
 
