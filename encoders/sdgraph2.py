@@ -20,7 +20,7 @@ def knn(x, k):
     xx = torch.sum(x ** 2, dim=1, keepdim=True)
     pairwise_distance = -xx - inner - xx.transpose(2, 1)
 
-    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
+    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k+1)
     return idx
 
 
@@ -140,7 +140,7 @@ class DownSample(nn.Module):
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_pnt]
         :param stk_fea: [bs, emb, n_stk] 每个笔划的原始特征，用于进行采样
-        :param stk_fea_bef: 占位
+        :param stk_fea_bef: 占位，因为上采样时和在采样时的输入不同
         :param n_sp_up_near: 占位
         """
         bs, emb, n_pnt = dense_fea.size()
@@ -149,38 +149,46 @@ class DownSample(nn.Module):
         n_stk = sparse_fea.size(2)
         assert n_stk == self.n_stk
 
+        ## 对sgraph进行下采样
         # 使用FPS采样
         stk_fea = stk_fea.permute(0, 2, 1)
         fps_idx = fps(stk_fea, self.n_stk // 2)  # -> [bs, n_stk // 2]
 
         # 然后找到特征空间中与之最近的笔划进行maxPooling
+        # 找到每个笔划附近的3个笔划的索引，包含自身
         knn_idx = knn(stk_fea.permute(0, 2, 1), 2)  # -> [bs, n_stk, 2]
         assert knn_idx.size(2) == 2
+
+        # 找到fps得到的中心点的对应的附近点的索引
         knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
         assert knn_idx.size(1) == self.n_stk // 2
+
+        # 找到每个点附近的2个点的特征
         sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
         assert sparse_fea.size(2) == self.n_stk // 2 and sparse_fea.size(3) == 2
+
+        # 最大池化得到中心点的特征
         sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
         assert sparse_fea.size(2) == self.n_stk // 2
+
+        # 更新sgraph的特征
         sparse_fea = self.sp_conv(sparse_fea)
         stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
         assert stk_fea_sampled.size(2) == self.n_stk // 2
 
-        # 对dense fea进行下采样
+        ## 对dense fea进行下采样
+        # 先找到对应的笔划
         dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt // 2]
+        dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, emb]
+        dense_fea = dense_fea.reshape(bs, self.n_stk, self.n_stk_pnt * emb)  # -> [bs, n_stk, n_stk_pnt * emb]
+        dense_fea = index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
+        dense_fea = dense_fea.view(bs, self.n_stk // 2, self.n_stk_pnt, emb)  # -> [bs, n_stk // 2, n_stk_pnt, emb]
+
+        # 进行下采样
+        dense_fea = dense_fea.permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, n_stk_pnt]
+        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
         dense_fea_emb = dense_fea.size(1)
-        dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt // 2, emb]
-        assert dense_fea.size(2) == self.n_stk_pnt // 2 and dense_fea.size(1) == self.n_stk
-        dense_fea = dense_fea.reshape(bs, self.n_stk, (self.n_stk_pnt // 2) * dense_fea_emb)  # -> [bs, n_stk, (n_stk_pnt // 2) * emb]
-
-        # 取对应部分
-        dense_fea = index_points(dense_fea, knn_idx)  # -> [bs, n_stk // 2, 2, (n_stk_pnt // 2) * emb]
-        assert dense_fea.size(1) == self.n_stk // 2
-        dense_fea = dense_fea.view(bs, self.n_stk // 2, 2, self.n_stk_pnt // 2, dense_fea_emb)  # -> [bs, n_stk // 2, 2, n_stk_pnt // 2, emb]
-        dense_fea = dense_fea.max(2)[0]  # -> [bs, n_stk // 2, n_stk_pnt // 2, emb]
-
-        dense_fea = dense_fea.view(bs, (self.n_stk * self.n_stk_pnt) // 4, dense_fea_emb).permute(0, 2, 1)  # -> [bs, emb, n_skh_pnt // 4]
+        dense_fea = dense_fea.view(bs, dense_fea_emb, (self.n_stk // 2) * (self.n_stk_pnt // 2))  # -> [bs, emb, n_stk * n_stk_pnt // 4]
 
         return sparse_fea, dense_fea, stk_fea_sampled
 
@@ -628,14 +636,14 @@ class SDGraphCls(nn.Module):
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                      n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt,
-                                      dropout=dropout
-                                      )
+                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt,
+                                  dropout=dropout
+                                  )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                      n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2,
-                                      dropout=dropout
-                                      )
+                                  n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2,
+                                  dropout=dropout
+                                  )
 
         # 利用输出特征进行分类
         sparse_glo = sparse_l0 + sparse_l1 + sparse_l2

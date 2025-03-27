@@ -397,15 +397,6 @@ def index_points(points, idx):
     :param points: [B, N, C] (维度数必须为3)
     :param idx: [A, B, C, D, ..., X]
     :return: [A, B, C, D, ..., X, C]
-
-    索引数据时，相当于从[B, N, C]张量中，找到第二维度S个索引对应的数据
-    输入[B, N, C], [B, S](int)
-    输出[B, S, C]
-
-    索引点时，相当于从[bs, npoint, 3]中，找到每个点的对应的k个点的坐标
-    输入[bs, npoint, 3], [bs, npoint, k](int)
-    输出[bs, npoint, k, 3]
-
     """
     device = points.device
     B = points.shape[0]
