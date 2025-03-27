@@ -978,7 +978,7 @@ class SDGraphCls(nn.Module):
 
 
 class SDGraphCls2(nn.Module):
-    def __init__(self, n_class: int):
+    def __init__(self, n_class: int, dropout=0.4):
         """
         :param n_class: 总类别数
         """
@@ -998,16 +998,18 @@ class SDGraphCls2(nn.Module):
         dense_l2 = 512
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0)
+        self.point_to_sparse = PointToSparse(2, sparse_l0, dropout=dropout)
         self.point_to_dense = PointToDense(2, dense_l0)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoderUNet(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt
+                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt,
+                                      dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoderUNet(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2
+                                  n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2,
+                                      dropout=dropout
                                   )
 
         # 利用输出特征进行分类
@@ -1020,7 +1022,7 @@ class SDGraphCls2(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False)
+        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
     def forward(self, xy):
         """
@@ -1361,7 +1363,7 @@ def test():
     # classifier = SDGraphSeg2(2, 2)
     # cls11 = classifier(atensor, t1)
 
-    classifier = SDGraphCls(10)
+    classifier = SDGraphCls2(10)
     cls11 = classifier(atensor)
 
     print(cls11.size())
