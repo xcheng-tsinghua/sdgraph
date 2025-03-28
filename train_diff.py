@@ -10,7 +10,7 @@ from datetime import datetime
 import global_defs
 from data_utils.SketchDataset import DiffDataset
 from data_utils.sketch_vis import save_format_sketch
-from encoders.sdgraph import SDGraphUNet
+from encoders.sdgraph2 import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
 
