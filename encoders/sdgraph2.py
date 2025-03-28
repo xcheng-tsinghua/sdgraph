@@ -554,17 +554,17 @@ class SDGraphEncoder(nn.Module):
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
 
-        sparse_mid = int(((sparse_in + dense_in) * sparse_out) ** 0.5)
-        dense_mid = int(((dense_in + sparse_in) * dense_out) ** 0.5)
+        # sparse_mid = int(((sparse_in + dense_in) * sparse_out) ** 0.5)
+        # dense_mid = int(((dense_in + sparse_in) * dense_out) ** 0.5)
 
-        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_mid, sp_near)
-        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_mid, dn_near)
+        self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
+        self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
-            self.sample = DownSample(sparse_mid, sparse_out, dense_mid, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = DownSample(sparse_out, sparse_out, dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'up_sample':
-            self.sample = UpSample(sparse_mid, sparse_out, dense_mid, dense_out, self.n_stk, self.n_stk_pnt, dropout)
+            self.sample = UpSample(sparse_out, sparse_out, dense_out, dense_out, self.n_stk, self.n_stk_pnt, dropout)
         elif self.sample_type == 'none':
             self.sample = nn.Identity()
         else:

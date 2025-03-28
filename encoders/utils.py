@@ -547,7 +547,7 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
-def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=1):
+def get_log_floats(log_file: str) -> np.ndarray:
     # 定义正则表达式，匹配浮点数
     float_pattern = r'[-+]?\d*\.\d+|\d+\.\d*e[-+]?\d+'
 
@@ -572,6 +572,11 @@ def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=1):
             floats.append(c_line)
 
     floats = np.array(floats)
+    return floats
+
+
+def vis_cls_log(log_file: str, floats_idx_1=0, floats_idx_2=1):
+    floats = get_log_floats(log_file)
 
     # 绘图
     plt.figure(figsize=(10, 5))
@@ -586,6 +591,34 @@ def vis_cls_log(log_file, floats_idx_1=0, floats_idx_2=1):
 
     # 绘制第二条折线
     plt.plot(x, y2, label='eval ins acc', linestyle='-', color='r')
+
+    # 添加标题和标签
+    plt.xlabel('epoch')
+    plt.ylabel('accuracy')
+
+    plt.legend()
+    plt.grid(True, linestyle='--', color='gray', alpha=0.7)
+
+    # 显示图形
+    plt.show()
+
+
+def vis_log_comp(log1: str, log2: str, comp_idx: int = 1) -> None:
+    floats1 = get_log_floats(log1)
+    floats2 = get_log_floats(log2)
+
+    # 绘图
+    plt.figure(figsize=(10, 5))
+    x1 = np.arange(floats1.shape[0])
+    y1 = floats1[:, comp_idx]
+    x2 = np.arange(floats2.shape[0])
+    y2 = floats2[:, comp_idx]
+
+    # 绘制第一条折线
+    plt.plot(x1, y1, label='log1', linestyle='-', color='b')
+
+    # 绘制第二条折线
+    plt.plot(x2, y2, label='log2', linestyle='-', color='r')
 
     # 添加标题和标签
     plt.xlabel('epoch')
@@ -646,6 +679,8 @@ if __name__ == '__main__':
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
     #
 
-    vis_cls_log(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-27 11-46-11.txt')
+    # vis_cls_log(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-28 02-11-56.txt')
+
+    vis_log_comp(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-27 11-46-11.txt', r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-28 02-11-56.txt')
 
     pass
