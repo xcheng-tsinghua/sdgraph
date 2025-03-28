@@ -646,6 +646,6 @@ if __name__ == '__main__':
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\21.txt')
     #
 
-    vis_cls_log(r'C:\Users\ChengXi\Desktop\sdgraph-2025-03-27 02-36-16.txt')
+    vis_cls_log(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-27 11-46-11.txt')
 
     pass

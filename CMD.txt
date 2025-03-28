@@ -40,6 +40,8 @@ ps -ef | grep python
 ## 服务器训练
 nohup python train_cls.py --bs=32 --local=False
 
+F:\Program Files\Agent\Media\WebServerRoot\Media\video\UPLNX\
+
 
 python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_50 --prism_angle=50 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_60 --prism_angle=60 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_70 --prism_angle=70 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_80 --prism_angle=80 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_82 --prism_angle=82 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_85 --prism_angle=85 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_87 --prism_angle=87 && python train_cls_cp.py --model=GCN3D --save_str=GCN3D_cp_89 --prism_angle=89
 
