@@ -336,10 +336,10 @@ def fps(xyz, n_samples):
     """
     最远采样法进行采样，返回采样点的索引
     Input:
-        xyz: pointcloud data, [batch_size, n_points_all, X]
+        xyz: point cloud data, [batch_size, n_points_all, X]
         n_samples: number of samples
     Return:
-        centroids: sampled pointcloud index, [batch_size, n_samples]
+        centroids: sampled point cloud index, [batch_size, n_samples]
     """
     device = xyz.device
 

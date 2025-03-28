@@ -117,11 +117,14 @@ class DownSample(nn.Module):
     def __init__(self, sp_in, sp_out, dn_in, dn_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
 
+        # 笔划数及单个笔划内的点数
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        self.sp_conv = full_connected_conv1d([sp_in, sp_out], True, dropout, True)
+        # sparse graph 特征更新层
+        # self.sp_conv = full_connected_conv1d([sp_in, sp_out], True, dropout, True)
 
+        # dense graph 下采样及特征更新
         self.dn_conv = nn.Sequential(
             nn.Conv2d(
                 in_channels=dn_in,  # 输入通道数 (RGB)
@@ -149,37 +152,22 @@ class DownSample(nn.Module):
         n_stk = sparse_fea.size(2)
         assert n_stk == self.n_stk
 
-        ## 对sgraph进行下采样
-        # 使用FPS采样
-        stk_fea = stk_fea.permute(0, 2, 1)
+        # --- 对sgraph进行下采样 ---
+        # 使用FPS采样，获得采样得到的fps索引
+        stk_fea = stk_fea.permute(0, 2, 1)  # -> [bs, n_stk, emb]
         fps_idx = fps(stk_fea, self.n_stk // 2)  # -> [bs, n_stk // 2]
 
-        # 然后找到特征空间中与之最近的笔划进行maxPooling
-        # 找到每个笔划附近的3个笔划的索引，包含自身
-        knn_idx = knn(stk_fea.permute(0, 2, 1), 2)  # -> [bs, n_stk, 2]
-        assert knn_idx.size(2) == 2
-
-        # 找到fps得到的中心点的对应的附近点的索引
-        knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
-        assert knn_idx.size(1) == self.n_stk // 2
-
-        # 找到每个点附近的2个点的特征
-        sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
-        assert sparse_fea.size(2) == self.n_stk // 2 and sparse_fea.size(3) == 2
-
-        # 最大池化得到中心点的特征
-        sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
+        # 根据索引获得对应的sgraph特征
+        sparse_fea = index_points(sparse_fea.permute(0, 2, 1), fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
         assert sparse_fea.size(2) == self.n_stk // 2
 
-        # 更新sgraph的特征
-        sparse_fea = self.sp_conv(sparse_fea)
+        # 根据索引获得对应的笔划初始特征
         stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
         assert stk_fea_sampled.size(2) == self.n_stk // 2
 
-        ## 对dense fea进行下采样
+        # --- 对dense fea进行下采样 ---
         # 先找到对应的笔划
-        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-        dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, emb]
+        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt).permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, emb]
         dense_fea = dense_fea.reshape(bs, self.n_stk, self.n_stk_pnt * emb)  # -> [bs, n_stk, n_stk_pnt * emb]
         dense_fea = index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
         dense_fea = dense_fea.view(bs, self.n_stk // 2, self.n_stk_pnt, emb)  # -> [bs, n_stk // 2, n_stk_pnt, emb]
@@ -187,10 +175,52 @@ class DownSample(nn.Module):
         # 进行下采样
         dense_fea = dense_fea.permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, n_stk_pnt]
         dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
-        dense_fea_emb = dense_fea.size(1)
-        dense_fea = dense_fea.view(bs, dense_fea_emb, (self.n_stk // 2) * (self.n_stk_pnt // 2))  # -> [bs, emb, n_stk * n_stk_pnt // 4]
+        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk // 2) * (self.n_stk_pnt // 2))  # -> [bs, emb, n_stk * n_stk_pnt // 4]
 
         return sparse_fea, dense_fea, stk_fea_sampled
+
+
+
+        #
+        # # 然后找到特征空间中与之最近的笔划进行maxPooling
+        # # 找到每个笔划附近的3个笔划的索引，包含自身
+        # knn_idx = knn(stk_fea.permute(0, 2, 1), 2)  # -> [bs, n_stk, 2]
+        # assert knn_idx.size(2) == 2
+        #
+        # # 找到fps得到的中心点的对应的附近点的索引
+        # knn_idx = index_points(knn_idx, fps_idx)  # -> [bs, n_stk // 2, 2]
+        # assert knn_idx.size(1) == self.n_stk // 2
+        #
+        # # 找到每个点附近的2个点的特征
+        # sparse_fea = index_points(sparse_fea.permute(0, 2, 1), knn_idx).permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, 2]
+        # assert sparse_fea.size(2) == self.n_stk // 2 and sparse_fea.size(3) == 2
+        #
+        # # 最大池化得到中心点的特征
+        # sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
+        # assert sparse_fea.size(2) == self.n_stk // 2
+        #
+        # # 更新sgraph的特征
+        # sparse_fea = self.sp_conv(sparse_fea)
+        #
+        # # 获取采样后的笔划特征
+        # stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
+        # assert stk_fea_sampled.size(2) == self.n_stk // 2
+        #
+        # # --- 对dense fea进行下采样 ---
+        # # 先找到对应的笔划
+        # dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        # dense_fea = dense_fea.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, emb]
+        # dense_fea = dense_fea.reshape(bs, self.n_stk, self.n_stk_pnt * emb)  # -> [bs, n_stk, n_stk_pnt * emb]
+        # dense_fea = index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
+        # dense_fea = dense_fea.view(bs, self.n_stk // 2, self.n_stk_pnt, emb)  # -> [bs, n_stk // 2, n_stk_pnt, emb]
+        #
+        # # 进行下采样
+        # dense_fea = dense_fea.permute(0, 3, 1, 2)  # -> [bs, emb, n_stk // 2, n_stk_pnt]
+        # dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
+        # dense_fea_emb = dense_fea.size(1)
+        # dense_fea = dense_fea.view(bs, dense_fea_emb, (self.n_stk // 2) * (self.n_stk_pnt // 2))  # -> [bs, emb, n_stk * n_stk_pnt // 4]
+        #
+        # return sparse_fea, dense_fea, stk_fea_sampled
 
 
 class UpSample(nn.Module):
@@ -253,6 +283,7 @@ class UpSample(nn.Module):
         weight = weight.view(bs, self.n_stk * 2, n_sp_up_near, 1)  # -> [bs, n_stk * 2, 3, 1]
         sparse_fea = torch.sum(sparse_fea * weight, dim=2)  # -> [bs, n_stk * 2, emb]
         sparse_fea = sparse_fea.permute(0, 2, 1)  # -> [bs, emb, n_stk * 2]
+        assert sparse_fea.size(2) == self.n_stk * 2
         sparse_fea = self.sp_conv(sparse_fea)
 
         # 为dense graph进行笔划层级上采样
@@ -553,9 +584,6 @@ class SDGraphEncoder(nn.Module):
 
         self.dense_to_sparse = DenseToSparse(dense_in, n_stk, n_stk_pnt, dropout)
         self.sparse_to_dense = SparseToDense(n_stk, n_stk_pnt)
-
-        # sparse_mid = int(((sparse_in + dense_in) * sparse_out) ** 0.5)
-        # dense_mid = int(((dense_in + sparse_in) * dense_out) ** 0.5)
 
         self.sparse_update = GCNEncoder(sparse_in + dense_in, sparse_out, sp_near)
         self.dense_update = GCNEncoder(dense_in + sparse_in, dense_out, dn_near)
@@ -861,11 +889,11 @@ def test():
     atensor = torch.rand([bs, 2, global_defs.n_skh_pnt])
     t1 = torch.randint(0, 1000, (bs,)).long()
 
-    # classifier = SDGraphSeg2(2, 2)
-    # cls11 = classifier(atensor, t1)
+    classifier = SDGraphUNet(2, 2)
+    cls11 = classifier(atensor, t1)
 
-    classifier = SDGraphCls(10)
-    cls11 = classifier(atensor)
+    # classifier = SDGraphCls(10)
+    # cls11 = classifier(atensor)
 
     print(cls11.size())
 
