@@ -133,15 +133,13 @@ def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n
     coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
     dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
     coordinates = coordinates / dist
-
-    coordinates = torch.from_numpy(coordinates)
-    coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
+    coordinates = coordinates.reshape([n_stroke, n_stk_pnt, 2])
 
     for i in range(n_stroke):
-        plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+        plt.plot(coordinates[i, :, 0], -coordinates[i, :, 1])
 
         if show_dot:
-            plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
+            plt.scatter(coordinates[i, :, 0], -coordinates[i, :, 1])
 
     # plt.axis('off')
     plt.show()
@@ -224,13 +222,56 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         plt.savefig(ahead + 'smooth' + ext)
 
 
+def test():
+    from encoders.utils import index_points
+
+    def get_coor(skh_root):
+        # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+        sketch_data = np.loadtxt(skh_root, delimiter=',')
+
+        # 2D coordinates
+        coordinates = sketch_data[:, :2]
+
+        # sketch mass move to (0, 0), x y scale to [-1, 1]
+        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+        coordinates = coordinates / dist
+
+        return coordinates
+
+    sketch1 = r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt'
+    sketch2 = r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt'
+
+    sketch1 = torch.from_numpy(get_coor(sketch1))  # [n, 2]
+    sketch2 = torch.from_numpy(get_coor(sketch2))  # [n, 2]
+
+    sketchs = torch.cat([sketch1.unsqueeze(0), sketch2.unsqueeze(0)], dim=0)  # [bs, n, 2]
+    sketchs = sketchs.permute(0, 2, 1).contiguous()  # [bs, 2, n]
+    sketchs = sketchs.view(2, 2, global_defs.n_stk, global_defs.n_stk_pnt)
+    sketchs = sketchs.permute(0, 2, 3, 1).contiguous()  # [bs, n_stk, n_stk_pnt, 2]
+    sketchs = sketchs.view(2, global_defs.n_stk, global_defs.n_stk_pnt * 2)  # [bs, n_stk, n_stk_pnt * 2]
+
+    idx = torch.randint(0, global_defs.n_stk, [2, global_defs.n_stk // 2])
+    sketchs = index_points(sketchs, idx)  # [bs, n_stk // 2, n_stk_pnt * 2]
+    sketchs = sketchs.view(2, global_defs.n_stk // 2, global_defs.n_stk_pnt, 2)
+    sketchs = sketchs[0, :, :, :]
+
+    for i in range(global_defs.n_stk // 2):
+        c_stk = sketchs[i, :, :]
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+        # plt.scatter(s[:, 0], -s[:, 1])
+
+    plt.axis('off')
+    plt.show()
+
+
 if __name__ == '__main__':
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\00b11be6f26c85ca85f84daf52626b36_2.txt')
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
-    # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\0bc12e6b9e792b74da4f7819d0041c9b_1.txt')
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
+    # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
 
@@ -241,6 +282,7 @@ if __name__ == '__main__':
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\1.txt', show_dot=False)
 
+    test()
     pass
 
 
