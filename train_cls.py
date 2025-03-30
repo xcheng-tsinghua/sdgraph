@@ -15,6 +15,29 @@ from encoders.sdgraph2 import SDGraphCls
 # from encoders.sdgraph_valid_bk import SDGraph as SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
 
+# from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
+# PRE_TRAINED_POINTBERT = create_pretrained_pointbert().cuda()
+#
+# def get_stk_coor(xy, n_stk, n_stk_pnt):
+#     """
+#     获取每个笔划的坐标
+#     :param xy: [bs, n_skh_pnt, 2]
+#     :param n_stk:
+#     :param n_stk_pnt:
+#     :return: [bs, n_stk, emb]
+#     """
+#     bs, n_skh_pnt, pnt_channel = xy.size()
+#     assert n_skh_pnt == n_stk * n_stk_pnt and pnt_channel == 2
+#
+#     xy = xy.reshape(bs * n_stk, n_stk_pnt, 2)
+#     zeros = torch.zeros(bs * n_stk, n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+#     xy = torch.cat([xy, zeros], dim=2)
+#
+#     xy = PRE_TRAINED_POINTBERT(xy)
+#     xy = xy.view(bs, n_stk, PRE_TRAINED_POINTBERT.channel_out)
+#
+#     return xy
+
 
 def parse_args():
     '''PARAMETERS'''
@@ -120,6 +143,8 @@ def main(args):
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
             points, target = data[0].float().cuda(), data[1].long().cuda()
+
+            # stroke_emb = get_stk_coor(points, global_defs.n_stk, global_defs.n_stk_pnt)
 
             # -> [bs, 2, n_points]
             points = points.permute(0, 2, 1)

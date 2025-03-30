@@ -9,7 +9,30 @@ import global_defs
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 
 
-PRE_TRAINED_POINTBERT = create_pretrained_pointbert().cuda()
+# PRE_TRAINED_POINTBERT = create_pretrained_pointbert().cuda()
+
+
+# def get_stk_coor(xy, n_stk, n_stk_pnt):
+#     """
+#     获取每个笔划的坐标
+#     :param xy: [bs, 2, n_skh_pnt]
+#     :param n_stk:
+#     :param n_stk_pnt:
+#     :return: [bs, n_stk, emb]
+#     """
+#     bs, _, n_skh_pnt = xy.size()
+#     assert n_skh_pnt == n_stk * n_stk_pnt
+#
+#     xy = xy.reshape(bs * n_stk, n_stk_pnt, 2)
+#     zeros = torch.zeros(bs * n_stk, n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+#     xy = torch.cat([xy, zeros], dim=2)
+#
+#     # pretrained_pointbert = create_pretrained_pointbert().to(xy.device)
+#
+#     xy = PRE_TRAINED_POINTBERT(xy)
+#     xy = xy.view(bs, n_stk, PRE_TRAINED_POINTBERT.channel_out)
+#
+#     return xy
 
 
 def knn(x, k):
@@ -143,11 +166,11 @@ class DownSample(nn.Module):
             nn.Dropout2d(dropout)
         )
 
-    def forward(self, sparse_fea, dense_fea, stk_fea, stk_fea_bef=None, n_sp_up_near=None):
+    def forward(self, sparse_fea, dense_fea, stk_coor, stk_fea_bef=None, n_sp_up_near=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_pnt]
-        :param stk_fea: [bs, emb, n_stk] 每个笔划的原始特征，用于进行采样
+        :param stk_coor: [bs, n_stk, emb] 每个笔划的原始特征，用于进行采样
         :param stk_fea_bef: 占位，因为上采样时和在采样时的输入不同
         :param n_sp_up_near: 占位
         """
@@ -159,16 +182,16 @@ class DownSample(nn.Module):
 
         # --- 对sgraph进行下采样 ---
         # 使用FPS采样，获得采样得到的fps索引
-        stk_fea = stk_fea.permute(0, 2, 1)  # -> [bs, n_stk, emb]
-        fps_idx = fps(stk_fea, self.n_stk // 2)  # -> [bs, n_stk // 2]
+        # stk_coor = stk_coor.permute(0, 2, 1)  # -> [bs, n_stk, emb]
+        fps_idx = fps(stk_coor, self.n_stk // 2)  # -> [bs, n_stk // 2]
+
+        # 根据索引获得对应的笔划初始特征
+        stk_coor_sampled = index_points(stk_coor, fps_idx)  # -> [bs, n_stk // 2, emb]
+        assert stk_coor_sampled.size(1) == self.n_stk // 2
 
         # 根据索引获得对应的sgraph特征
         sparse_fea = index_points(sparse_fea.permute(0, 2, 1), fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
         assert sparse_fea.size(2) == self.n_stk // 2
-
-        # 根据索引获得对应的笔划初始特征
-        stk_fea_sampled = index_points(stk_fea, fps_idx).permute(0, 2, 1)  # -> [bs, emb, n_stk // 2]
-        assert stk_fea_sampled.size(2) == self.n_stk // 2
 
         # --- 对dense fea进行下采样 ---
         # 先找到对应的笔划
@@ -182,7 +205,7 @@ class DownSample(nn.Module):
         dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
         dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk // 2) * (self.n_stk_pnt // 2))  # -> [bs, emb, n_stk * n_stk_pnt // 4]
 
-        return sparse_fea, dense_fea, stk_fea_sampled
+        return sparse_fea, dense_fea, stk_coor_sampled
 
 
 
@@ -307,90 +330,34 @@ class UpSample(nn.Module):
         return sparse_fea, dense_fea, None
 
 
-# class PointToSparse(nn.Module):
-#     """
-#     将 dense graph 的数据转移到 sparse graph'
-#     使用一维卷积及最大池化方式
-#     """
-#     def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
-#                  with_time=False, time_emb_dim=0):
-#         super().__init__()
-#
-#         self.n_stk = n_stk
-#         self.n_stk_pnt = n_stk_pnt
-#         self.with_time = with_time
-#
-#         mid_dim = int((point_dim * sparse_out) ** 0.5)
-#         self.point_increase = nn.Sequential(
-#             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
-#             nn.BatchNorm2d(mid_dim),
-#             activate_func(),
-#             # nn.Dropout2d(dropout),
-#
-#             nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
-#             nn.BatchNorm2d(sparse_out),
-#             activate_func(),
-#             # nn.Dropout2d(dropout),
-#         )
-#
-#         if self.with_time:
-#             self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
-#
-#     def forward(self, xy, time_emb=None):
-#         """
-#         :param xy: [bs, emb, n_stk * n_stk_pnt]
-#         :param time_emb: [bs, emb]
-#         :return: [bs, emb, n_stk]
-#         """
-#         bs, emb, _ = xy.size()
-#
-#         # -> [bs, emb, n_stk, n_stk_pnt]
-#         xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
-#
-#         # -> [bs, emb, n_stk, n_stk_pnt]
-#         xy = self.point_increase(xy)
-#
-#         # -> [bs, emb, n_stk]
-#         xy = torch.max(xy, dim=3)[0]
-#         assert xy.size(2) == self.n_stk
-#
-#         assert self.with_time ^ (time_emb is None)
-#         if self.with_time:
-#             xy = self.time_merge(xy, time_emb)
-#
-#         return xy
-
-
 class PointToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph'
     使用一维卷积及最大池化方式
     """
-    def __init__(self,
-                 n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
-                 with_time=False, time_emb_dim=0
-                 ):
+    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
+                 with_time=False, time_emb_dim=0):
         super().__init__()
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
         self.with_time = with_time
 
-        # mid_dim = int((point_dim * sparse_out) ** 0.5)
-        # self.point_increase = nn.Sequential(
-        #     nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
-        #     nn.BatchNorm2d(mid_dim),
-        #     activate_func(),
-        #     # nn.Dropout2d(dropout),
-        #
-        #     nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
-        #     nn.BatchNorm2d(sparse_out),
-        #     activate_func(),
-        #     # nn.Dropout2d(dropout),
-        # )
+        mid_dim = int((point_dim * sparse_out) ** 0.5)
+        self.point_increase = nn.Sequential(
+            nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
+            nn.BatchNorm2d(mid_dim),
+            activate_func(),
+            # nn.Dropout2d(dropout),
+
+            nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
+            nn.BatchNorm2d(sparse_out),
+            activate_func(),
+            # nn.Dropout2d(dropout),
+        )
 
         if self.with_time:
-            self.time_merge = TimeMerge(self.pointbert.channel_out, self.pointbert.channel_out, time_emb_dim)
+            self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
 
     def forward(self, xy, time_emb=None):
         """
@@ -403,37 +370,11 @@ class PointToSparse(nn.Module):
         # -> [bs, emb, n_stk, n_stk_pnt]
         xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
 
-        # -> [bs, n_stk, n_stk_pnt, emb]
-        xy = xy.permute(0, 2, 3, 1)
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        xy = self.point_increase(xy)
 
-        otherxy = xy
-
-        xy = xy.reshape(bs * self.n_stk, self.n_stk_pnt, emb)
-        zeros = torch.zeros(xy.size(0), xy.size(1), 1, device=xy.device, dtype=xy.dtype)
-        xy = torch.cat([xy, zeros], dim=2)
-
-        xy = PRE_TRAINED_POINTBERT(xy)
-
-        xy = xy.view(bs, self.n_stk, PRE_TRAINED_POINTBERT.channel_out)
-
-        # other
-        # new_xy = []
-        # for i in range(self.n_stk):
-        #     c_other_xy = otherxy[:, i, :, :]  # -> [bs, n_stk_pnt, 2]
-        #     zeros2 = torch.zeros(c_other_xy.size(0), c_other_xy.size(1), 1, device=c_other_xy.device, dtype=c_other_xy.dtype)
-        #     c_other_xy = torch.cat([c_other_xy, zeros2], dim=2)
-        #     c_other_emb = PRE_TRAINED_POINTBERT(c_other_xy).unsqueeze(1)  # -> [bs, 1, emb]
-        #     new_xy.append(c_other_emb)
-        #
-        # new_xy = torch.cat(new_xy, dim=1)
-        #
-        # asasaaaa = new_xy - xy
-        #
-        # maxval = torch.max(asasaaaa)
-        # print(maxval)
-
-        xy = xy.permute(0, 2, 1)
-
+        # -> [bs, emb, n_stk]
+        xy = torch.max(xy, dim=3)[0]
         assert xy.size(2) == self.n_stk
 
         assert self.with_time ^ (time_emb is None)
@@ -441,6 +382,88 @@ class PointToSparse(nn.Module):
             xy = self.time_merge(xy, time_emb)
 
         return xy
+
+#
+# class PointToSparse(nn.Module):
+#     """
+#     将 dense graph 的数据转移到 sparse graph'
+#     使用一维卷积及最大池化方式
+#     """
+#     def __init__(self,
+#                  n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
+#                  with_time=False, time_emb_dim=0
+#                  ):
+#         super().__init__()
+#
+#         self.n_stk = n_stk
+#         self.n_stk_pnt = n_stk_pnt
+#         self.with_time = with_time
+#
+#         # mid_dim = int((point_dim * sparse_out) ** 0.5)
+#         # self.point_increase = nn.Sequential(
+#         #     nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
+#         #     nn.BatchNorm2d(mid_dim),
+#         #     activate_func(),
+#         #     # nn.Dropout2d(dropout),
+#         #
+#         #     nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
+#         #     nn.BatchNorm2d(sparse_out),
+#         #     activate_func(),
+#         #     # nn.Dropout2d(dropout),
+#         # )
+#
+#         if self.with_time:
+#             self.time_merge = TimeMerge(self.pointbert.channel_out, self.pointbert.channel_out, time_emb_dim)
+#
+#     def forward(self, xy, time_emb=None):
+#         """
+#         :param xy: [bs, emb, n_stk * n_stk_pnt]
+#         :param time_emb: [bs, emb]
+#         :return: [bs, emb, n_stk]
+#         """
+#         bs, emb, _ = xy.size()
+#
+#         # -> [bs, emb, n_stk, n_stk_pnt]
+#         xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
+#
+#         # -> [bs, n_stk, n_stk_pnt, emb]
+#         xy = xy.permute(0, 2, 3, 1)
+#
+#         # otherxy = xy
+#
+#         xy = xy.reshape(bs * self.n_stk, self.n_stk_pnt, emb)
+#         zeros = torch.zeros(xy.size(0), xy.size(1), 1, device=xy.device, dtype=xy.dtype)
+#         xy = torch.cat([xy, zeros], dim=2)
+#
+#         xy = PRE_TRAINED_POINTBERT(xy)
+#
+#         xy = xy.view(bs, self.n_stk, PRE_TRAINED_POINTBERT.channel_out)
+#
+#         # other
+#         # new_xy = []
+#         # for i in range(self.n_stk):
+#         #     c_other_xy = otherxy[:, i, :, :]  # -> [bs, n_stk_pnt, 2]
+#         #     zeros2 = torch.zeros(c_other_xy.size(0), c_other_xy.size(1), 1, device=c_other_xy.device, dtype=c_other_xy.dtype)
+#         #     c_other_xy = torch.cat([c_other_xy, zeros2], dim=2)
+#         #     c_other_emb = PRE_TRAINED_POINTBERT(c_other_xy).unsqueeze(1)  # -> [bs, 1, emb]
+#         #     new_xy.append(c_other_emb)
+#         #
+#         # new_xy = torch.cat(new_xy, dim=1)
+#         #
+#         # asasaaaa = new_xy - xy
+#         #
+#         # maxval = torch.max(asasaaaa)
+#         # print(maxval)
+#
+#         xy = xy.permute(0, 2, 1)
+#
+#         assert xy.size(2) == self.n_stk
+#
+#         assert self.with_time ^ (time_emb is None)
+#         if self.with_time:
+#             xy = self.time_merge(xy, time_emb)
+#
+#         return xy
 
 
 class PointToDense(nn.Module):
@@ -717,7 +740,7 @@ class SDGraphEncoder(nn.Module):
         # 采样
         union_sparse, union_dense, stk_fea_sampled = self.sample(union_sparse, union_dense, stk_fea, stk_fea_bef, 3)
         if stk_fea_sampled is not None:
-            assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(2) == self.n_stk // 2 or stk_fea_sampled.size(2) == self.n_stk * 2)
+            assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(1) == self.n_stk // 2 or stk_fea_sampled.size(1) == self.n_stk * 2)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -728,27 +751,30 @@ class SDGraphEncoder(nn.Module):
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, dropout=0.4):
+    def __init__(self, n_class: int, n_stk: int = global_defs.n_stk, n_stk_pnt: int = global_defs.n_stk_pnt, dropout: float = 0.4):
         """
         :param n_class: 总类别数
         """
         super().__init__()
         print('cls 双下采样')
 
-        self.n_stk = global_defs.n_stk
-        self.n_stk_pnt = global_defs.n_stk_pnt
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
 
         # 各层特征维度
-        sparse_l0 = PRE_TRAINED_POINTBERT.channel_out
-        sparse_l1 = sparse_l0 + 64
-        sparse_l2 = sparse_l0 + 256
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
 
         dense_l0 = 32
         dense_l1 = 128
         dense_l2 = 512
 
+        # 生成笔划坐标（特征）
+        self.point_bert = create_pretrained_pointbert().cuda()
+
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse()
+        self.point_to_sparse = PointToSparse(2, sparse_l0)
         self.point_to_dense = PointToDense(2, dense_l0)
 
         # 利用 sdgraph 更新特征
@@ -774,6 +800,27 @@ class SDGraphCls(nn.Module):
 
         self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
+    def get_stk_coor(self, xy):
+        """
+        获取每个笔划的坐标
+        :param xy: [bs, 2, n_skh_pnt]
+        :param n_stk:
+        :param n_stk_pnt:
+        :return: [bs, n_stk, emb]
+        """
+        xy = xy.permute(0, 2, 1)
+        bs, n_skh_pnt, pnt_channel = xy.size()
+        assert n_skh_pnt == self.n_stk * self.n_stk_pnt and pnt_channel == 2
+
+        xy = xy.reshape(bs * self.n_stk, self.n_stk_pnt, 2)
+        zeros = torch.zeros(bs * self.n_stk, self.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+        xy = torch.cat([xy, zeros], dim=2)
+
+        xy = self.point_bert(xy)
+        xy = xy.view(bs, self.n_stk, self.point_bert.channel_out)
+
+        return xy
+
     def forward(self, xy):
         """
         :param xy: [bs, 2, n_skh_pnt]
@@ -792,11 +839,13 @@ class SDGraphCls(nn.Module):
         dense_graph0 = self.point_to_dense(xy)
         assert dense_graph0.size()[2] == n_point
 
-        stk_fea_l0 = sparse_graph0
+        # 获取笔划坐标 -> [bs, n_stk, 512]
+        stk_coor = self.get_stk_coor(xy)
+        # stk_coor = sparse_graph0.permute(0, 2, 1)
 
         # 交叉更新数据
-        sparse_graph1, dense_graph1, stk_fea_l1 = self.sd1(sparse_graph0, dense_graph0, stk_fea=stk_fea_l0)
-        sparse_graph2, dense_graph2, _ = self.sd2(sparse_graph1, dense_graph1, stk_fea=stk_fea_l1)
+        sparse_graph1, dense_graph1, stk_coor1 = self.sd1(sparse_graph0, dense_graph0, stk_fea=stk_coor)
+        sparse_graph2, dense_graph2, _ = self.sd2(sparse_graph1, dense_graph1, stk_fea=stk_coor1)
 
         # 提取全局特征
         sparse_glo0 = sparse_graph0.max(2)[0]
