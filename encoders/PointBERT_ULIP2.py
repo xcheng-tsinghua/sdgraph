@@ -356,6 +356,8 @@ class PointBERT_ULIP2(nn.Module):
 
 
 def create_pretrained_pointbert(root_ckpt: str = './encoders/pointbert_ulip2.pth'):
+    print('create pretrained pointBERT, load weight from ' + root_ckpt)
+
     pointbert_pretrained = PointBERT_ULIP2()
 
     try:
