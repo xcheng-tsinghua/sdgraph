@@ -7,4 +7,4 @@ data_utils/__pycache__/
 __pycache__/
 .idea/
 encoders/__pycache__/
-
+encoders/pointbert_ulip2.pth
