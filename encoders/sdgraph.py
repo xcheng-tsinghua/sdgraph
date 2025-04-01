@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from encoders.utils import full_connected, full_connected_conv1d
 
 import global_defs
-from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode, cross_sample, SDGraphEncoderUNet
+from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode
 
 
 class SDGraphCls(nn.Module):
