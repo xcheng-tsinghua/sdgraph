@@ -257,6 +257,7 @@ class PointBERT_ULIP2(nn.Module):
         self.pc_projection = nn.Parameter(torch.empty(768, 512))
         nn.init.normal_(self.pc_projection, std=512 ** -0.5)
 
+    @torch.inference_mode()
     def forward(self, pc):
         pc_feat = self.point_encoder(pc)
         pc_embed = pc_feat @ self.pc_projection

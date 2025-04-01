@@ -27,6 +27,7 @@ import shutil
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
 import data_utils.sketch_vis as vis
+from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 
 
 class SketchDataset(Dataset):
@@ -64,11 +65,13 @@ class SketchDataset(Dataset):
     def __init__(self,
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  is_train=True,
-                 data_argumentation=False
+                 data_argumentation=False,
+                 is_back_idx=False
                  ):
 
         print('sketch dataset, from:' + root)
         self.data_augmentation = data_argumentation
+        self.is_back_idx = is_back_idx
 
         if is_train:
             inner_root = os.path.join(root, 'train')
@@ -121,7 +124,10 @@ class SketchDataset(Dataset):
             coordinates = coordinates @ rotation_matrix
             coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
 
-        return coordinates, cls
+        if self.is_back_idx:
+            return coordinates, cls, index
+        else:
+            return coordinates, cls
 
     def __len__(self):
         return len(self.datapath)
@@ -364,15 +370,70 @@ def quickdraw_to_std_batched(root_npz, root_txt):
         quickdraw_to_std(c_npz, c_class_dir)
 
 
+def add_stk_coor(dir_path):
+    """
+    为unified_std_sketch添加笔划特征，使用point_bert_ulip2
+    :param dir_path: 分类数据集根目录
+    :param bs: 分类数据集根目录
+    :return:
+    """
+    def sig_process(data_set):
+        loader = torch.utils.data.DataLoader(data_set, batch_size=8, shuffle=False, num_workers=4)
+
+        for batch_id, data in tqdm(enumerate(loader, 0), total=len(loader)):
+            xy, target, idx = data[0].float().cuda(), data[1].long().cuda(), data[2].long().cuda()
+
+            bs, n_skh_pnt, pnt_channel = xy.size()
+            assert n_skh_pnt == global_defs.n_stk * global_defs.n_stk_pnt and pnt_channel == 2
+
+            xy = xy.view(bs, global_defs.n_stk, global_defs.n_stk_pnt, 2)
+            xy = xy.view(bs * global_defs.n_stk, global_defs.n_stk_pnt, 2)
+            zeros = torch.zeros(bs * global_defs.n_stk, global_defs.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+            xy = torch.cat([xy, zeros], dim=2)
+
+            xy = point_bert(xy)
+            xy = xy.view(bs, global_defs.n_stk, point_bert.channel_out)
+
+            for i in range(bs):
+                c_stk_coor = xy[i, :, :]
+                c_data_idx = idx[i].item()
+
+                # 很具target找到对应的文件夹
+                c_data_root = train_dataset.datapath[c_data_idx][1]
+
+                c_stk_root = c_data_root.replace('.txt', '.stkcoor')
+
+                np.savetxt(c_stk_root, c_stk_coor.cpu().numpy(), delimiter=',')
+
+    train_dataset = SketchDataset(root=dir_path, is_train=True, is_back_idx=True)
+    test_dataset = SketchDataset(root=dir_path, is_train=False, is_back_idx=True)
+
+    point_bert = create_pretrained_pointbert(r'E:\document\DeepLearning\SDGraph\encoders\pointbert_ulip2.pth').cuda()
+
+    sig_process(train_dataset)
+    sig_process(test_dataset)
+
+
+
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
     # adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
     #
     # for _ in range(10):
     #     adataset.vis_sketch(0)
 
-    quickdraw_to_std_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\txt')
+    # quickdraw_to_std_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\txt')
 
-
+    add_stk_coor(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32')
 
 
 
