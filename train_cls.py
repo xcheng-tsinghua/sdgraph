@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
 
     '''
     cad sketch
@@ -118,16 +118,18 @@ def main(args):
         all_labels = []
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            points, target = data[0].float().cuda(), data[1].long().cuda()
+            points, target, stk_coor = data[0].float().cuda(), data[1].long().cuda(), data[2].float().cuda()
 
             # -> [bs, 2, n_points]
             points = points.permute(0, 2, 1)
             assert points.size()[1] == 2
 
+            assert stk_coor.size(1) == global_defs.n_stk
+
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            pred = classifier(points)
+            pred = classifier(points, stk_coor)
             loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数

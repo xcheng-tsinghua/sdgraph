@@ -66,12 +66,14 @@ class SketchDataset(Dataset):
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  is_train=True,
                  data_argumentation=False,
-                 is_back_idx=False
+                 is_back_idx=False,
+                 is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
                  ):
 
         print('sketch dataset, from:' + root)
         self.data_augmentation = data_argumentation
         self.is_back_idx = is_back_idx
+        self.is_unify = is_unify
 
         if is_train:
             inner_root = os.path.join(root, 'train')
@@ -108,14 +110,16 @@ class SketchDataset(Dataset):
 
         # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
         sketch_data = np.loadtxt(fn[1], delimiter=',')
+        stk_coor = np.loadtxt(fn[1].replace('.txt', '.stkcoor'), delimiter=',')
 
         # 2D coordinates
         coordinates = sketch_data[:, :2]
 
-        # sketch mass move to (0, 0), x y scale to [-1, 1]
-        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0) # 实测是否加expand_dims效果一样
-        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-        coordinates = coordinates / dist
+        if self.is_unify:
+            # sketch mass move to (0, 0), x y scale to [-1, 1]
+            coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0) # 实测是否加expand_dims效果一样
+            dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+            coordinates = coordinates / dist
 
         # rotate and move
         if self.data_augmentation:
@@ -125,9 +129,9 @@ class SketchDataset(Dataset):
             coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
 
         if self.is_back_idx:
-            return coordinates, cls, index
+            return coordinates, cls, stk_coor, index
         else:
-            return coordinates, cls
+            return coordinates, cls, stk_coor
 
     def __len__(self):
         return len(self.datapath)
@@ -381,7 +385,7 @@ def add_stk_coor(dir_path):
         loader = torch.utils.data.DataLoader(data_set, batch_size=8, shuffle=False, num_workers=4)
 
         for batch_id, data in tqdm(enumerate(loader, 0), total=len(loader)):
-            xy, target, idx = data[0].float().cuda(), data[1].long().cuda(), data[2].long().cuda()
+            xy, target, idx = data[0].float().cuda(), data[1].long().cuda(), data[-1].long().cuda()
 
             bs, n_skh_pnt, pnt_channel = xy.size()
             assert n_skh_pnt == global_defs.n_stk * global_defs.n_stk_pnt and pnt_channel == 2
@@ -408,7 +412,7 @@ def add_stk_coor(dir_path):
     train_dataset = SketchDataset(root=dir_path, is_train=True, is_back_idx=True)
     test_dataset = SketchDataset(root=dir_path, is_train=False, is_back_idx=True)
 
-    point_bert = create_pretrained_pointbert(r'E:\document\DeepLearning\SDGraph\encoders\pointbert_ulip2.pth').cuda()
+    point_bert = create_pretrained_pointbert('./model_trained/pointbert_ulip2.pth').cuda()
 
     sig_process(train_dataset)
     sig_process(test_dataset)

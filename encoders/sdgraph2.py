@@ -771,7 +771,7 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成笔划坐标（特征）
-        self.point_bert = create_pretrained_pointbert().cuda()
+        # self.point_bert = create_pretrained_pointbert().cuda()
 
         # 生成初始 sdgraph
         self.point_to_sparse = PointToSparse(2, sparse_l0)
@@ -800,30 +800,31 @@ class SDGraphCls(nn.Module):
 
         self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
-    def get_stk_coor(self, xy):
+    # def get_stk_coor(self, xy):
+    #     """
+    #     获取每个笔划的坐标
+    #     :param xy: [bs, 2, n_skh_pnt]
+    #     :param n_stk:
+    #     :param n_stk_pnt:
+    #     :return: [bs, n_stk, emb]
+    #     """
+    #     xy = xy.permute(0, 2, 1)
+    #     bs, n_skh_pnt, pnt_channel = xy.size()
+    #     assert n_skh_pnt == self.n_stk * self.n_stk_pnt and pnt_channel == 2
+    #
+    #     xy = xy.reshape(bs * self.n_stk, self.n_stk_pnt, 2)
+    #     zeros = torch.zeros(bs * self.n_stk, self.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+    #     xy = torch.cat([xy, zeros], dim=2)
+    #
+    #     xy = self.point_bert(xy)
+    #     xy = xy.view(bs, self.n_stk, self.point_bert.channel_out)
+    #
+    #     return xy
+
+    def forward(self, xy, stk_coor):
         """
-        获取每个笔划的坐标
         :param xy: [bs, 2, n_skh_pnt]
-        :param n_stk:
-        :param n_stk_pnt:
-        :return: [bs, n_stk, emb]
-        """
-        xy = xy.permute(0, 2, 1)
-        bs, n_skh_pnt, pnt_channel = xy.size()
-        assert n_skh_pnt == self.n_stk * self.n_stk_pnt and pnt_channel == 2
-
-        xy = xy.reshape(bs * self.n_stk, self.n_stk_pnt, 2)
-        zeros = torch.zeros(bs * self.n_stk, self.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
-        xy = torch.cat([xy, zeros], dim=2)
-
-        xy = self.point_bert(xy)
-        xy = xy.view(bs, self.n_stk, self.point_bert.channel_out)
-
-        return xy
-
-    def forward(self, xy):
-        """
-        :param xy: [bs, 2, n_skh_pnt]
+        :param stk_coor: [bs, n_stk, 512]  笔划坐标，由pointbert_ulip2生成
         :return: [bs, n_classes]
         """
         xy = xy[:, :2, :]
@@ -840,7 +841,7 @@ class SDGraphCls(nn.Module):
         assert dense_graph0.size()[2] == n_point
 
         # 获取笔划坐标 -> [bs, n_stk, 512]
-        stk_coor = self.get_stk_coor(xy)
+        # stk_coor = self.get_stk_coor(xy)
         # stk_coor = sparse_graph0.permute(0, 2, 1)
 
         # 交叉更新数据
