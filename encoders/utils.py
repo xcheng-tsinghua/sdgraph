@@ -7,6 +7,7 @@ from sklearn.preprocessing import label_binarize
 import numpy as np
 import re
 import matplotlib.pyplot as plt
+import logging
 
 from data_utils.sketch_utils import save_confusion_mat
 
@@ -471,6 +472,22 @@ def clear_log(folder_path, k=5):
             except Exception as e:
                 # 捕获读取文件时的错误（如编码问题等）
                 print(f"Error reading file {file_path}: {e}")
+
+
+def get_log(log_root: str):
+    """
+    :param log_root: log文件路径，例如 ./opt/private/log.txt
+    :return:
+    """
+    logger = logging.getLogger("Model")
+    logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(log_root)  # 日志文件路径
+    file_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter('%(message)s')
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    return logger
 
 
 def clear_confusion(root_dir='./data_utils/confusion', k=2):

@@ -67,6 +67,7 @@ class SketchDataset(Dataset):
                  is_train=True,
                  data_argumentation=False,
                  is_back_idx=False,
+                 is_back_stkcoor=False,
                  is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
                  ):
 
@@ -74,6 +75,7 @@ class SketchDataset(Dataset):
         self.data_augmentation = data_argumentation
         self.is_back_idx = is_back_idx
         self.is_unify = is_unify
+        self.is_back_stkcoor = is_back_stkcoor
 
         if is_train:
             inner_root = os.path.join(root, 'train')
@@ -110,7 +112,9 @@ class SketchDataset(Dataset):
 
         # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
         sketch_data = np.loadtxt(fn[1], delimiter=',')
-        stk_coor = np.loadtxt(fn[1].replace('.txt', '.stkcoor'), delimiter=',')
+
+        if self.is_back_stkcoor:
+            stk_coor = np.loadtxt(fn[1].replace('.txt', '.stkcoor'), delimiter=',')
 
         # 2D coordinates
         coordinates = sketch_data[:, :2]
@@ -129,9 +133,15 @@ class SketchDataset(Dataset):
             coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
 
         if self.is_back_idx:
-            return coordinates, cls, stk_coor, index
+            if self.is_back_stkcoor:
+                return coordinates, cls, stk_coor, index
+            else:
+                return coordinates, cls, index
         else:
-            return coordinates, cls, stk_coor
+            if self.is_back_stkcoor:
+                return coordinates, cls, stk_coor
+            else:
+                return coordinates, cls
 
     def __len__(self):
         return len(self.datapath)
@@ -374,6 +384,38 @@ def quickdraw_to_std_batched(root_npz, root_txt):
         quickdraw_to_std(c_npz, c_class_dir)
 
 
+def sig_process(data_set, point_bert):
+    loader = torch.utils.data.DataLoader(data_set, batch_size=8, shuffle=False, num_workers=4)
+
+    for batch_id, data in tqdm(enumerate(loader, 0), total=len(loader)):
+        xy, target, idx = data[0].float().cuda(), data[1].long().cuda(), data[-1].long().cuda()
+
+        bs, n_skh_pnt, pnt_channel = xy.size()
+        assert n_skh_pnt == global_defs.n_stk * global_defs.n_stk_pnt and pnt_channel == 2
+
+        xy = xy.view(bs, global_defs.n_stk, global_defs.n_stk_pnt, 2)
+        z = -0.5 * (xy[:, :, :, 0] + xy[:, :, :, 1]).unsqueeze(3)
+        xyz = torch.cat([xy, z], dim=3)  # [bs, n_stk, n_stk_pnt, 3]
+        xyz = xyz.view(bs * global_defs.n_stk, global_defs.n_stk_pnt, 3)  # [bs * n_stk, n_stk_pnt, 3]
+
+        # zeros = torch.zeros(bs * global_defs.n_stk, global_defs.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
+        # xy = torch.cat([xy, zeros], dim=2)
+
+        xyz = point_bert(xyz)  # [bs * n_stk, 512]
+        xyz = xyz.view(bs, global_defs.n_stk, point_bert.channel_out)
+
+        for i in range(bs):
+            c_stk_coor = xyz[i, :, :]
+            c_data_idx = idx[i].item()
+
+            # 很具target找到对应的文件夹
+            c_data_root = data_set.datapath[c_data_idx][1]
+
+            c_stk_root = c_data_root.replace('.txt', '.stkcoor')
+
+            np.savetxt(c_stk_root, c_stk_coor.cpu().numpy(), delimiter=',')
+
+
 def add_stk_coor(dir_path):
     """
     为unified_std_sketch添加笔划特征，使用point_bert_ulip2
@@ -381,41 +423,14 @@ def add_stk_coor(dir_path):
     :param bs: 分类数据集根目录
     :return:
     """
-    def sig_process(data_set):
-        loader = torch.utils.data.DataLoader(data_set, batch_size=8, shuffle=False, num_workers=4)
-
-        for batch_id, data in tqdm(enumerate(loader, 0), total=len(loader)):
-            xy, target, idx = data[0].float().cuda(), data[1].long().cuda(), data[-1].long().cuda()
-
-            bs, n_skh_pnt, pnt_channel = xy.size()
-            assert n_skh_pnt == global_defs.n_stk * global_defs.n_stk_pnt and pnt_channel == 2
-
-            xy = xy.view(bs, global_defs.n_stk, global_defs.n_stk_pnt, 2)
-            xy = xy.view(bs * global_defs.n_stk, global_defs.n_stk_pnt, 2)
-            zeros = torch.zeros(bs * global_defs.n_stk, global_defs.n_stk_pnt, 1, device=xy.device, dtype=xy.dtype)
-            xy = torch.cat([xy, zeros], dim=2)
-
-            xy = point_bert(xy)
-            xy = xy.view(bs, global_defs.n_stk, point_bert.channel_out)
-
-            for i in range(bs):
-                c_stk_coor = xy[i, :, :]
-                c_data_idx = idx[i].item()
-
-                # 很具target找到对应的文件夹
-                c_data_root = train_dataset.datapath[c_data_idx][1]
-
-                c_stk_root = c_data_root.replace('.txt', '.stkcoor')
-
-                np.savetxt(c_stk_root, c_stk_coor.cpu().numpy(), delimiter=',')
 
     train_dataset = SketchDataset(root=dir_path, is_train=True, is_back_idx=True)
     test_dataset = SketchDataset(root=dir_path, is_train=False, is_back_idx=True)
 
-    point_bert = create_pretrained_pointbert('./model_trained/pointbert_ulip2.pth').cuda()
+    point_bert = create_pretrained_pointbert(r'E:\document\DeepLearning\SDGraph\model_trained\pointbert_ulip2.pth').cuda()
 
-    sig_process(train_dataset)
-    sig_process(test_dataset)
+    sig_process(train_dataset, point_bert)
+    sig_process(test_dataset, point_bert)
 
 
 
@@ -437,7 +452,7 @@ if __name__ == '__main__':
 
     # quickdraw_to_std_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\txt')
 
-    add_stk_coor(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32')
+    add_stk_coor(r'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk32_stkpnt32')
 
 
 

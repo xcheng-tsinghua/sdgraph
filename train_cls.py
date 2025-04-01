@@ -2,7 +2,6 @@
 import torch
 import torch.nn.functional as F
 from datetime import datetime
-import logging
 import argparse
 from tqdm import tqdm
 from colorama import Fore, Back, init
@@ -11,8 +10,8 @@ import os
 # 自建模块
 import global_defs
 from data_utils.SketchDataset import SketchDataset
-from encoders.sdgraph2 import SDGraphCls
-from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls
+from encoders.sdgraph import SDGraphCls
+from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
 
 def parse_args():
@@ -28,13 +27,13 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+
+    r'''
+    cad sketch
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-
-    '''
-    cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
     TuBerlin
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
     parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
@@ -56,13 +55,14 @@ def main(args):
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
-    logger = logging.getLogger("Model")
-    logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
-    file_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
+    # logger = logging.getLogger("Model")
+    # logger.setLevel(logging.INFO)
+    # file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
+    # file_handler.setLevel(logging.INFO)
+    # formatter = logging.Formatter('%(message)s')
+    # file_handler.setFormatter(formatter)
+    # logger.addHandler(file_handler)
 
     '''定义数据集'''
     if args.local == 'True':
@@ -118,18 +118,16 @@ def main(args):
         all_labels = []
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            points, target, stk_coor = data[0].float().cuda(), data[1].long().cuda(), data[2].float().cuda()
+            points, target = data[0].float().cuda(), data[1].long().cuda()
 
             # -> [bs, 2, n_points]
             points = points.permute(0, 2, 1)
             assert points.size()[1] == 2
 
-            assert stk_coor.size(1) == global_defs.n_stk
-
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            pred = classifier(points, stk_coor)
+            pred = classifier(points)
             loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数
