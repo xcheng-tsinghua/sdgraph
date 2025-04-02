@@ -172,7 +172,7 @@ def main(args):
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
-            get_false_instance(all_preds, all_labels, all_indexes, test_dataset, './log./false_instance.txt')
+            get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
             print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
 
