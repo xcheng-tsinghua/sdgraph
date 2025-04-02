@@ -564,36 +564,6 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
-def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = 'false_instance.txt'):
-    """
-    获取全部分类错误的实例路径
-    :param all_preds:
-    :param all_labels:
-    :param all_indexes:
-    :param dataset:
-    :param save_path:
-    :return:
-    """
-    # 将所有batch的预测和真实标签整合在一起
-    all_preds = np.vstack(all_preds)  # 形状为 [n_samples, n_classes]
-    all_labels = np.hstack(all_labels)  # 形状为 [n_samples]
-    all_indexes = np.hstack(all_indexes)  # 形状为 [n_samples]
-
-    # 确保all_labels, all_indexes中保存的为整形数据
-    assert np.issubdtype(all_labels.dtype, np.integer) and np.issubdtype(all_indexes.dtype, np.integer)
-
-    all_preds = np.argmax(all_preds, axis=1)  # -> [n_samples, ]
-    incorrect_index = np.where(all_preds != all_labels)[0]
-    incorrect_index = all_indexes[incorrect_index]
-
-    if save_path is not None:
-        with open(save_path, 'w', encoding='utf-8') as f:
-            for c_data_idx in incorrect_index:
-                f.write(dataset.datapath[c_data_idx][1] + '\n')
-
-        print('save incorrect cls instance: ', save_path)
-
-
 def get_log_floats(log_file: str) -> np.ndarray:
     # 定义正则表达式，匹配浮点数
     float_pattern = r'[-+]?\d*\.\d+|\d+\.\d*e[-+]?\d+'

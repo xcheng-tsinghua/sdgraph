@@ -27,7 +27,6 @@ class SDGraphCls(nn.Module):
         # dense_l1 = 128
         # dense_l2 = 512
 
-
         sparse_l0 = 16 + 8
         sparse_l1 = 64 + 32
         sparse_l2 = 256 + 128
