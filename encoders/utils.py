@@ -564,7 +564,7 @@ def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
     return acc_ins, acc_cls, f1_m, f1_w, mAP
 
 
-def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = '../log/false_instance.txt'):
+def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = 'false_instance.txt'):
     """
     获取全部分类错误的实例路径
     :param all_preds:
