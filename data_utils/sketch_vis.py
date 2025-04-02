@@ -222,6 +222,17 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         plt.savefig(ahead + 'smooth' + ext)
 
 
+def vis_false_log(log_root: str) -> None:
+    # 读取每行
+    with open(log_root, 'r') as f:
+        for c_line in f.readlines():
+            c_line = c_line.strip()
+            c_file_show = c_line.replace('/opt/data/private/data_set', 'D:/document/DeepLearning/DataSet')
+            print(c_line.split('/')[-2])
+            print(c_file_show)
+            vis_sketch_unified(c_file_show)
+
+
 def test():
     from encoders.utils import index_points
 
@@ -282,7 +293,13 @@ if __name__ == '__main__':
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\1.txt', show_dot=False)
 
-    test()
+    # test()
+
+    # vis_sketch_unified(r'')
+
+    vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
+
+
     pass
 
 
