@@ -43,7 +43,7 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
             for c_idx, c_data_idx in enumerate(incorrect_index):
                 # 找到分类错误的类型：
                 false_class = ''
-                for k, v in dataset.classes:
+                for k, v in dataset.classes.items():
                     if incorrect_preds[c_idx] == v:
                         false_class = k
                         break
