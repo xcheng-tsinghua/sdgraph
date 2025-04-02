@@ -11,7 +11,7 @@ import os
 import global_defs
 from data_utils.SketchDataset import SketchDataset
 from encoders.sdgraph import SDGraphCls
-from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
+from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
 def parse_args():
@@ -69,8 +69,9 @@ def main(args):
         data_root = args.root_local
     else:
         data_root = args.root_sever
-    train_dataset = SketchDataset(root=data_root, is_train=True)
-    test_dataset = SketchDataset(root=data_root, is_train=False)
+
+    train_dataset = SketchDataset(root=data_root, is_train=True, is_back_idx=True)
+    test_dataset = SketchDataset(root=data_root, is_train=False, is_back_idx=True)
     num_class = len(train_dataset.classes)
 
     # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
@@ -152,9 +153,10 @@ def main(args):
 
             all_preds = []
             all_labels = []
+            all_indexes = []
 
             for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                points, target = data[0].float().cuda(), data[1].long().cuda()
+                points, target, indexes = data[0].float().cuda(), data[1].long().cuda(), data[-1].long().cuda()
 
                 points = points.permute(0, 2, 1)
                 assert points.size()[1] == 2
@@ -164,9 +166,13 @@ def main(args):
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
 
+                all_indexes.append(indexes.detach().cpu().numpy())
+
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
+
+            get_false_instance(all_preds, all_labels, all_indexes, test_dataset, './log./false_instance.txt')
 
             print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
 

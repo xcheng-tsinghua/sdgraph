@@ -397,9 +397,18 @@ if __name__ == '__main__':
     # print("相同元素:", common_elements)
     # print("不同元素:", different_elements)
 
-    vis_stk_score()
+    # vis_stk_score()
 
     # detect_and_plot_square_wave(r'C:\Users\ChengXi\Desktop\wave_data.xlsx')
+
+    # 示例数组
+    all_preds = np.array([1, 2, 3, 4, 5])
+    all_labels = np.array([1, 2, 0, 4, 0])
+
+    # 找出两个数组不同的元素的索引
+    diff_indices = np.where(all_preds != all_labels)[0]
+
+    print("不同的元素索引位置:", diff_indices)
 
     pass
 
