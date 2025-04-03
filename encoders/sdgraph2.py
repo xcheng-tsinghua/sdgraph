@@ -756,7 +756,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('cls 双下采样')
+        print('cls 双下采样, use stk coor')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt

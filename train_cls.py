@@ -11,7 +11,7 @@ import numpy as np
 # 自建模块
 import global_defs
 from data_utils.SketchDataset import SketchDataset
-from encoders.sdgraph import SDGraphCls
+from encoders.sdgraph2 import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
 
@@ -109,8 +109,8 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = SketchDataset(root=data_root, is_train=True, is_back_idx=True)
-    test_dataset = SketchDataset(root=data_root, is_train=False, is_back_idx=True)
+    train_dataset = SketchDataset(root=data_root, is_train=True, is_back_stkcoor=True)
+    test_dataset = SketchDataset(root=data_root, is_train=False, is_back_stkcoor=True)
     num_class = len(train_dataset.classes)
 
     # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
@@ -159,6 +159,8 @@ def main(args):
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
             points, target = data[0].float().cuda(), data[1].long().cuda()
+            stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
+            assert stk_coor.size(1) == global_defs.n_stk
 
             # -> [bs, 2, n_points]
             points = points.permute(0, 2, 1)
@@ -167,7 +169,7 @@ def main(args):
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            pred = classifier(points)
+            pred = classifier(points, stk_coor)
             loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数
@@ -192,26 +194,29 @@ def main(args):
 
             all_preds = []
             all_labels = []
-            all_indexes = []
+            # all_indexes = []
 
             for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                points, target, indexes = data[0].float().cuda(), data[1].long().cuda(), data[-1].long().cuda()
+                points, target = data[0].float().cuda(), data[1].long().cuda()
+                stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
+                assert stk_coor.size(1) == global_defs.n_stk
 
                 points = points.permute(0, 2, 1)
                 assert points.size()[1] == 2
 
-                pred = classifier(points)
+                pred = classifier(points, stk_coor)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
 
-                all_indexes.append(indexes.detach().cpu().numpy())
+                # 保存索引用于计算分类错误的实例
+                # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
-            get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
+            # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
             print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
 
