@@ -821,7 +821,7 @@ class SDGraphCls(nn.Module):
     #
     #     return xy
 
-    def forward(self, xy, stk_coor):
+    def forward(self, xy):
         """
         :param xy: [bs, 2, n_skh_pnt]
         :param stk_coor: [bs, n_stk, 512]  笔划坐标，由pointbert_ulip2生成
@@ -840,9 +840,10 @@ class SDGraphCls(nn.Module):
         dense_graph0 = self.point_to_dense(xy)
         assert dense_graph0.size()[2] == n_point
 
-        # 获取笔划坐标 -> [bs, n_stk, 512]
-        # stk_coor = self.get_stk_coor(xy)
-        # stk_coor = sparse_graph0.permute(0, 2, 1)
+        # 获取笔划坐标
+        stk_coor = xy.view(bs, 2, self.n_stk, self.n_stk_pnt)
+        stk_coor = stk_coor.permute(0, 2, 3, 1)
+        stk_coor = stk_coor.reshape(bs, self.n_stk, self.n_stk_pnt * 2)
 
         # 交叉更新数据
         sparse_graph1, dense_graph1, stk_coor1 = self.sd1(sparse_graph0, dense_graph0, stk_fea=stk_coor)

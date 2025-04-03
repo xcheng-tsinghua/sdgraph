@@ -109,8 +109,8 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = SketchDataset(root=data_root, is_train=True, is_back_stkcoor=True)
-    test_dataset = SketchDataset(root=data_root, is_train=False, is_back_stkcoor=True)
+    train_dataset = SketchDataset(root=data_root, is_train=True)
+    test_dataset = SketchDataset(root=data_root, is_train=False)
     num_class = len(train_dataset.classes)
 
     # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
@@ -159,8 +159,8 @@ def main(args):
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
             points, target = data[0].float().cuda(), data[1].long().cuda()
-            stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-            assert stk_coor.size(1) == global_defs.n_stk
+            # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
+            # assert stk_coor.size(1) == global_defs.n_stk
 
             # -> [bs, 2, n_points]
             points = points.permute(0, 2, 1)
@@ -169,7 +169,7 @@ def main(args):
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            pred = classifier(points, stk_coor)
+            pred = classifier(points)
             loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数
@@ -198,13 +198,13 @@ def main(args):
 
             for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
                 points, target = data[0].float().cuda(), data[1].long().cuda()
-                stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-                assert stk_coor.size(1) == global_defs.n_stk
+                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
+                # assert stk_coor.size(1) == global_defs.n_stk
 
                 points = points.permute(0, 2, 1)
                 assert points.size()[1] == 2
 
-                pred = classifier(points, stk_coor)
+                pred = classifier(points)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
