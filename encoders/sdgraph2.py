@@ -711,17 +711,17 @@ class SDGraphEncoder(nn.Module):
             self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)
             self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, dropout)
 
-    def forward(self, sparse_fea, dense_fea, time_emb=None, stk_fea=None, stk_fea_bef=None):
+    def forward(self, sparse_fea, dense_fea, time_emb=None, stk_coor=None, stk_coor_bef=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_point]
-        :param stk_fea: 初始用点获取的每个笔划的特征
-        :param stk_fea_bef: 采样前的笔划特征
+        :param stk_coor: 初始用点获取的每个笔划的特征
+        :param stk_coor_bef: 采样前的笔划特征
         :param time_emb: [bs, emb]
         :return:
         """
-        # 确保在上采样时stk_fea_bef不为None，且下采样时stk_fea_bef为None， ^ :异或，两者不同为真
-        assert (self.sample_type == 'up_sample') ^ (stk_fea_bef is None)
+        # 确保在上采样时stk_coor_bef不为None，且下采样时stk_coor_bef为None， ^ :异或，两者不同为真
+        assert (self.sample_type == 'up_sample') ^ (stk_coor_bef is None)
 
         bs, emb, n_stk = sparse_fea.size()
         assert n_stk == self.n_stk
@@ -738,16 +738,16 @@ class SDGraphEncoder(nn.Module):
         union_dense = self.dense_update(union_dense)
 
         # 采样
-        union_sparse, union_dense, stk_fea_sampled = self.sample(union_sparse, union_dense, stk_fea, stk_fea_bef, 3)
-        if stk_fea_sampled is not None:
-            assert stk_fea_sampled.size(0) == bs and (stk_fea_sampled.size(1) == self.n_stk // 2 or stk_fea_sampled.size(1) == self.n_stk * 2)
+        union_sparse, union_dense, stk_coor_sampled = self.sample(union_sparse, union_dense, stk_coor, stk_coor_bef, 3)
+        if stk_coor_sampled is not None:
+            assert stk_coor_sampled.size(0) == bs and (stk_coor_sampled.size(1) == self.n_stk // 2 or stk_coor_sampled.size(1) == self.n_stk * 2)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
             union_sparse = self.time_mlp_sp(union_sparse, time_emb)
             union_dense = self.time_mlp_dn(union_dense, time_emb)
 
-        return union_sparse, union_dense, stk_fea_sampled
+        return union_sparse, union_dense, stk_coor_sampled
 
 
 class SDGraphCls(nn.Module):
@@ -762,13 +762,13 @@ class SDGraphCls(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         # 各层特征维度
-        sparse_l0 = 32 + 16
-        sparse_l1 = 128 + 64
-        sparse_l2 = 512 + 256
+        sparse_l0 = 32 + 16 + 8
+        sparse_l1 = 128 + 64 + 32
+        sparse_l2 = 512 + 256 + 128
 
-        dense_l0 = 32
-        dense_l1 = 128
-        dense_l2 = 512
+        dense_l0 = 32 + 16
+        dense_l1 = 128 + 64
+        dense_l2 = 512 + 256
 
         # 生成笔划坐标（特征）
         # self.point_bert = create_pretrained_pointbert().cuda()
@@ -841,13 +841,14 @@ class SDGraphCls(nn.Module):
         assert dense_graph0.size()[2] == n_point
 
         # 获取笔划坐标
-        stk_coor = xy.view(bs, 2, self.n_stk, self.n_stk_pnt)
-        stk_coor = stk_coor.permute(0, 2, 3, 1)
-        stk_coor = stk_coor.reshape(bs, self.n_stk, self.n_stk_pnt * 2)
+        stk_coor0 = dense_graph0
+        # stk_coor = xy.view(bs, 2, self.n_stk, self.n_stk_pnt)
+        # stk_coor = stk_coor.permute(0, 2, 3, 1)
+        # stk_coor = stk_coor.reshape(bs, self.n_stk, self.n_stk_pnt * 2)
 
         # 交叉更新数据
-        sparse_graph1, dense_graph1, stk_coor1 = self.sd1(sparse_graph0, dense_graph0, stk_fea=stk_coor)
-        sparse_graph2, dense_graph2, _ = self.sd2(sparse_graph1, dense_graph1, stk_fea=stk_coor1)
+        sparse_graph1, dense_graph1, stk_coor1 = self.sd1(sparse_graph0, dense_graph0, stk_coor=stk_coor0)
+        sparse_graph2, dense_graph2, stk_coor2 = self.sd2(sparse_graph1, dense_graph1, stk_coor=stk_coor1)
 
         # 提取全局特征
         sparse_glo0 = sparse_graph0.max(2)[0]
