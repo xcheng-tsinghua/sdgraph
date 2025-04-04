@@ -833,7 +833,7 @@ class SDGraphCls(nn.Module):
         assert n_point == self.n_stk * self.n_stk_pnt and channel == 2
 
         # 生成初始 sparse graph
-        sparse_graph0 = self.point_to_sparse(xy)
+        sparse_graph0 = self.point_to_sparse(xy)  # [bs, emb, n_stk]
         assert sparse_graph0.size()[2] == self.n_stk
 
         # 生成初始 dense graph
@@ -841,7 +841,7 @@ class SDGraphCls(nn.Module):
         assert dense_graph0.size()[2] == n_point
 
         # 获取笔划坐标
-        stk_coor0 = dense_graph0
+        stk_coor0 = sparse_graph0.permute(0, 2, 1)  # [bs, n_stk, emb]
         # stk_coor = xy.view(bs, 2, self.n_stk, self.n_stk_pnt)
         # stk_coor = stk_coor.permute(0, 2, 3, 1)
         # stk_coor = stk_coor.reshape(bs, self.n_stk, self.n_stk_pnt * 2)
