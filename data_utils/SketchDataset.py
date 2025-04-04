@@ -214,19 +214,28 @@ class SketchDataset2(Dataset):
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字
 
-        sketch_data = short_straw_split_sketch(fn[1])
+        sketch_data = short_straw_split_sketch(fn[1], is_show_status=False)
 
-        # 创建 mask
-        sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.float)
+        # 创建 mask 和规则的 sketch
+        sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
+        # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
 
+        sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
         for i, c_stk in enumerate(sketch_data):
             n_cstk_pnt = len(c_stk)
             sketch_mask[i, :n_cstk_pnt] = 1
 
+            asaas = sketch_cube[i, :n_cstk_pnt, :]
+            bbass = torch.from_numpy(c_stk)
+
+            sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+
+        sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
+
         if self.is_back_idx:
-            return sketch_data, sketch_mask, cls, index
+            return sketch_cube, cls, index
         else:
-            return sketch_data, sketch_mask, cls
+            return sketch_cube, cls
 
     def __len__(self):
         return len(self.datapath)
@@ -537,8 +546,10 @@ if __name__ == '__main__':
 
     # quickdraw_to_std_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\txt')
 
-    add_stk_coor(r'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk32_stkpnt32')
+    # add_stk_coor(r'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk32_stkpnt32')
 
+
+    # adtast = SketchDataset2(root=data_root, is_train=True)
 
 
 

@@ -862,9 +862,10 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     # 每个笔划中的点数仅保留前 global_def.n_pnt 个
     strokes_splited = sp.stk_pnt_filter(strokes_splited, global_defs.n_stk_pnt)
 
-    for s in strokes_splited:
-        plt.plot(s[:, 0], -s[:, 1])
-    plt.show()
+    if is_show_status:
+        for s in strokes_splited:
+            plt.plot(s[:, 0], -s[:, 1])
+        plt.show()
 
     return strokes_splited
 
@@ -926,8 +927,9 @@ if __name__ == '__main__':
     #                rf'D:\document\DeepLearning\DataSet\TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\cup\5126.txt'
-    sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
+    # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\camera\3285.txt'
+    sketch_test = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Rivet\6dcc4bc1223014b26abb72b3dee939a8_1.txt'
 
     short_straw_split_sketch(sketch_test, is_show_status=False)
 

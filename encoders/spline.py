@@ -781,7 +781,7 @@ def stk_pnt_filter(sketch, n_stk_pnt=global_defs.n_stk_pnt):
         else:
             filtered_sketch.append(c_stk)
 
-    return sketch
+    return filtered_sketch
 
 
 if __name__ == '__main__':

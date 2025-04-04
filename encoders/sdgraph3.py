@@ -1,5 +1,6 @@
 """
 笔划均匀化后带mask版本，支持不同长度的笔划和不同笔划数的草图
+2025.4.4 测试暂未对扩散模型进行修改
 """
 import torch
 import torch.nn as nn
@@ -7,6 +8,7 @@ import torch.nn.functional as F
 from encoders.utils import full_connected, full_connected_conv1d, full_connected_conv2d, activate_func
 from einops import rearrange
 import math
+from torch.masked import masked_tensor
 
 import global_defs
 
@@ -142,7 +144,7 @@ class SparseToDense(nn.Module):
 class DenseToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
-    通过卷积然后最大池化到一个特征，然后拼接
+    直接最大池化到一个特征，然后拼接
     """
     def __init__(self, dense_in, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
@@ -150,30 +152,26 @@ class DenseToSparse(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-        self.dense_to_sparse = nn.Sequential(
-            nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
-            nn.BatchNorm2d(dense_in),
-            activate_func(),
-            nn.Dropout2d(dropout),
-        )
-
-    def forward(self, sparse_fea, dense_fea):
+    def forward(self, sparse_fea, dense_fea, mask):
         """
-        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
+        :param mask: [bs, n_stk, n_stk_pnt]
         :return: [bs, emb, n_stk]
         """
         bs, emb, _ = dense_fea.size()
 
         # -> [bs, emb, n_stk, n_stk_pnt]
-        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+        # sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
 
         # -> [bs, emb, n_stk]
-        sparse_feas_from_dense = torch.max(sparse_feas_from_dense, dim=3)[0]
+        sparse_feas_from_dense = dense_fea.max(3)[0]
         assert sparse_feas_from_dense.size(2) == self.n_stk
+
+        mask = mask.max(2)[0].unsqueeze(1).repeat(1, sparse_feas_from_dense.size(1), 1)  # [bs, 1, n_stk]
+        sparse_feas_from_dense[mask == 0] = 0
+
+        # ------------------------------------------------------------------------------------------- 上次改到这儿
 
         # -> [bs, emb, n_stk]
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
@@ -296,62 +294,6 @@ class RMSNorm(nn.Module):
         return F.normalize(x, dim=1) * self.g * self.scale
 
 
-class PointToSparse(nn.Module):
-    """
-    将 dense graph 的数据转移到 sparse graph'
-    使用一维卷积及最大池化方式
-    """
-    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
-                 with_time=False, time_emb_dim=0):
-        super().__init__()
-
-        self.n_stk = n_stk
-        self.n_stk_pnt = n_stk_pnt
-        self.with_time = with_time
-
-        # 将 DGraph 的数据转移到 SGraph
-        mid_dim = int((point_dim * sparse_out) ** 0.5)
-        self.point_increase = nn.Sequential(
-            nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
-            nn.BatchNorm2d(mid_dim),
-            activate_func(),
-            # nn.Dropout2d(dropout),
-
-            nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
-            nn.BatchNorm2d(sparse_out),
-            activate_func(),
-            # nn.Dropout2d(dropout),
-        )
-
-        if self.with_time:
-            self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
-
-    def forward(self, xy, time_emb=None):
-        """
-        :param xy: [bs, emb, n_stk * n_stk_pnt]
-        :param time_emb: [bs, emb]
-        :return: [bs, emb, n_stk]
-        """
-        bs, emb, _ = xy.size()
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = self.point_increase(xy)
-
-        # -> [bs, emb, n_stk]
-        xy = torch.max(xy, dim=3)[0]
-        assert xy.size(2) == self.n_stk
-
-        assert self.with_time ^ (time_emb is None)
-        if self.with_time:
-            xy = self.time_merge(xy, time_emb)
-
-        return xy
-
-
-
 class TimeMerge(nn.Module):
     def __init__(self, dim_in, dim_out, time_emb_dim, dropout=0.):
         super().__init__()
@@ -400,6 +342,68 @@ class Block(nn.Module):
         return x
 
 
+class PointToSparse(nn.Module):
+    """
+    利用点生成 sparse graph
+    """
+
+    def __init__(self, point_dim, sparse_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
+                 with_time=False, time_emb_dim=0):
+        super().__init__()
+
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
+
+        # 将 DGraph 的数据转移到 SGraph
+        mid_dim = int((point_dim * sparse_out) ** 0.5)
+        self.point_increase = nn.Sequential(
+            nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
+            nn.BatchNorm2d(mid_dim),
+            activate_func(),
+            # nn.Dropout2d(dropout),
+
+            nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
+            nn.BatchNorm2d(sparse_out),
+            activate_func(),
+            # nn.Dropout2d(dropout),
+        )
+
+        if self.with_time:
+            self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
+
+    def forward(self, xy, mask, time_emb=None):
+        """
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
+        :param mask: [bs, n_stk, n_stk_pnt]
+        :param time_emb: [bs, emb]
+        :return: [bs, emb, n_stk]
+        """
+        bs, n_stk, n_stk_pnt, channel_xy = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
+        assert channel_xy.size(1) == self.n_stk and channel_xy.size(2) == self.n_stk_pnt
+
+        # -> [bs, 2, n_stk, n_stk_pnt]
+        xy = xy.permute(0, 3, 1, 2)
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        xy = self.point_increase(xy)
+
+        # -> [bs, emb, n_stk]
+        xy = xy.max(3)[0]
+        assert xy.size(2) == self.n_stk
+
+        mask = mask.max(2)[0]  # -> [bs, n_stk]
+        mask = mask.unsqueeze(1)  # -> [bs, 1, n_stk]
+        xy = xy * mask  # -> [bs, emb, n_stk]
+
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            xy = self.time_merge(xy, time_emb)
+
+        return xy
+
+
 class PointToDense(nn.Module):
     """
     利用点坐标生成 dense graph
@@ -413,20 +417,30 @@ class PointToDense(nn.Module):
         if self.with_time:
             self.time_merge = TimeMerge(emb_dim, emb_dim, time_emb_dim)
 
-    def forward(self, xy, time_emb=None):
+    def forward(self, xy, mask, time_emb=None):
         """
-        :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
+        :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
-        :return: [bs, emb, n_stk * n_stk_pnt]
+        :return: [bs, emb, n_stk, n_stk_pnt]
         """
-        dense_emb = self.encoder(xy)
+        bs, n_stk, n_stk_pnt, channel_xy = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
+        assert channel_xy.size(1) == self.n_stk and channel_xy.size(2) == self.n_stk_pnt
+
+        # 先使用mask提取有效点
+        xy[mask.unsqueeze(-1).repeat(1, 1, 1, 2) == 0] = float('-inf')  # [bs, n_stk, n_stk_pnt, 2]
+        xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
+        xy = xy.permute(0, 2, 1)  # [bs, 2, n_stk * n_stk_pnt]
+
+        dense_emb = self.encoder(xy)  # [bs, emb, n_stk * n_stk_pnt]
+        dense_emb = dense_emb.view(bs, dense_emb.size(1), n_stk, n_stk_pnt)  # [bs, emb, n_stk, n_stk_pnt]
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
             dense_emb = self.time_merge(dense_emb, time_emb)
 
         return dense_emb
-
 
 
 class SDGraphEncoder(nn.Module):
@@ -466,22 +480,22 @@ class SDGraphEncoder(nn.Module):
             self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)  # 这里dropout不能为零
             self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, dropout)  # 这里dropout不能为零
 
-    def forward(self, sparse_fea, dense_fea, time_emb=None):
+    def forward(self, sparse_fea, dense_fea, mask, time_emb=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
-        :param dense_fea: [bs, emb, n_point]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
         :return:
         """
         bs, emb, n_stk = sparse_fea.size()
         assert n_stk == self.n_stk
 
-        n_points = dense_fea.size()[2]
-        assert n_points == self.n_stk * self.n_stk_pnt
+        assert dense_fea.size()[2] == self.n_stk and dense_fea.size()[3] == self.n_stk_pnt
 
         # 信息交换
-        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
-        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea, mask)
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea, mask)
 
         # 信息更新
         union_sparse = self.sparse_update(union_sparse)
@@ -528,21 +542,13 @@ class SDGraphCls(nn.Module):
         self.n_stk_pnt = global_defs.n_stk_pnt
 
         # 各层特征维度
-        sparse_l0 = 32 + 16
-        sparse_l1 = 128 + 64
-        sparse_l2 = 512 + 256
+        sparse_l0 = 16 + 8
+        sparse_l1 = 64 + 32
+        sparse_l2 = 256 + 128
 
-        dense_l0 = 32
-        dense_l1 = 128
-        dense_l2 = 512
-
-        # sparse_l0 = 16 + 8
-        # sparse_l1 = 64 + 32
-        # sparse_l2 = 256 + 128
-        #
-        # dense_l0 = 16
-        # dense_l1 = 64
-        # dense_l2 = 256
+        dense_l0 = 16
+        dense_l1 = 64
+        dense_l2 = 256
 
         # 生成初始 sdgraph
         self.point_to_sparse = PointToSparse(2, sparse_l0)
@@ -571,27 +577,29 @@ class SDGraphCls(nn.Module):
 
         self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
-    def forward(self, xy):
+    def forward(self, xy, mask):
         """
-        :param xy: [bs, 2, n_skh_pnt]
+        :param xy: [bs, n_stk, n_skt_pnt, 2]
+        :param mask: [bs, n_stk, n_skt_pnt]
         :return: [bs, n_classes]
         """
         xy = xy[:, :2, :]
 
-        bs, channel, n_point = xy.size()
-        assert n_point == self.n_stk * self.n_stk_pnt and channel == 2
+        bs, n_stk, n_stk_pnt, channel_xy = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
+        assert mask.size(1) == self.n_stk and mask.size(2) == self.n_stk_pnt
 
         # 生成初始 sparse graph
-        sparse_graph0 = self.point_to_sparse(xy)
+        sparse_graph0 = self.point_to_sparse(xy, mask)
         assert sparse_graph0.size()[2] == self.n_stk
 
         # 生成初始 dense graph
         dense_graph0 = self.point_to_dense(xy)
-        assert dense_graph0.size()[2] == n_point
+        assert dense_graph0.size()[2] == self.n_stk and dense_graph0.size()[3] == self.n_stk_pnt
 
         # 交叉更新数据
-        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
-        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
+        sparse_graph1, dense_graph1, mask1 = self.sd1(sparse_graph0, dense_graph0, mask)
+        sparse_graph2, dense_graph2, mask2 = self.sd2(sparse_graph1, dense_graph1, mask1)
 
         # 提取全局特征
         sparse_glo0 = sparse_graph0.max(2)[0]
@@ -785,7 +793,15 @@ def test():
 
 
 if __name__ == '__main__':
-    test()
+    # test()
+    # aten = torch.ones(4, 5)
+    # masks = torch.tensor([1, 0, 0, 1], dtype=torch.int)
+    # aten[masks.unsqueeze(-1).repeat(1, 5) == 0] = float('-inf')
+    # print(aten)
+
+    a = float('-inf')
+    print(a * 0)
+
     print('---------------')
 
 
