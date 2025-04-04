@@ -11,7 +11,30 @@ import requests
 
 import global_defs
 import encoders.spline as sp
-from encoders import utils
+
+
+def n_sketch_pnt(sketch) -> int:
+    """
+    返回草图中的点数
+    :param sketch:
+    :return:
+    """
+    if isinstance(sketch, np.ndarray):
+        return len(sketch)
+
+    elif isinstance(sketch, list):
+        pnt_count = 0
+        for c_stk in sketch:
+            pnt_count += len(c_stk)
+
+        return pnt_count
+
+    elif isinstance(sketch, str):
+        sketch_data = np.loadtxt(sketch, delimiter=',')
+        return len(sketch_data)
+
+    else:
+        raise TypeError('Unknown sketch type')
 
 
 def save_confusion_mat(pred_list: list, target_list: list, save_name):
@@ -804,7 +827,7 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     sketch_data = sketch_std(sketch_data)
 
     # 分割草图
-    sketch_data = utils.sketch_split(sketch_data, pen_up, pen_down)
+    sketch_data = sp.sketch_split(sketch_data, pen_up, pen_down)
 
     # 去掉点数过少的笔划
     sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
@@ -815,7 +838,7 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     # 去掉长度过短的笔划
     strokes = sp.stroke_len_filter(sketch_data, 0.07)
 
-    if utils.n_sketch_pnt(sketch_data) <= 20:
+    if n_sketch_pnt(sketch_data) <= 20:
         warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
         return []
 

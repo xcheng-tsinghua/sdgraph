@@ -12,7 +12,25 @@ import math
 import warnings
 
 import global_defs
-from encoders import utils
+
+
+def sketch_split(sketch, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',') -> list:
+    """
+    根据标志符分割笔划，并去掉标志位
+    :param sketch:
+    :param pen_up:
+    :param pen_down:
+    :param delimiter:
+    :return:
+    """
+    if isinstance(sketch, str):
+        sketch = np.loadtxt(sketch, delimiter=delimiter)
+
+    # 分割笔划
+    sketch[-1, 2] = pen_down
+    sketch = np.split(sketch[:, :2], np.where(sketch[:, 2] == pen_up)[0] + 1)
+
+    return sketch
 
 
 class LinearInterp(object):
@@ -625,7 +643,7 @@ def stk_pnt_num_filter(sketch, min_point=5) -> list:
     """
     # 如果是ndarray，说明笔划未分割
     if isinstance(sketch, np.ndarray):
-        sketch = utils.sketch_split(sketch)
+        sketch = sketch_split(sketch)
 
     filtered_stk = []
     for c_stk in sketch:
@@ -667,7 +685,7 @@ def near_pnt_dist_filter(sketch, tol):
 
     # 如果是ndarray，说明笔划未分割
     if isinstance(sketch, np.ndarray):
-        sketch = utils.sketch_split(sketch)
+        sketch = sketch_split(sketch)
 
     valid_stks = []
 
@@ -717,7 +735,7 @@ def stroke_len_filter(stroke_list, min_length=5e-2):
     :return:
     """
     if isinstance(stroke_list, np.ndarray):
-        stroke_list = utils.sketch_split(stroke_list)
+        stroke_list = sketch_split(stroke_list)
 
     filtered_stk = []
 
@@ -737,7 +755,7 @@ def stk_number_filter(sketch, n_stk=global_defs.n_stk):
     :return:
     """
     if isinstance(sketch, np.ndarray):
-        sketch = utils.sketch_split(sketch)
+        sketch = sketch_split(sketch)
 
     sketch = sorted(sketch, key=lambda arr: arr.shape[0], reverse=True)
     sketch = sketch[:n_stk]
@@ -753,7 +771,7 @@ def stk_pnt_filter(sketch, n_stk_pnt=global_defs.n_stk_pnt):
     :return:
     """
     if isinstance(sketch, np.ndarray):
-        sketch = utils.sketch_split(sketch)
+        sketch = sketch_split(sketch)
 
     filtered_sketch = []
 

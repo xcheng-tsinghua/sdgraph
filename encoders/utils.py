@@ -9,7 +9,6 @@ import re
 import matplotlib.pyplot as plt
 import logging
 
-import global_defs
 from data_utils.sketch_utils import save_confusion_mat
 
 
@@ -647,49 +646,6 @@ def vis_log_comp(log1: str, log2: str, comp_idx: int = 1) -> None:
 
     # 显示图形
     plt.show()
-
-
-def sketch_split(sketch, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',') -> list:
-    """
-    根据标志符分割笔划，并去掉标志位
-    :param sketch:
-    :param pen_up:
-    :param pen_down:
-    :param delimiter:
-    :return:
-    """
-    if isinstance(sketch, str):
-        sketch = np.loadtxt(sketch, delimiter=delimiter)
-
-    # 分割笔划
-    sketch[-1, 2] = pen_down
-    sketch = np.split(sketch[:, :2], np.where(sketch[:, 2] == pen_up)[0] + 1)
-
-    return sketch
-
-
-def n_sketch_pnt(sketch) -> int:
-    """
-    返回草图中的点数
-    :param sketch:
-    :return:
-    """
-    if isinstance(sketch, np.ndarray):
-        return len(sketch)
-
-    elif isinstance(sketch, list):
-        pnt_count = 0
-        for c_stk in sketch:
-            pnt_count += len(c_stk)
-
-        return pnt_count
-
-    elif isinstance(sketch, str):
-        sketch_data = np.loadtxt(sketch, delimiter=',')
-        return len(sketch_data)
-
-    else:
-        raise TypeError('Unknown sketch type')
 
 
 if __name__ == '__main__':
