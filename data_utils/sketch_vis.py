@@ -57,24 +57,17 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
 
     # 重采样，使得点之间的距离近似相等
-    strokes = sp.batched_spline_approx(
-        point_list=strokes,
-        median_ratio=0.1,
-        approx_mode='uni-arclength'
-    )
+    # strokes = sp.batched_spline_approx(
+    #     point_list=strokes,
+    #     median_ratio=0.1,
+    #     approx_mode='uni-arclength'
+    # )
 
-    colors = [[31/255,119/255,180/255], [255/255,127/255,14/255], [44/255,160/255,44/255], [214/255,39/255,40/255], [148/255,103/255,189/255], [140/255,86/255,75/255], [227/255,119/255,194/255]]
-
-    for s, color in zip(strokes, colors):
-        # s = s[::105]  # 45
-        plt.plot(s[:, 0], -s[:, 1], color=color)
+    for s in strokes:
+        plt.plot(s[:, 0], -s[:, 1])
 
         if show_dot:
-            plt.scatter(s[:, 0], -s[:, 1], s=80, color=[31/255,119/255,180/255])
-
-        # if not show_axis:
-        #     plt.axis('off')
-        # plt.show()
+            plt.scatter(s[:, 0], -s[:, 1], s=80)
 
     if not show_axis:
         plt.axis('off')
@@ -233,6 +226,65 @@ def vis_false_log(log_root: str) -> None:
             vis_sketch_unified(c_file_show)
 
 
+def test_vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
+    """
+    显示原始采集的机械草图
+    存储的每行应该为： [x, y, state]
+    :param root:
+    :param pen_up: 抬笔指令
+    :param pen_down: 落笔指令
+    :param show_dot:
+    :param show_axis:
+    :return:
+    """
+    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+    sketch_data = np.loadtxt(root, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为17，防止出现空数组
+    sketch_data[-1, 2] = pen_down
+
+    # -------------------------------
+    # 去掉点数过少的笔划
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
+
+    # 重采样，使得点之间的距离近似相等
+    strokes = sp.batched_spline_approx(
+        point_list=strokes,
+        median_ratio=0.1,
+        approx_mode='uni-arclength'
+    )
+
+    colors = [[31/255,119/255,180/255], [255/255,127/255,14/255], [44/255,160/255,44/255], [214/255,39/255,40/255], [148/255,103/255,189/255], [140/255,86/255,75/255], [227/255,119/255,194/255]]
+
+    for s, color in zip(strokes, colors):
+        # s = s[::105]  # 45
+        plt.plot(s[:, 0], -s[:, 1], color=color)
+
+        if show_dot:
+            plt.scatter(s[:, 0], -s[:, 1], s=80, color=[31/255,119/255,180/255])
+
+        # if not show_axis:
+        #     plt.axis('off')
+        # plt.show()
+
+    if not show_axis:
+        plt.axis('off')
+    plt.show()
+
+
 def test():
     from encoders.utils import index_points
 
@@ -297,8 +349,9 @@ if __name__ == '__main__':
 
     # vis_sketch_unified(r'')
 
-    vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
+    # vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
 
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\camera\3285.txt', show_dot=True)
 
     pass
 

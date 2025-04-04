@@ -25,7 +25,7 @@ import re
 import shutil
 
 import global_defs
-from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
+from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch
 import data_utils.sketch_vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 
@@ -67,7 +67,6 @@ class SketchDataset(Dataset):
                  is_train=True,
                  data_argumentation=False,
                  is_back_idx=False,
-                 is_back_stkcoor=False,
                  is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
                  ):
 
@@ -75,7 +74,6 @@ class SketchDataset(Dataset):
         self.data_augmentation = data_argumentation
         self.is_back_idx = is_back_idx
         self.is_unify = is_unify
-        self.is_back_stkcoor = is_back_stkcoor
 
         if is_train:
             inner_root = os.path.join(root, 'train')
@@ -113,9 +111,6 @@ class SketchDataset(Dataset):
         # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
         sketch_data = np.loadtxt(fn[1], delimiter=',')
 
-        if self.is_back_stkcoor:
-            stk_coor = np.loadtxt(fn[1].replace('.txt', '.stkcoor'), delimiter=',')
-
         # 2D coordinates
         coordinates = sketch_data[:, :2]
 
@@ -133,15 +128,105 @@ class SketchDataset(Dataset):
             coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
 
         if self.is_back_idx:
-            if self.is_back_stkcoor:
-                return coordinates, cls, stk_coor, index
-            else:
-                return coordinates, cls, index
+            return coordinates, cls, index
         else:
-            if self.is_back_stkcoor:
-                return coordinates, cls, stk_coor
-            else:
-                return coordinates, cls
+            return coordinates, cls
+
+    def __len__(self):
+        return len(self.datapath)
+
+    def n_classes(self):
+        return len(self.classes)
+
+    @staticmethod
+    def check_format(dir_path, n_points_all):
+        sci_float_pattern = re.compile(r'^-?\d+(\.\d+)?([eE][-+]?\d+)?,-?\d+(\.\d+)?([eE][-+]?\d+)?$')
+        format_fit = True
+
+        files_all = get_allfiles(dir_path, 'txt')
+
+        for c_file in tqdm(files_all, total=len(files_all)):
+            data_read = np.loadtxt(c_file, delimiter=',')
+            if data_read.shape[0] != n_points_all:
+                print(f'file {c_file} not fir line count')
+                format_fit = False
+                break
+
+            with open(c_file, 'r') as f:
+                for c_line in f.readlines():
+                    c_line = c_line.strip()
+
+                    if not sci_float_pattern.match(c_line):
+                        print(c_line, '不符合点云文件格式')
+                        print('not fit line: ', c_line.strip())
+
+                        format_fit = False
+                        break
+
+        return format_fit
+
+
+class SketchDataset2(Dataset):
+
+    def __init__(self,
+                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
+                 is_train=True,
+                 data_argumentation=False,
+                 is_back_idx=False,
+                 is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
+                 ):
+
+        print('sketch dataset, from:' + root)
+        self.data_augmentation = data_argumentation
+        self.is_back_idx = is_back_idx
+        self.is_unify = is_unify
+
+        if is_train:
+            inner_root = os.path.join(root, 'train')
+        else:
+            inner_root = os.path.join(root, 'test')
+
+        # 获取全部类别列表，即 inner_root 内的全部文件夹名
+        category_all = get_subdirs(inner_root)
+        category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
+
+        for c_class in category_all:
+            class_root = os.path.join(inner_root, c_class)
+            file_path_all = get_allfiles(class_root)
+
+            category_path[c_class] = file_path_all
+
+        self.datapath = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
+        for item in category_path:  # item 为字典的键，即类型‘plane','car'
+            for fn in category_path[item]:  # fn 为每类点云对应的文件路径
+                self.datapath.append((item, fn))  # item：类型（‘plane','car'）
+
+        self.classes = dict(zip(sorted(category_path), range(len(category_path))))  # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0,1
+        print(self.classes)
+        print('number of instance all:', len(self.datapath))
+        print('number of classes all:', len(self.classes))
+
+    def __getitem__(self, index):
+        """
+        :return: [stroke1, stroke2, ..., stroke_n] (list)
+        stroke = [n_stroke_point, 2] (numpy.ndarray)
+        """
+        fn = self.datapath[index]  # (‘plane’, Path1)
+        cls = self.classes[fn[0]]  # 表示类别的整形数字
+
+        sketch_data = short_straw_split_sketch(fn[1])
+
+        # 创建 mask
+        sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.float)
+
+        for i, c_stk in enumerate(sketch_data):
+            n_cstk_pnt = len(c_stk)
+            sketch_mask[i, :n_cstk_pnt] = 1
+
+        if self.is_back_idx:
+            return sketch_data, sketch_mask, cls, index
+        else:
+            return sketch_data, sketch_mask, cls
 
     def __len__(self):
         return len(self.datapath)

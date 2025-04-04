@@ -12,6 +12,7 @@ import math
 import warnings
 
 import global_defs
+from encoders import utils
 
 
 class LinearInterp(object):
@@ -52,6 +53,57 @@ class LinearInterp(object):
             paras = np.linspace(0, 1, n_sections + 1)
 
             return self.batch_interp(paras)
+
+    def uni_dist_interp_strict(self, dist) -> np.ndarray:
+        """
+        严格按照该距离采样，可能丢失最后一个点
+        :param dist:
+        :return:
+        """
+        if dist >= self.arc_length:
+            warnings.warn('resample dist is equal to stroke length, drop this sketch')
+            return np.array([])
+
+        else:
+            interp_points = []
+            c_arclen = 1e-5
+
+            while c_arclen < self.arc_length:
+                interp_points.append(self.length_interp(c_arclen))
+                c_arclen += dist
+
+            return np.vstack(interp_points)
+
+    def length_interp(self, target_len):
+        """
+        返回从起点到该点处指定长度的点
+        :param target_len:
+        :return:
+        """
+        assert 0 <= target_len <= self.arc_length
+
+        # cumulative[left_idx] <= target_len <= cumulative[left_idx + 1]
+        left_idx = np.searchsorted(self.cumulative_dist, target_len) - 1
+
+        # 在左右两点之间使用线性插值找到中间点
+        rest_len = target_len - self.cumulative_dist[left_idx]
+
+        left_point = self.stk_points[left_idx]
+        right_point = self.stk_points[left_idx + 1]
+
+        direc = right_point - left_point
+        direc_len = np.linalg.norm(direc)
+
+        # 左右点过于接近
+        if direc_len < 1e-5:
+            warnings.warn('left and right points are too close, return left point')
+            return right_point
+
+        else:
+            direc /= direc_len
+            target_point = left_point + rest_len * direc
+
+            return target_point
 
     def batch_interp(self, paras):
         interp_points = []
@@ -105,12 +157,12 @@ class LinearInterp(object):
 def stroke_length(stroke):
     stroke = stroke[:, :2]
 
-    # 计算总弧长
-    dist_to_previous = np.sqrt(np.sum(np.diff(stroke, axis=0) ** 2, axis=1))
-    cumulative_dist = np.concatenate(([0], np.cumsum(dist_to_previous)))
+    dist_all = 0.0
 
-    arc_length = cumulative_dist[-1]
-    return arc_length
+    for i in range(1, len(stroke)):
+        dist_all += np.linalg.norm(stroke[i] - stroke[i - 1])
+
+    return dist_all
 
 
 def stroke_length_var(stroke_list):
@@ -385,6 +437,35 @@ def uni_arclength_resample(stroke_list, mid_ratio=0.1):
     return resampled
 
 
+def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
+    """
+    均匀布点，相邻点之间距离严格为 resp_dist，可能笔划中丢失最后一个点
+    :param stroke_list:
+    :param resp_dist:
+    :return:
+    """
+    resampled = []
+    for c_stk in stroke_list:
+        lin_interp = LinearInterp(c_stk)
+        resampled.append(lin_interp.uni_dist_interp_strict(resp_dist))
+
+    return resampled
+
+
+def uni_arclength_resample_strict_single(stroke, resp_dist) -> np.ndarray:
+    """
+    均匀布点，相邻点之间距离严格为 resp_dist，可能笔划中丢失最后一个点
+    :param stroke:
+    :param resp_dist:
+    :return:
+    """
+
+    lin_interp = LinearInterp(stroke)
+    stroke_resampled = lin_interp.uni_dist_interp_strict(resp_dist)
+
+    return stroke_resampled
+
+
 def bspl_approx2(points, n_samples=100, degree=3):
     x, y = points[:, 0], points[:, 1]
 
@@ -535,22 +616,21 @@ def show_pnts_with_idx(points):
     plt.show()
 
 
-def stk_pnt_num_filter(sketch, min_point=5):
+def stk_pnt_num_filter(sketch, min_point=5) -> list:
     """
     filter out strokes whose point number is below min_point
     :param sketch: (list) element: ndarray[n_point, 2]
     :param min_point: (int)
     :return:
     """
-    # 分割笔划
-    sketch = np.split(sketch, np.where(sketch[:, 2] == global_defs.pen_up)[0] + 1)
+    # 如果是ndarray，说明笔划未分割
+    if isinstance(sketch, np.ndarray):
+        sketch = utils.sketch_split(sketch)
 
     filtered_stk = []
     for c_stk in sketch:
         if len(c_stk) >= min_point:
             filtered_stk.append(c_stk)
-
-    filtered_stk = np.concatenate(filtered_stk, axis=0)
 
     return filtered_stk
 
@@ -577,31 +657,35 @@ def stroke_point_dist_filter(stroke_list, min_dist=1e-3):
     return filtered_stk
 
 
-def near_pnt_dist_filter(stroke_list, tol):
+def near_pnt_dist_filter(sketch, tol):
     """
     删除距离过近的点
-    :param stroke_list: np.ndarray[n_pnt, 3]
+    :param sketch: np.ndarray[n_pnt, 3]
     :param tol:
     :return:
     """
-    def distance(p1, p2):
-        """
-        计算两点之间的欧氏距离
-        """
-        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
 
-    valid_pnts = []
+    # 如果是ndarray，说明笔划未分割
+    if isinstance(sketch, np.ndarray):
+        sketch = utils.sketch_split(sketch)
 
-    n_cpnts = stroke_list.shape[0]
-    for i in range(n_cpnts - 1):
-        if distance(stroke_list[i, :], stroke_list[i + 1, :]) > tol:
-            valid_pnts.append(stroke_list[i, :])
+    valid_stks = []
 
-    if distance(stroke_list[n_cpnts - 2, :], stroke_list[n_cpnts - 1, :]) > tol:
-        valid_pnts.append(stroke_list[n_cpnts - 1, :])
+    for c_stk in sketch:
+        c_valid_stk_pnts = [c_stk[0]]
+        prev_idx = 0
+        for c_pnt_idx in range(1, len(c_stk)):
+            c_pnt = c_stk[c_pnt_idx]
+            prev_pnt = c_stk[prev_idx]
 
-    valid_pnts = np.vstack(valid_pnts)
-    return valid_pnts
+            c_dist = np.linalg.norm(c_pnt - prev_pnt)
+            if c_dist > tol:
+                c_valid_stk_pnts.append(c_stk[c_pnt_idx])
+                prev_idx = c_pnt_idx
+
+        valid_stks.append(np.vstack(c_valid_stk_pnts))
+
+    return valid_stks
 
 
 def stroke_num_filter(stroke_list, stroke_num):
@@ -632,13 +716,54 @@ def stroke_len_filter(stroke_list, min_length=5e-2):
     :param min_length:
     :return:
     """
+    if isinstance(stroke_list, np.ndarray):
+        stroke_list = utils.sketch_split(stroke_list)
+
     filtered_stk = []
 
     for c_stk in stroke_list:
-        if stroke_length(c_stk[:, :2]) >= min_length:
+        c_stroke_length = stroke_length(c_stk)
+        if c_stroke_length >= min_length:
             filtered_stk.append(c_stk)
 
     return filtered_stk
+
+
+def stk_number_filter(sketch, n_stk=global_defs.n_stk):
+    """
+    保留笔划中点数较多的前n_stk个笔画
+    :param sketch:
+    :param n_stk:
+    :return:
+    """
+    if isinstance(sketch, np.ndarray):
+        sketch = utils.sketch_split(sketch)
+
+    sketch = sorted(sketch, key=lambda arr: arr.shape[0], reverse=True)
+    sketch = sketch[:n_stk]
+
+    return sketch
+
+
+def stk_pnt_filter(sketch, n_stk_pnt=global_defs.n_stk_pnt):
+    """
+    保留笔划中的前n_stk_pnt个点
+    :param sketch:
+    :param n_stk_pnt:
+    :return:
+    """
+    if isinstance(sketch, np.ndarray):
+        sketch = utils.sketch_split(sketch)
+
+    filtered_sketch = []
+
+    for c_stk in sketch:
+        if len(c_stk) > n_stk_pnt:
+            filtered_sketch.append(c_stk[:n_stk_pnt])
+        else:
+            filtered_sketch.append(c_stk)
+
+    return sketch
 
 
 if __name__ == '__main__':

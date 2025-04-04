@@ -11,6 +11,7 @@ import requests
 
 import global_defs
 import encoders.spline as sp
+from encoders import utils
 
 
 def save_confusion_mat(pred_list: list, target_list: list, save_name):
@@ -121,6 +122,8 @@ def sketch_std(sketch):
     :param sketch: [n_point, s]
     :return:
     """
+    assert isinstance(sketch, np.ndarray)
+
     coordinates = sketch[:, :2]
 
     # sketch mass move to (0, 0), x y scale to [-1, 1]
@@ -636,6 +639,250 @@ def pen_updown_alt_batched(source_dir, target_dir, up_before=16, down_before=17,
         pen_updown_alt(c_file, target_file)
 
 
+def equal_dist_resample(stroke: np.ndarray, resp_dist: float) -> np.ndarray:
+    """
+    等距采样
+    :param stroke:
+    :param resp_dist:
+    :return:
+    """
+    # 将 ndarray 转换为列表，每个元素为长度为2的 ndarray
+    stroke = [stroke[i, :2] for i in range(stroke.shape[0])]
+    resampled = [stroke[0]]  # 添加第一个点
+    accum_dist = 0.0  # 上一个采样点与当前点累积的距离
+    i = 1
+
+    while i < len(stroke):
+        c_dist = np.linalg.norm(stroke[i] - stroke[i - 1])
+
+        if accum_dist + c_dist >= resp_dist:
+            interp_pnt = stroke[i - 1] + (resp_dist - accum_dist) * (stroke[i] - stroke[i - 1])
+            resampled.append(interp_pnt)
+            stroke.insert(i, interp_pnt)
+            accum_dist = 0.0
+
+        else:
+            accum_dist += c_dist
+
+        i += 1
+
+    # 如果最后一个点与最后一个采样点之间的距离小于 0.5 * resp_dist，可额外加入最后一个点
+    # if np.linalg.norm(stroke_list[-1] - resampled[-1]) < 0.5 * resp_dist:
+    #     resampled.append(stroke_list[-1])
+
+    # 将采样后的点列表转换为 n×2 的 ndarray
+    return np.vstack(resampled)
+
+
+def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -> list:
+    """
+    将 stroke（n×2 的 ndarray）中的分割点 splits_raw 根据距离阈值 dist_thres 进行合并，
+    返回每个分割组中间的索引列表。
+    """
+    if len(splits_raw) == 0 or len(splits_raw) >= stroke.shape[0]:
+        return []
+
+    c_overall_idx = 0
+    n_splits = len(splits_raw)
+
+    # 第一个分割点作为初始组的第一个点
+    split_idx = [splits_raw[0]]
+
+    # 存储每个分割组中第一个和最后一个索引的元组
+    split_idx_start_end = []
+
+    for i in range(1, n_splits):
+        # 计算 stroke 中两个分割点之间的欧氏距离
+        if np.linalg.norm(stroke[splits_raw[c_overall_idx]] - stroke[splits_raw[i]]) > dist_thres:
+            split_idx.append(splits_raw[i])
+            c_overall_idx = i
+            # 使用当前组中前一个采样点和上一个 split 点作为起始和结束索引
+            split_idx_start_end.append((split_idx[-2], splits_raw[i - 1]))
+
+    # 如果最后两个分割点距离小于等于阈值，则把最后一个点加入对应分割组
+    if n_splits > 2 and np.linalg.norm(stroke[splits_raw[-1]] - stroke[splits_raw[-2]]) <= dist_thres:
+        split_idx_start_end.append((split_idx[-1], splits_raw[-1]))
+
+    # 清空 split_idx 并用每个分割组中间的索引替代（整数除法，取整）
+    split_idx = []
+    for first, second in split_idx_start_end:
+        split_idx.append((first + second) // 2)
+
+    return split_idx
+
+
+def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False):
+    """
+    利用short straw进行角点分割，使用前必须将草图进行归一化至质心(0, 0)，范围[-1, 1]^2
+    :param stroke: 单个笔划 [n, 2]
+    :param resp_dist: 重采样间隔 [0, 1]
+    :return:
+    """
+    # 辅助检测草图是否被归一化过
+    # max_val = np.max(stroke)
+    # min_val = np.min(stroke)
+    assert 1 - np.max(stroke) >= -1e-5 and np.min(stroke) + 1 >= -1e-5
+    assert stroke.shape[1] == 2
+
+    if is_show_status:
+        all_straw = []
+
+    splited_stk = []
+
+    # 如果原始点数少于10个，则直接返回原数组
+    if len(stroke) < 5:
+        splited_stk.append(stroke)
+        return splited_stk
+
+    else:
+        # Step 1: 重采样
+        resample_stk = sp.uni_arclength_resample_strict_single(stroke, resp_dist)
+
+        # 如果重采样后的点数小于 window_width 的3倍，则返回原数组
+        if len(resample_stk) < 3 * window_width:
+            splited_stk.append(stroke)
+            return splited_stk
+
+        # Step 2: 计算 straw 值
+        straw_and_idx = []
+        straw_base = 0.0
+        n_resample = len(resample_stk)
+        half_window = window_width // 2
+
+        for i in range(half_window, n_resample - half_window):
+            window_left = i - half_window
+            window_right = i + half_window
+
+            pnt_left = resample_stk[window_left]
+            pnt_right = resample_stk[window_right]
+            c_straw = np.linalg.norm(pnt_left - pnt_right)
+            straw_and_idx.append((c_straw, i))
+
+            if is_show_status:
+                all_straw.append(c_straw)
+
+            if c_straw > straw_base:
+                straw_base = c_straw
+
+        # Step 3: 根据 straw 阈值确定角点
+        straw_thres = straw_base * thres
+        m_corners_idx = [idx for (straw, idx) in straw_and_idx if straw < straw_thres]
+
+        # Step 4: 合并过于接近的角点
+        m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
+
+        # Step 5: 根据角点分割重采样后的笔画
+        splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+
+        if is_show_status:
+            x = range(len(all_straw))
+            plt.plot(x, all_straw)
+            plt.plot([x[0], x[-1]], [straw_thres, straw_thres])
+
+            plt.show()
+
+    return splited_stk
+
+
+def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3,
+                             pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
+    """
+    利用short straw对彩图进行角点分割
+    :param sketch_root:
+    :param resp_dist:
+    :param filter_dist:
+    :param thres:
+    :param window_width:
+    :param is_show_status:
+    :return:
+    """
+
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心与大小
+    sketch_data = sketch_std(sketch_data)
+
+    # 分割草图
+    sketch_data = utils.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉点数过少的笔划
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
+
+    # 去掉笔划上距离过近的点
+    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
+
+    # 去掉长度过短的笔划
+    strokes = sp.stroke_len_filter(sketch_data, 0.07)
+
+    if utils.n_sketch_pnt(sketch_data) <= 20:
+        warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
+        return []
+
+    # 分割笔划
+    strokes_splited = []
+    for c_stk in strokes:
+        strokes_splited += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_show_status)
+
+    # 去掉点数过少的笔划
+    strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 3)
+
+    # 去掉笔划上距离过近的点
+    strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
+
+    # 去掉长度过短的笔划
+    strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
+
+    # 仅保留点数最多的前 global_def.n_stk 个笔划
+    strokes_splited = sp.stk_number_filter(strokes_splited, global_defs.n_stk)
+
+    # 每个笔划中的点数仅保留前 global_def.n_pnt 个
+    strokes_splited = sp.stk_pnt_filter(strokes_splited, global_defs.n_stk_pnt)
+
+    for s in strokes_splited:
+        plt.plot(s[:, 0], -s[:, 1])
+    plt.show()
+
+    return strokes_splited
+
+
+def test_resample():
+    # sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
+    sketch_root = sketch_test
+
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+    # sketch_data[-1, 2] = global_defs.pen_down
+
+    # 去掉点数过少的笔划
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
+
+    # 去掉笔划上距离过近的点
+    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.05)
+
+    if len(sketch_data) <= 25:
+        warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
+        return None
+
+    # 移动草图质心与大小
+    sketch_data = sketch_std(sketch_data)
+
+    # 分割草图笔划
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    # 去掉长度过短的笔划
+    strokes = sp.stroke_len_filter(strokes, 0.07)
+
+    # 重采样
+    strokes_resampled = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    for s in strokes_resampled:
+        plt.plot(s[:, 0], -s[:, 1])
+        plt.scatter(s[:, 0], -s[:, 1])
+
+    plt.show()
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -652,8 +899,17 @@ if __name__ == '__main__':
 
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt', rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
-    cls_distribute(rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
-                   rf'D:\document\DeepLearning\DataSet\TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    # cls_distribute(rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
+    #                rf'D:\document\DeepLearning\DataSet\TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\cup\5126.txt'
+    sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
+    # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\camera\3285.txt'
+
+    short_straw_split_sketch(sketch_test, is_show_status=False)
+
+    # test()
+    # test_resample()
 
     # quickdraw_download(r'D:\document\DeepLearning\DataSet\quickdraw_all')
 
