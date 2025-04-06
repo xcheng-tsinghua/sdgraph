@@ -13,6 +13,52 @@ from torch.masked import masked_tensor
 import global_defs
 
 
+def knn(x, k):
+    """
+    找到最近的点的索引，包含自身
+    :param x: [bs, 2, n_point]
+    :param k:
+    :return: [batch_size, num_points, k]
+    """
+    # -> x: [bs, 2, n_point]
+
+    inner = -2 * torch.matmul(x.transpose(2, 1), x)
+    xx = torch.sum(x ** 2, dim=1, keepdim=True)
+    pairwise_distance = -xx - inner - xx.transpose(2, 1)
+
+    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
+    return idx
+
+
+def get_graph_feature(x, k=20, idx=None):
+    # -> x: [bs, 2, n_point]
+
+    batch_size, channel, num_points = x.size()
+
+    x = x.view(batch_size, -1, num_points)
+    if idx is None:
+        idx = knn(x, k=k)  # (batch_size, num_points, k)
+    device = x.device
+
+    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+
+    idx = idx + idx_base
+
+    idx = idx.view(-1)
+
+    _, num_dims, _ = x.size()
+
+    x = x.transpose(2, 1).contiguous()
+    feature = x.view(batch_size * num_points, -1)[idx, :]
+    feature = feature.view(batch_size, num_points, k, num_dims)
+    x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+
+    feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2)
+
+    return feature
+
+
+
 class DownSample(nn.Module):
     def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
@@ -177,51 +223,6 @@ class DenseToSparse(nn.Module):
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
 
         return union_sparse
-
-
-def knn(x, k):
-    """
-    找到最近的点的索引，包含自身
-    :param x: [bs, 2, n_point]
-    :param k:
-    :return: [batch_size, num_points, k]
-    """
-    # -> x: [bs, 2, n_point]
-
-    inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)
-    pairwise_distance = -xx - inner - xx.transpose(2, 1)
-
-    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
-    return idx
-
-
-def get_graph_feature(x, k=20, idx=None):
-    # -> x: [bs, 2, n_point]
-
-    batch_size, channel, num_points = x.size()
-
-    x = x.view(batch_size, -1, num_points)
-    if idx is None:
-        idx = knn(x, k=k)  # (batch_size, num_points, k)
-    device = x.device
-
-    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-
-    idx = idx + idx_base
-
-    idx = idx.view(-1)
-
-    _, num_dims, _ = x.size()
-
-    x = x.transpose(2, 1).contiguous()
-    feature = x.view(batch_size * num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims)
-    x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
-
-    feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2)
-
-    return feature
 
 
 class GCNEncoder(nn.Module):

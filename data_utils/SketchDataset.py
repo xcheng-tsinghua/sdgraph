@@ -23,6 +23,7 @@ import os
 from tqdm import tqdm
 import re
 import shutil
+from torch.masked import masked_tensor
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch
@@ -218,9 +219,9 @@ class SketchDataset2(Dataset):
 
         # 创建 mask 和规则的 sketch
         sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
-        # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+        sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
 
-        sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
+        # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
         for i, c_stk in enumerate(sketch_data):
             n_cstk_pnt = len(c_stk)
             sketch_mask[i, :n_cstk_pnt] = 1
@@ -230,7 +231,11 @@ class SketchDataset2(Dataset):
 
             sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
 
-        sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
+        mask_fit = sketch_mask.unsqueeze(2).repeat(1, 1, 2).bool()  # [n_stk, n_stk_pnt, 2]
+        sketch_cube = masked_tensor(sketch_cube, mask_fit)
+
+
+        # sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
 
         if self.is_back_idx:
             return sketch_cube, cls, index
