@@ -173,13 +173,11 @@ class SketchDataset2(Dataset):
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  is_train=True,
                  data_argumentation=False,
-                 is_back_idx=False,
                  is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
                  ):
 
         print('sketch dataset, from:' + root)
         self.data_augmentation = data_argumentation
-        self.is_back_idx = is_back_idx
         self.is_unify = is_unify
 
         if is_train:
@@ -234,12 +232,11 @@ class SketchDataset2(Dataset):
         # mask_fit = sketch_mask.unsqueeze(2).repeat(1, 1, 2).bool()  # [n_stk, n_stk_pnt, 2]
         # sketch_cube = masked_tensor(sketch_cube, mask_fit)
 
-        sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
+        # sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
+        sketch_mask = sketch_mask.bool()
 
-        if self.is_back_idx:
-            return sketch_cube, cls, index
-        else:
-            return sketch_cube, cls
+        return sketch_cube, sketch_mask, cls
+        # return sketch_cube, cls
 
     def __len__(self):
         return len(self.datapath)

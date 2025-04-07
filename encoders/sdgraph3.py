@@ -8,7 +8,6 @@ import torch.nn.functional as F
 from encoders.utils import full_connected, full_connected_conv1d, full_connected_conv2d, activate_func
 from einops import rearrange
 import math
-from torch.masked import masked_tensor
 
 import global_defs
 
@@ -58,7 +57,6 @@ def get_graph_feature(x, k=20, idx=None):
     return feature
 
 
-
 class DownSample(nn.Module):
     def __init__(self, dim_in, dim_out, n_stk, n_stk_pnt, dropout=0.4):
         super().__init__()
@@ -79,18 +77,22 @@ class DownSample(nn.Module):
             nn.Dropout2d(dropout)
         )
 
-    def forward(self, dense_fea):
+    def forward(self, dense_fea: torch.Tensor, mask: torch.Tensor):
         """
-        :param dense_fea: [bs, emb, n_pnt]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param mask: [bs, n_stk, n_stk_pnt]
+        :return: [bs, emb, n_stk, n_stk_pnt // 2], [bs, n_stk, n_stk_pnt // 2]
         """
-        bs, emb, n_pnt = dense_fea.size()
-        assert n_pnt == self.n_stk * self.n_stk_pnt
+        # 将mask对应无效位置置为零，防止对卷积产生影响
+        dense_fea = dense_fea.masked_fill(~mask.unsqueeze(1), 0)
 
-        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-        dense_fea = self.conv(dense_fea)
-        dense_fea = dense_fea.view(bs, dense_fea.size(1), (self.n_stk * self.n_stk_pnt) // 2)
+        bs, emb, n_stk, n_stk_pnt = dense_fea.size()
+        dense_fea = self.conv(dense_fea)  # -> [bs, emb, n_stk, n_stk_pnt // 2]
 
-        return dense_fea
+        # 获取下采样后的mask
+        sampled_mask = mask[:, :, ::2]  # -> [bs, n_stk, n_stk_pnt // 2]
+
+        return dense_fea, sampled_mask
 
 
 class UpSample(nn.Module):
@@ -165,24 +167,28 @@ class SparseToDense(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-    def forward(self, sparse_fea, dense_fea):
+        # TODO: 使用GCNEncoder进行更新，再拼接，需要对顺序无关
+        # self.sparse_to_dense = nn.Sequential(
+        #     nn.Conv2d(in_channels=sparse_in, out_channels=sparse_in, kernel_size=(1, 3)),
+        #     nn.BatchNorm2d(sparse),
+        #     activate_func(),
+        #     nn.Dropout2d(dropout),
+        # )
+
+    def forward(self, sparse_fea: torch.Tensor, dense_fea: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
-        :param dense_fea: [bs, emb, n_stk * n_stk_pnt]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
-        :return: [bs, emb, n_stk * n_stk_pnt]
+        :param mask: [bs, n_stk, n_stk_pnt]
+        :return: [bs, emb, n_stk, n_stk_pnt]
         """
-        bs, emb, _ = dense_fea.size()
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-
         dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
 
         # -> [bs, emb, n_stk, n_stk_pnt]
         union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
 
-        # -> [bs, emb, n_stk * n_stk_pnt]
-        union_dense = union_dense.view(bs, union_dense.size(1), self.n_stk * self.n_stk_pnt)
+        # 将mask对应的无效位置置为零，以免对后续计算产生影响
+        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), 0)
 
         return union_dense
 
@@ -198,26 +204,34 @@ class DenseToSparse(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
-    def forward(self, sparse_fea, dense_fea, mask):
+        self.dense_to_sparse = nn.Sequential(
+            nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
+            nn.BatchNorm2d(dense_in),
+            activate_func(),
+            nn.Dropout2d(dropout),
+        )
+
+    def forward(self, sparse_fea: torch.Tensor, dense_fea: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
         """
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
         :param mask: [bs, n_stk, n_stk_pnt]
         :return: [bs, emb, n_stk]
         """
-        bs, emb, _ = dense_fea.size()
+        # -> [bs, emb, n_stk, n_stk_pnt - 2]
+        sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
 
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        # sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+        # 将dense graph对应的无效位置置为'-inf'，从而在max时忽略这些位置的数据
+        mask = mask[:, :, 2:]  # -> [bs, n_stk, n_stk_pnt - 2]
+        sparse_feas_from_dense.masked_fill(~mask.unsqueeze(1), float('-inf'))
 
         # -> [bs, emb, n_stk]
-        sparse_feas_from_dense = dense_fea.max(3)[0]
+        sparse_feas_from_dense = sparse_feas_from_dense.max(3)[0]
         assert sparse_feas_from_dense.size(2) == self.n_stk
 
-        mask = mask.max(2)[0].unsqueeze(1).repeat(1, sparse_feas_from_dense.size(1), 1)  # [bs, 1, n_stk]
-        sparse_feas_from_dense[mask == 0] = 0
-
-        # ------------------------------------------------------------------------------------------- 上次改到这儿
+        # 将mask无效位置置为零，以免对后续计算过程产生影响
+        mask = mask.max(2)[0]  # -> [bs, n_stk]
+        sparse_feas_from_dense.masked_fill(~mask.unsqueeze(1), 0)  # -> [bs, emb, n_stk]
 
         # -> [bs, emb, n_stk]
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
@@ -259,7 +273,7 @@ class GCNEncoder(nn.Module):
                                            final_proc=True, drop_rate=0.0
                                            )
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         # x: [bs, channel, n_token]
 
         # -> [bs, emb, n_token, n_neighbor]
@@ -357,6 +371,7 @@ class PointToSparse(nn.Module):
         self.with_time = with_time
 
         # 将 DGraph 的数据转移到 SGraph
+        # 通过该卷积层，向量长度 -4
         mid_dim = int((point_dim * sparse_out) ** 0.5)
         self.point_increase = nn.Sequential(
             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
@@ -373,7 +388,7 @@ class PointToSparse(nn.Module):
         if self.with_time:
             self.time_merge = TimeMerge(sparse_out, sparse_out, time_emb_dim)
 
-    def forward(self, xy, mask, time_emb=None):
+    def forward(self, xy: torch.Tensor, mask: torch.Tensor, time_emb=None):
         """
         :param xy: [bs, n_stk, n_stk_pnt, 2]
         :param mask: [bs, n_stk, n_stk_pnt]
@@ -381,22 +396,28 @@ class PointToSparse(nn.Module):
         :return: [bs, emb, n_stk]
         """
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
-        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
-        assert channel_xy.size(1) == self.n_stk and channel_xy.size(2) == self.n_stk_pnt
+        assert n_stk == mask.size(1) == self.n_stk and n_stk_pnt == mask.size(2) == self.n_stk_pnt and channel_xy == 2
+        # assert mask.size(1) == self.n_stk and mask.size(2) == self.n_stk_pnt
 
         # -> [bs, 2, n_stk, n_stk_pnt]
         xy = xy.permute(0, 3, 1, 2)
 
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = self.point_increase(xy)
+        # 卷积应在mask指定的无效位置补零
+        xy = xy.masked_fill(~mask.unsqueeze(1), 0)
+        xy = self.point_increase(xy)  # -> [bs, emb, n_stk, n_stk_pnt - 4]
 
-        # -> [bs, emb, n_stk]
-        xy = xy.max(3)[0]
+        # 由于卷积后向量长度 -4，因此mask需要从左数4列全部删除
+        mask = mask[:, :, 4:]  # -> [bs, n_stk, n_stk_pnt - 4]
+
+        # 将点特征的无效位置置为 float('-inf')，从而在使用max时使得该位置的特征被忽略
+        xy = xy.masked_fill(~mask.unsqueeze(1), float('-inf'))
+
+        xy = xy.max(3)[0]  # -> [bs, emb, n_stk]
         assert xy.size(2) == self.n_stk
 
+        # 可能有些位置的笔划特征为 '-inf'，使其值为零，防止对后续的计算产生影响
         mask = mask.max(2)[0]  # -> [bs, n_stk]
-        mask = mask.unsqueeze(1)  # -> [bs, 1, n_stk]
-        xy = xy * mask  # -> [bs, emb, n_stk]
+        xy = xy.masked_fill(~mask.unsqueeze(1), 0)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -418,7 +439,7 @@ class PointToDense(nn.Module):
         if self.with_time:
             self.time_merge = TimeMerge(emb_dim, emb_dim, time_emb_dim)
 
-    def forward(self, xy, mask, time_emb=None):
+    def forward(self, xy: torch.Tensor, mask: torch.Tensor, time_emb=None) -> torch.Tensor:
         """
         :param xy: [bs, n_stk, n_stk_pnt, 2]
         :param mask: [bs, n_stk, n_stk_pnt]
@@ -426,16 +447,19 @@ class PointToDense(nn.Module):
         :return: [bs, emb, n_stk, n_stk_pnt]
         """
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
-        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
-        assert channel_xy.size(1) == self.n_stk and channel_xy.size(2) == self.n_stk_pnt
+        assert n_stk == mask.size(1) == global_defs.n_stk and n_stk_pnt == mask.size(2) == global_defs.n_stk_pnt and channel_xy == 2
 
-        # 先使用mask提取有效点
-        xy[mask.unsqueeze(-1).repeat(1, 1, 1, 2) == 0] = float('-inf')  # [bs, n_stk, n_stk_pnt, 2]
+        # 将mask对应的无效位置置为-999，从而使其在计算特征时可被忽略，也可尝试置为 '-inf' 试试
+        xy = xy.masked_fill(~mask.unsqueeze(3), -999)
+
         xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
         xy = xy.permute(0, 2, 1)  # [bs, 2, n_stk * n_stk_pnt]
 
         dense_emb = self.encoder(xy)  # [bs, emb, n_stk * n_stk_pnt]
         dense_emb = dense_emb.view(bs, dense_emb.size(1), n_stk, n_stk_pnt)  # [bs, emb, n_stk, n_stk_pnt]
+
+        # 将mask对应的无效点位置置为0，防止对后续计算产生影响
+        dense_emb = dense_emb.masked_fill(~mask.unsqueeze(1), 0)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -487,30 +511,41 @@ class SDGraphEncoder(nn.Module):
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
-        :return:
+        :return: [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2], [bs, n_stk, n_stk_pnt // 2]
         """
-        bs, emb, n_stk = sparse_fea.size()
-        assert n_stk == self.n_stk
-
-        assert dense_fea.size()[2] == self.n_stk and dense_fea.size()[3] == self.n_stk_pnt
+        bs, emb, n_stk, n_stk_pnt = dense_fea.size()
+        assert n_stk == self.n_stk == sparse_fea.size(2) and n_stk_pnt == self.n_stk_pnt
 
         # 信息交换
-        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea, mask)
-        union_dense = self.sparse_to_dense(sparse_fea, dense_fea, mask)
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea, mask)  # -> [bs, emb, n_stk]
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea, mask)  # -> [bs, emb, n_stk, n_stk_pnt]
 
         # 信息更新
-        union_sparse = self.sparse_update(union_sparse)
-        union_dense = self.dense_update(union_dense)
+        # 将mask对应无效位置置为-999999，防止产生影响，也可尝试使用-inf
+        stk_mask = mask.max(2)[0]  # -> [bs, n_stk]
+        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), -999999)
+        union_sparse = self.sparse_update(union_sparse)  # -> [bs, emb, n_stk]
+
+        # 将mask对应无效位置置为0，防止产生影响
+        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), 0)
+
+        # 将mask对应位置置为-999999，防止产生影响，也可尝试使用-inf
+        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), -999999)
+        union_dense = self.dense_update(union_dense.view(bs, union_dense.size(1), n_stk * n_stk_pnt))  # -> [bs, emb, n_stk * n_stk_pnt]
+        union_dense = union_dense.view(bs, union_dense.size(1), n_stk, n_stk_pnt)  # -> [bs, emb, n_stk, n_stk_pnt]
+
+        # 将mask对应无效位置置为0，防止产生影响
+        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), 0)  # -> [bs, emb, n_stk, n_stk_pnt]
 
         # 下采样
-        union_dense = self.sample(union_dense)
+        union_dense, mask = self.sample(union_dense, mask)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
             union_sparse = self.time_mlp_sp(union_sparse, time_emb)
             union_dense = self.time_mlp_dn(union_dense, time_emb)
 
-        return union_sparse, union_dense
+        return union_sparse, union_dense, mask
 
 
 class TimeEncode(nn.Module):
@@ -580,36 +615,43 @@ class SDGraphCls(nn.Module):
 
     def forward(self, xy, mask):
         """
-        :param xy: [bs, n_stk, n_skt_pnt, 2]
-        :param mask: [bs, n_stk, n_skt_pnt]
+        :param xy: [bs, n_stk, n_skt_pnt, 2]  float
+        :param mask: [bs, n_stk, n_skt_pnt]  bool
         :return: [bs, n_classes]
         """
-        xy = xy[:, :2, :]
-
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         assert mask.size(1) == self.n_stk and mask.size(2) == self.n_stk_pnt
 
         # 生成初始 sparse graph
-        sparse_graph0 = self.point_to_sparse(xy, mask)
+        sparse_graph0 = self.point_to_sparse(xy, mask)  # -> [bs, emb, n_stk]
         assert sparse_graph0.size()[2] == self.n_stk
 
         # 生成初始 dense graph
-        dense_graph0 = self.point_to_dense(xy)
+        dense_graph0 = self.point_to_dense(xy, mask)  # -> [bs, emb, n_stk, n_stk_pnt]
         assert dense_graph0.size()[2] == self.n_stk and dense_graph0.size()[3] == self.n_stk_pnt
 
         # 交叉更新数据
-        sparse_graph1, dense_graph1, mask1 = self.sd1(sparse_graph0, dense_graph0, mask)
-        sparse_graph2, dense_graph2, mask2 = self.sd2(sparse_graph1, dense_graph1, mask1)
+        sparse_graph1, dense_graph1, mask1 = self.sd1(sparse_graph0, dense_graph0, mask)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2], [bs, n_stk, n_stk_pnt // 2]
+        sparse_graph2, dense_graph2, mask2 = self.sd2(sparse_graph1, dense_graph1, mask1)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 4], [bs, n_stk, n_stk_pnt // 4]
 
         # 提取全局特征
-        sparse_glo0 = sparse_graph0.max(2)[0]
-        sparse_glo1 = sparse_graph1.max(2)[0]
-        sparse_glo2 = sparse_graph2.max(2)[0]
+        # 将各阶段的 sparse_graph 无效位置置为 '-inf'，从而在max时忽略这些位置
+        s0 = sparse_graph0.masked_fill(~mask.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
+        s1 = sparse_graph1.masked_fill(~mask1.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
+        s2 = sparse_graph2.masked_fill(~mask2.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
 
-        dense_glo0 = dense_graph0.max(2)[0]
-        dense_glo1 = dense_graph1.max(2)[0]
-        dense_glo2 = dense_graph2.max(2)[0]
+        sparse_glo0 = s0.max(2)[0]
+        sparse_glo1 = s1.max(2)[0]
+        sparse_glo2 = s2.max(2)[0]
+
+        d0 = dense_graph0.masked_fill(~mask.unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk, n_stk_pnt]
+        d1 = dense_graph1.masked_fill(~mask1.unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk, n_stk_pnt // 2]
+        d2 = dense_graph2.masked_fill(~mask2.unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk, n_stk_pnt // 4]
+
+        dense_glo0 = d0.max(2)[0].max(2)[0]
+        dense_glo1 = d1.max(2)[0].max(2)[0]
+        dense_glo2 = d2.max(2)[0].max(2)[0]
 
         all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
 
