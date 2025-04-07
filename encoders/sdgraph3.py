@@ -175,7 +175,7 @@ class SparseToDense(nn.Module):
         #     nn.Dropout2d(dropout),
         # )
 
-    def forward(self, sparse_fea: torch.Tensor, dense_fea: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, sparse_fea, dense_fea, mask) -> torch.Tensor:
         """
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
@@ -211,10 +211,10 @@ class DenseToSparse(nn.Module):
             nn.Dropout2d(dropout),
         )
 
-    def forward(self, sparse_fea: torch.Tensor, dense_fea: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+    def forward(self, sparse_fea, dense_fea, mask) -> torch.Tensor:
         """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param mask: [bs, n_stk, n_stk_pnt]
         :return: [bs, emb, n_stk]
         """
@@ -230,7 +230,7 @@ class DenseToSparse(nn.Module):
         assert sparse_feas_from_dense.size(2) == self.n_stk
 
         # 将mask无效位置置为零，以免对后续计算过程产生影响
-        mask = mask.max(2)[0]  # -> [bs, n_stk]
+        mask = mask.max(2)[0].bool()  # -> [bs, n_stk]
         sparse_feas_from_dense.masked_fill(~mask.unsqueeze(1), 0)  # -> [bs, emb, n_stk]
 
         # -> [bs, emb, n_stk]
@@ -397,7 +397,6 @@ class PointToSparse(nn.Module):
         """
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
         assert n_stk == mask.size(1) == self.n_stk and n_stk_pnt == mask.size(2) == self.n_stk_pnt and channel_xy == 2
-        # assert mask.size(1) == self.n_stk and mask.size(2) == self.n_stk_pnt
 
         # -> [bs, 2, n_stk, n_stk_pnt]
         xy = xy.permute(0, 3, 1, 2)
@@ -416,7 +415,7 @@ class PointToSparse(nn.Module):
         assert xy.size(2) == self.n_stk
 
         # 可能有些位置的笔划特征为 '-inf'，使其值为零，防止对后续的计算产生影响
-        mask = mask.max(2)[0]  # -> [bs, n_stk]
+        mask = mask.max(2)[0].bool()  # -> [bs, n_stk]
         xy = xy.masked_fill(~mask.unsqueeze(1), 0)
 
         assert self.with_time ^ (time_emb is None)
@@ -450,7 +449,7 @@ class PointToDense(nn.Module):
         assert n_stk == mask.size(1) == global_defs.n_stk and n_stk_pnt == mask.size(2) == global_defs.n_stk_pnt and channel_xy == 2
 
         # 将mask对应的无效位置置为-999，从而使其在计算特征时可被忽略，也可尝试置为 '-inf' 试试
-        xy = xy.masked_fill(~mask.unsqueeze(3), -999)
+        xy = xy.masked_fill(~mask.unsqueeze(3), float('-inf'))
 
         xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
         xy = xy.permute(0, 2, 1)  # [bs, 2, n_stk * n_stk_pnt]
@@ -522,15 +521,15 @@ class SDGraphEncoder(nn.Module):
 
         # 信息更新
         # 将mask对应无效位置置为-999999，防止产生影响，也可尝试使用-inf
-        stk_mask = mask.max(2)[0]  # -> [bs, n_stk]
-        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), -999999)
+        stk_mask = mask.max(2)[0].bool()  # -> [bs, n_stk]
+        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), float('-inf'))
         union_sparse = self.sparse_update(union_sparse)  # -> [bs, emb, n_stk]
 
         # 将mask对应无效位置置为0，防止产生影响
         union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), 0)
 
         # 将mask对应位置置为-999999，防止产生影响，也可尝试使用-inf
-        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), -999999)
+        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), float('-inf'))
         union_dense = self.dense_update(union_dense.view(bs, union_dense.size(1), n_stk * n_stk_pnt))  # -> [bs, emb, n_stk * n_stk_pnt]
         union_dense = union_dense.view(bs, union_dense.size(1), n_stk, n_stk_pnt)  # -> [bs, emb, n_stk, n_stk_pnt]
 
@@ -572,7 +571,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('cls 25.3.11')
+        print('cls stk alt')
 
         self.n_stk = global_defs.n_stk
         self.n_stk_pnt = global_defs.n_stk_pnt
@@ -637,9 +636,9 @@ class SDGraphCls(nn.Module):
 
         # 提取全局特征
         # 将各阶段的 sparse_graph 无效位置置为 '-inf'，从而在max时忽略这些位置
-        s0 = sparse_graph0.masked_fill(~mask.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
-        s1 = sparse_graph1.masked_fill(~mask1.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
-        s2 = sparse_graph2.masked_fill(~mask2.max(2)[0].unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
+        s0 = sparse_graph0.masked_fill(~mask.max(2)[0].bool().unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
+        s1 = sparse_graph1.masked_fill(~mask1.max(2)[0].bool().unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
+        s2 = sparse_graph2.masked_fill(~mask2.max(2)[0].bool().unsqueeze(1), float('-inf'))  # -> [bs, emb, n_stk]
 
         sparse_glo0 = s0.max(2)[0]
         sparse_glo1 = s1.max(2)[0]

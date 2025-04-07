@@ -410,9 +410,9 @@ if __name__ == '__main__':
     #
     # print("不同的元素索引位置:", diff_indices)
 
-    atensor = torch.Tensor([1, 2, 3, 4, 5, 6])
-    print(atensor[::2])
-
+    atensor = torch.Tensor([[True, True, False, True, True, False], [True, True, True, True, True, False]])
+    # print(atensor[::2])
+    print(~atensor.max(0)[0].bool())
 
 
     pass
