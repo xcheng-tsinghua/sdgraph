@@ -12,47 +12,64 @@ import math
 import global_defs
 
 
-def knn(x, k):
+def knn(vertices, neighbor_num):
     """
     找到最近的点的索引，包含自身
-    :param x: [bs, 2, n_point]
-    :param k:
-    :return: [batch_size, num_points, k]
+    :param vertices: [bs, n_point, 2]
+    :param neighbor_num:
+    :return: [bs, n_point, k]
     """
-    # -> x: [bs, 2, n_point]
+    bs, v, _ = vertices.size()
+    inner = torch.bmm(vertices, vertices.transpose(1, 2))  # (bs, v, v)
+    quadratic = torch.sum(vertices**2, dim=2)  # (bs, v)
+    distance = inner * (-2) + quadratic.unsqueeze(1) + quadratic.unsqueeze(2)
 
-    inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)
-    pairwise_distance = -xx - inner - xx.transpose(2, 1)
+    neighbor_index = torch.topk(distance, k=neighbor_num, dim=-1, largest=False)[1]
 
-    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
-    return idx
+    return neighbor_index
 
 
-def get_graph_feature(x, k=20, idx=None):
-    # -> x: [bs, 2, n_point]
+def index_points(points, idx):
+    """
+    将索引值替换为对应的数值
+    :param points: [B, N, C] (维度数必须为3)
+    :param idx: [A, B, C, D, ..., X]
+    :return: [A, B, C, D, ..., X, C]
+    """
+    device = points.device
+    B = points.shape[0]
+    view_shape = list(idx.shape)
+    view_shape[1:] = [1] * (len(view_shape) - 1)
+    repeat_shape = list(idx.shape)
+    repeat_shape[0] = 1
+    batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
 
-    batch_size, channel, num_points = x.size()
+    new_points = points[batch_indices, idx, :]
 
-    x = x.view(batch_size, -1, num_points)
-    if idx is None:
-        idx = knn(x, k=k)  # (batch_size, num_points, k)
-    device = x.device
+    return new_points
 
-    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
 
-    idx = idx + idx_base
+def get_graph_feature(x, k=20):
+    """
+    找到x中每个点附近的k个点，然后计算中心点到附近点的向量，然后拼接在一起
+    :param x: [bs, channel, n_point]
+    :param k:
+    :return: [bs, channel, n_point, n_near]
+    """
+    x = x.permute(0, 2, 1)  # -> [bs, n_point, channel]
 
-    idx = idx.view(-1)
+    # step1: 通过knn计算附近点坐标
+    knn_idx = knn(x, k)  # (batch_size, num_points, k)
 
-    _, num_dims, _ = x.size()
+    # step2: 找到附近点
+    neighbors = index_points(x, knn_idx)  # -> [bs, n_point, k, channel]
 
-    x = x.transpose(2, 1).contiguous()
-    feature = x.view(batch_size * num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims)
-    x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+    # step3: 计算向量
+    cen_to_nei = neighbors - x.unsqueeze(2)
 
-    feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2)
+    # step4: 拼接特征
+    feature = torch.cat([cen_to_nei, x.unsqueeze(2).repeat(1, 1, k, 1)], dim=3)  # -> [bs, n_point, k, channel]
+    feature = feature.permute(0, 3, 1, 2)  # -> [bs, channel, n_point, k]
 
     return feature
 
@@ -273,10 +290,11 @@ class GCNEncoder(nn.Module):
                                            final_proc=True, drop_rate=0.0
                                            )
 
-    def forward(self, x) -> torch.Tensor:
-        # x: [bs, channel, n_token]
-
-        # -> [bs, emb, n_token, n_neighbor]
+    def forward(self, x):
+        """
+        :param x: [bs, channel, n_token]
+        :return:
+        """
         x = get_graph_feature(x, k=self.n_near)
         x = self.conv1(x)
 
@@ -448,8 +466,8 @@ class PointToDense(nn.Module):
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
         assert n_stk == mask.size(1) == global_defs.n_stk and n_stk_pnt == mask.size(2) == global_defs.n_stk_pnt and channel_xy == 2
 
-        # 将mask对应的无效位置置为-999，从而使其在计算特征时可被忽略，也可尝试置为 '-inf' 试试
-        xy = xy.masked_fill(~mask.unsqueeze(3), float('-inf'))
+        # 将mask对应的无效位置置为-99999，从而使其在计算特征时可被忽略，也可尝试置为 float('-inf') 试试
+        xy = xy.masked_fill(~mask.unsqueeze(3), -999999)
 
         xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
         xy = xy.permute(0, 2, 1)  # [bs, 2, n_stk * n_stk_pnt]
@@ -520,16 +538,16 @@ class SDGraphEncoder(nn.Module):
         union_dense = self.sparse_to_dense(sparse_fea, dense_fea, mask)  # -> [bs, emb, n_stk, n_stk_pnt]
 
         # 信息更新
-        # 将mask对应无效位置置为-999999，防止产生影响，也可尝试使用-inf
+        # 将mask对应无效位置置为-999999，防止产生影响，也可尝试使用float('-inf')
         stk_mask = mask.max(2)[0].bool()  # -> [bs, n_stk]
-        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), float('-inf'))
+        union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), -999999)
         union_sparse = self.sparse_update(union_sparse)  # -> [bs, emb, n_stk]
 
         # 将mask对应无效位置置为0，防止产生影响
         union_sparse = union_sparse.masked_fill(~stk_mask.unsqueeze(1), 0)
 
-        # 将mask对应位置置为-999999，防止产生影响，也可尝试使用-inf
-        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), float('-inf'))
+        # 将mask对应位置置为-999999，防止产生影响，也可尝试使用float('-inf')
+        union_dense = union_dense.masked_fill(~mask.unsqueeze(1), -999999)
         union_dense = self.dense_update(union_dense.view(bs, union_dense.size(1), n_stk * n_stk_pnt))  # -> [bs, emb, n_stk * n_stk_pnt]
         union_dense = union_dense.view(bs, union_dense.size(1), n_stk, n_stk_pnt)  # -> [bs, emb, n_stk, n_stk_pnt]
 
@@ -612,7 +630,7 @@ class SDGraphCls(nn.Module):
 
         self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
-    def forward(self, xy, mask):
+    def forward(self, xy: torch.Tensor, mask: torch.Tensor):
         """
         :param xy: [bs, n_stk, n_skt_pnt, 2]  float
         :param mask: [bs, n_stk, n_skt_pnt]  bool
@@ -626,13 +644,37 @@ class SDGraphCls(nn.Module):
         sparse_graph0 = self.point_to_sparse(xy, mask)  # -> [bs, emb, n_stk]
         assert sparse_graph0.size()[2] == self.n_stk
 
+        if sparse_graph0.isnan().any().item():
+            raise ValueError('nan occurred')
+
         # 生成初始 dense graph
         dense_graph0 = self.point_to_dense(xy, mask)  # -> [bs, emb, n_stk, n_stk_pnt]
         assert dense_graph0.size()[2] == self.n_stk and dense_graph0.size()[3] == self.n_stk_pnt
 
+        if dense_graph0.isnan().any().item():
+            raise ValueError('nan occurred')
+
         # 交叉更新数据
         sparse_graph1, dense_graph1, mask1 = self.sd1(sparse_graph0, dense_graph0, mask)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2], [bs, n_stk, n_stk_pnt // 2]
         sparse_graph2, dense_graph2, mask2 = self.sd2(sparse_graph1, dense_graph1, mask1)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 4], [bs, n_stk, n_stk_pnt // 4]
+
+        if dense_graph1.isnan().any().item():
+            raise ValueError('nan occurred')
+
+        if dense_graph2.isnan().any().item():
+            raise ValueError('nan occurred')
+
+        if sparse_graph1.isnan().any().item():
+            raise ValueError('nan occurred')
+
+        if sparse_graph2.isnan().any().item():
+            raise ValueError('nan occurred')
+
+        if mask1.isnan().any().item():
+            raise ValueError('nan occurred')
+
+        if mask2.isnan().any().item():
+            raise ValueError('nan occurred')
 
         # 提取全局特征
         # 将各阶段的 sparse_graph 无效位置置为 '-inf'，从而在max时忽略这些位置
