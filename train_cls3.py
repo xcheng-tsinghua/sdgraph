@@ -58,7 +58,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=200, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=120, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -152,38 +152,6 @@ def main(args):
     best_instance_accu = -1.0
     for epoch in range(args.epoch):
 
-        '''测试'''
-        with torch.no_grad():
-            classifier = classifier.eval()
-
-            all_preds = []
-            all_labels = []
-            # all_indexes = []
-
-            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
-                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-                # assert stk_coor.size(1) == global_defs.n_stk
-
-                # points = points.permute(0, 2, 1)
-                # assert points.size()[1] == 2
-
-                pred = classifier(points, mask)
-
-                all_preds.append(pred.detach().cpu().numpy())
-                all_labels.append(target.detach().cpu().numpy())
-
-                # 保存索引用于计算分类错误的实例
-                # all_indexes.append(data[-1].long().detach().cpu().numpy())
-
-            all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
-            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
-
-            # 额外保存最好的模型
-            if best_instance_accu < all_metric_eval[0]:
-                best_instance_accu = all_metric_eval[0]
-                torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
-
         '''TRAINING'''
         classifier = classifier.train()
 
@@ -222,6 +190,38 @@ def main(args):
         # 调整学习率并保存权重
         scheduler.step()
         torch.save(classifier.state_dict(), 'model_trained/' + save_str + '.pth')
+
+        '''测试'''
+        with torch.no_grad():
+            classifier = classifier.eval()
+
+            all_preds = []
+            all_labels = []
+            # all_indexes = []
+
+            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
+                points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
+                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
+                # assert stk_coor.size(1) == global_defs.n_stk
+
+                # points = points.permute(0, 2, 1)
+                # assert points.size()[1] == 2
+
+                pred = classifier(points, mask)
+
+                all_preds.append(pred.detach().cpu().numpy())
+                all_labels.append(target.detach().cpu().numpy())
+
+                # 保存索引用于计算分类错误的实例
+                # all_indexes.append(data[-1].long().detach().cpu().numpy())
+
+            all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
+            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
+
+            # 额外保存最好的模型
+            if best_instance_accu < all_metric_eval[0]:
+                best_instance_accu = all_metric_eval[0]
+                torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
 
         # save log
         logger.info(logstr_epoch + logstr_trainaccu + accustr)
