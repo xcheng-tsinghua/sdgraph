@@ -13,6 +13,18 @@ import global_defs
 import encoders.spline as sp
 
 
+def tmp_vis_sketch_list(strokes, show_dot=False):
+    for s in strokes:
+        plt.plot(s[:, 0], -s[:, 1])
+
+        if show_dot:
+            plt.scatter(s[:, 0], -s[:, 1])
+
+    plt.axis('on')
+    plt.axis('equal')
+    plt.show()
+
+
 def n_sketch_pnt(sketch) -> int:
     """
     返回草图中的点数
@@ -807,8 +819,18 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     return splited_stk
 
 
+def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2):
+    splited_sketch = []
+
+    for c_stk in sketch:
+        if sp.stroke_length(c_stk) > split_length:
+            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width)
+
+    return splited_sketch
+
+
 def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3,
-                             pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
+                             pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=True) -> list:
     """
     利用short straw对彩图进行角点分割
     :param sketch_root:
@@ -829,14 +851,18 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     # 分割草图
     sketch_data = sp.sketch_split(sketch_data, pen_up, pen_down)
 
+    # tmp_vis_sketch_list(sketch_data)
+
     # 去掉点数过少的笔划
-    sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
+    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
 
     # 去掉笔划上距离过近的点
-    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
+    # sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
 
     # 去掉长度过短的笔划
-    strokes = sp.stroke_len_filter(sketch_data, 0.07)
+    # sketch_data = sp.stroke_len_filter(sketch_data, 0.07)
+
+    tmp_vis_sketch_list(sketch_data)
 
     if n_sketch_pnt(sketch_data) <= 20:
         warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
@@ -844,17 +870,19 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
 
     # 分割笔划
     strokes_splited = []
-    for c_stk in strokes:
-        strokes_splited += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_show_status)
+    for c_stk in sketch_data:
+        strokes_splited += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, False)
+
+    tmp_vis_sketch_list(strokes_splited)
 
     # 去掉点数过少的笔划
-    strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 3)
+    # strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 16)
 
     # 去掉笔划上距离过近的点
-    strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
+    # strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
 
     # 去掉长度过短的笔划
-    strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
+    # strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
 
     # 仅保留点数最多的前 global_def.n_stk 个笔划
     strokes_splited = sp.stk_number_filter(strokes_splited, global_defs.n_stk)
@@ -865,9 +893,67 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     if is_show_status:
         for s in strokes_splited:
             plt.plot(s[:, 0], -s[:, 1])
+            plt.scatter(s[:, 0], -s[:, 1])
         plt.show()
 
     return strokes_splited
+
+
+def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+    """
+    TODO: 需考虑太长笔划和太短笔划不能放在一起的问题，必须进行分割
+    :param sketch_root:
+    :param resp_dist:
+    :param pen_up:
+    :param pen_down:
+    :return:
+    """
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心与大小
+    sketch_data = sketch_std(sketch_data)
+
+    # 分割笔划
+    sketch_data = sp.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉相邻过近的点
+    # -----------------需要先归一化才可使用，不然单位不统一
+    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.001)
+
+    # 重采样
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    # 角点分割
+    sketch_data = sketch_short_straw_split(sketch_data, resp_dist)
+
+    # 去掉无效笔划
+    # sketch_data = sp.valid_stk_filter(sketch_data)
+
+    # 长笔划分割
+    sketch_data = sp.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
+
+    # tmp_vis_sketch_list(sketch_data)
+
+    # 去掉点数过少的笔划
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 8)
+
+    # 使所有笔划的点数均为2的整数倍
+    sketch_data = sp.stk_pnt_double_filter(sketch_data)
+
+    # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
+    sketch_data = sp.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
+    sketch_data = sp.stk_num_minimal_filter(sketch_data, 4)
+
+    # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
+    sketch_data = sp.stk_number_filter(sketch_data, global_defs.n_stk)
+
+    # tmp_vis_sketch_list(sketch_data)
+    # tmp_vis_sketch_list(sketch_data, True)
+
+    return sketch_data
 
 
 def test_resample():
@@ -929,9 +1015,11 @@ if __name__ == '__main__':
     # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\cup\5126.txt'
     # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_test = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\camera\3285.txt'
-    sketch_test = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Rivet\6dcc4bc1223014b26abb72b3dee939a8_1.txt'
+    # sketch_test = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Rivet\6dcc4bc1223014b26abb72b3dee939a8_1.txt'
+    #
+    # short_straw_split_sketch(sketch_test, is_show_status=False)
 
-    short_straw_split_sketch(sketch_test, is_show_status=False)
+    # cls_distribute(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls')
 
     # test()
     # test_resample()
@@ -939,6 +1027,12 @@ if __name__ == '__main__':
     # quickdraw_download(r'D:\document\DeepLearning\DataSet\quickdraw_all')
 
     # pen_updown_alt_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', r'D:\document\DeepLearning\DataSet\sketch_cad\new')
+
+
+    exsketch = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt'
+    asketch = pre_process(exsketch)
+    tmp_vis_sketch_list(asketch, True)
+
 
     pass
 

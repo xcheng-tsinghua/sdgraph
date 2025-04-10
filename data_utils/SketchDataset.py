@@ -26,9 +26,10 @@ import shutil
 # from torch.masked import masked_tensor
 
 import global_defs
-from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch
+from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch, pre_process
 import data_utils.sketch_vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
+from data_utils.sketch_vis import vis_sketch_orig
 
 
 class SketchDataset(Dataset):
@@ -213,16 +214,19 @@ class SketchDataset2(Dataset):
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字
 
-        sketch_data = short_straw_split_sketch(fn[1], is_show_status=False)
+        # vis_sketch_orig(fn[1])
+        # sketch_data = short_straw_split_sketch(fn[1])
+        sketch_data = pre_process(fn[1])
 
         # 创建 mask 和规则的 sketch
-        sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
-        sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+        # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
+        # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
 
+        sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
         # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
         for i, c_stk in enumerate(sketch_data):
             n_cstk_pnt = len(c_stk)
-            sketch_mask[i, :n_cstk_pnt] = 1
+            # sketch_mask[i, :n_cstk_pnt] = 1
 
             # asaas = sketch_cube[i, :n_cstk_pnt, :]
             # bbass = torch.from_numpy(c_stk)
@@ -233,10 +237,10 @@ class SketchDataset2(Dataset):
         # sketch_cube = masked_tensor(sketch_cube, mask_fit)
 
         # sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
-        sketch_mask = sketch_mask.bool()
+        # sketch_mask = sketch_mask.bool()
 
-        return sketch_cube, sketch_mask, cls
-        # return sketch_cube, cls
+        # return sketch_cube, sketch_mask, cls
+        return sketch_cube, cls
 
     def __len__(self):
         return len(self.datapath)

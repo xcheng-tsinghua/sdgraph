@@ -15,6 +15,15 @@ from encoders.sdgraph3 import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
 
+def has_nan_weight(module):
+    for name, param in module.named_parameters():
+        if param is not None and torch.isnan(param).any():
+            # print(f"参数{name}中存在NaN")
+            return True
+    # print("该模块所有参数均无NaN")
+    return False
+
+
 def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = './log/false_instance.txt'):
     """
     获取全部分类错误的实例路径
@@ -58,7 +67,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=120, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=20, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -66,16 +75,16 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph_test', help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
 
     r'''
     cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
     TuBerlin
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
     '''
 
     return parser.parse_args()
@@ -118,7 +127,7 @@ def main(args):
     # sampler = torch.utils.data.RandomSampler(test_dataset, num_samples=64, replacement=False)
     # test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
 
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
     '''加载模型及权重'''
@@ -160,8 +169,8 @@ def main(args):
         all_labels = []
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
-            # points, target = data[0].float().cuda(), data[1].long().cuda()
+            # points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
+            points, target = data[0].float().cuda(), data[1].long().cuda()
             # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
             # assert stk_coor.size(1) == global_defs.n_stk
 
@@ -172,12 +181,17 @@ def main(args):
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            pred = classifier(points, mask)
+            # pred = classifier(points, mask)
+            pred = classifier(points)
             loss = F.nll_loss(pred, target)
+
+            assert not has_nan_weight(classifier)
 
             # 利用loss更新参数
             loss.backward()
             optimizer.step()
+
+            assert not has_nan_weight(classifier)
 
             # 保存数据用于计算指标
             all_preds.append(pred.detach().cpu().numpy())
@@ -200,14 +214,16 @@ def main(args):
             # all_indexes = []
 
             for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
+                # points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
+                points, target = data[0].float().cuda(), data[1].long().cuda()
                 # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
                 # assert stk_coor.size(1) == global_defs.n_stk
 
                 # points = points.permute(0, 2, 1)
                 # assert points.size()[1] == 2
 
-                pred = classifier(points, mask)
+                # pred = classifier(points, mask)
+                pred = classifier(points)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())

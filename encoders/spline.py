@@ -79,7 +79,7 @@ class LinearInterp(object):
         :return:
         """
         if dist >= self.arc_length:
-            warnings.warn('resample dist is equal to stroke length, drop this sketch')
+            warnings.warn('resample dist is equal to stroke length, drop this stroke')
             return np.array([])
 
         else:
@@ -173,14 +173,22 @@ class LinearInterp(object):
 
 
 def stroke_length(stroke):
+    # stroke = stroke[:, :2]
+    #
+    # dist_all = 0.0
+    #
+    # for i in range(1, len(stroke)):
+    #     dist_all += np.linalg.norm(stroke[i] - stroke[i - 1])
+    #
+    # return dist_all
+    if stroke.shape[0] < 2:
+        return 0.0
+
     stroke = stroke[:, :2]
+    diffs = np.diff(stroke, axis=0)
+    segment_lengths = np.linalg.norm(diffs, axis=1)
 
-    dist_all = 0.0
-
-    for i in range(1, len(stroke)):
-        dist_all += np.linalg.norm(stroke[i] - stroke[i - 1])
-
-    return dist_all
+    return np.sum(segment_lengths)
 
 
 def stroke_length_var(stroke_list):
@@ -465,7 +473,11 @@ def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
     resampled = []
     for c_stk in stroke_list:
         lin_interp = LinearInterp(c_stk)
-        resampled.append(lin_interp.uni_dist_interp_strict(resp_dist))
+
+        c_resped_stk = lin_interp.uni_dist_interp_strict(resp_dist)
+
+        if c_resped_stk.size != 0:
+            resampled.append(c_resped_stk)
 
     return resampled
 
@@ -682,26 +694,39 @@ def near_pnt_dist_filter(sketch, tol):
     :param tol:
     :return:
     """
-
-    # 如果是ndarray，说明笔划未分割
-    if isinstance(sketch, np.ndarray):
-        sketch = sketch_split(sketch)
-
     valid_stks = []
 
-    for c_stk in sketch:
-        c_valid_stk_pnts = [c_stk[0]]
+    # 如果是ndarray，说明笔划未分割，直接以未分割的点进行处理
+    if isinstance(sketch, np.ndarray):
+        skh_length = len(sketch)
+
+        valid_stks.append(sketch[0])
         prev_idx = 0
-        for c_pnt_idx in range(1, len(c_stk)):
-            c_pnt = c_stk[c_pnt_idx]
-            prev_pnt = c_stk[prev_idx]
+        for c_pnt_idx in range(1, skh_length):
+            c_pnt = sketch[c_pnt_idx, :2]
+            prev_pnt = sketch[prev_idx, :2]
 
             c_dist = np.linalg.norm(c_pnt - prev_pnt)
-            if c_dist > tol:
-                c_valid_stk_pnts.append(c_stk[c_pnt_idx])
+            if c_dist >= tol:
+                valid_stks.append(sketch[c_pnt_idx])
                 prev_idx = c_pnt_idx
 
-        valid_stks.append(np.vstack(c_valid_stk_pnts))
+        valid_stks = np.vstack(valid_stks)
+
+    else:
+        for c_stk in sketch:
+            c_valid_stk_pnts = [c_stk[0]]
+            prev_idx = 0
+            for c_pnt_idx in range(1, len(c_stk)):
+                c_pnt = c_stk[c_pnt_idx]
+                prev_pnt = c_stk[prev_idx]
+
+                c_dist = np.linalg.norm(c_pnt - prev_pnt)
+                if c_dist > tol:
+                    c_valid_stk_pnts.append(c_stk[c_pnt_idx])
+                    prev_idx = c_pnt_idx
+
+            valid_stks.append(np.vstack(c_valid_stk_pnts))
 
     return valid_stks
 
@@ -784,21 +809,191 @@ def stk_pnt_filter(sketch, n_stk_pnt=global_defs.n_stk_pnt):
     return filtered_sketch
 
 
+def stk_pnt_double_filter(sketch):
+    """
+    确保每个笔划上的点数均为2的整数倍，
+    若不符合要求，向前插值一个点
+    :param sketch:
+    :return:
+    """
+    if isinstance(sketch, np.ndarray):
+        sketch = sketch_split(sketch)
+
+    filtered_sketch = []
+    for c_stk in sketch:
+        if len(c_stk) % 2 != 0:
+            last = c_stk[-1]
+            last_back = c_stk[-2]
+
+            forward = 2 * last - last_back
+            c_stk = np.vstack([c_stk, forward])
+
+        #     print('触发插值')
+        #     plt.scatter(c_stk[:-1, 0], -c_stk[:-1, 1])
+        #     plt.scatter(c_stk[-1, 0], -c_stk[-1, 1], color='black')
+        # else:
+        #     plt.scatter(c_stk[:, 0], -c_stk[:, 1])
+
+        filtered_sketch.append(c_stk)
+
+    plt.show()
+    return filtered_sketch
+
+
+def single_split_(stroke_list: list):
+    """
+    将草图中最长的笔画对半分割成两个
+    :param stroke_list:
+    :return:
+    """
+    # stroke_list = copy.deepcopy(stk_list)
+
+    # if len(stroke_list) == 0:
+    #     asasas = 0
+
+    # Find the array with the maximum number of rows
+    largest_idx = max(range(len(stroke_list)), key=lambda i: stroke_list[i].shape[0])
+    largest_array = stroke_list[largest_idx]
+
+    # Split the largest array into two halves
+    split_point = largest_array.shape[0] // 2
+    first_half = largest_array[:split_point + 1, :]
+    second_half = largest_array[split_point:, :]
+
+    # Replace the largest array with the two halves
+    del stroke_list[largest_idx]
+    stroke_list.append(first_half)
+    stroke_list.append(second_half)
+
+
+def stk_num_minimal_filter(sketch, n_stk_min):
+    """
+    保证草图中的笔划数不能小于指定值，否则递归分割最长笔划，指导符合为止
+    :param sketch:
+    :param n_stk_min:
+    :return:
+    """
+    if isinstance(sketch, np.ndarray):
+        sketch = sketch_split(sketch)
+
+    while True:
+        if len(sketch) >= n_stk_min:
+            break
+
+        single_split_(sketch)
+
+    return sketch
+
+
+def valid_stk_filter(sketch: list):
+    """
+    某些笔划可能为空，即该位置的笔划为size=(0,)，需要删除
+    :param sketch:
+    :return:
+    """
+    sketch_new = []
+
+    for c_stk in sketch:
+        if c_stk.size != 0:
+            sketch_new.append(c_stk)
+
+    return sketch_new
+
+
+def split_stroke(stroke: np.ndarray) -> (np.ndarray, np.ndarray):
+    """
+    将一个笔划拆分为两个近似对半的笔划。
+    使用弧长累加的方法找到一个拆分点，使得
+    拆分前的弧长接近总弧长的一半。
+    拆分时，新笔划均包含拆分点以保证连续性。
+    """
+    if stroke.shape[0] < 2:
+        # 如果只有一个点，无法拆分，直接返回原stroke两次
+        raise ValueError('points in s stroke is too few')
+
+    # 计算累积弧长，每个点对应从起点到该点的弧长
+    diffs = np.diff(stroke, axis=0)
+    seg_lengths = np.linalg.norm(diffs, axis=1)
+    cum_lengths = np.concatenate(([0], np.cumsum(seg_lengths)))
+    total_length = cum_lengths[-1]
+    half_length = total_length / 2.0
+
+    # 找到第一个累积距离超过或等于half_length的位置
+    idx = np.searchsorted(cum_lengths, half_length)
+    # 为避免idx过于靠前或过于靠后，保证分割后两部分都有足够点数
+    idx = max(1, min(idx, stroke.shape[0] - 1))
+
+    # 用拆分点构造两个新笔划（共用拆分点）
+    stroke1 = stroke[:idx + 1, :]
+    stroke2 = stroke[idx:, :]
+    return stroke1, stroke2
+
+
+def stk_n_pnt_maximum_filter(sketch: list, n_pnt_max: int) -> list:
+    """
+    最长笔划中的点数必须小于 n_pnt_max，否则递归对半拆分最长的笔划
+    :param sketch:
+    :param n_pnt_max:
+    :return:
+    """
+    strokes = sketch.copy()
+
+    while True:
+        max_stroke = max(strokes, key=lambda _stroke: _stroke.shape[0])
+
+        if max_stroke.shape[0] <= n_pnt_max:
+            break
+        else:
+            single_split_(strokes)
+
+    return strokes
+
+    # # 逐个检查是否存在超长笔划
+    # need_check = True
+    # while need_check:
+    #     need_check = False  # 假设此次循环中无超长笔划
+    #     for i, stroke in enumerate(strokes):
+    #         if stroke_length(stroke) > stk_len_max:
+    #             # 如果超长，对其拆分并替换原来的笔划
+    #             stroke1, stroke2 = split_stroke(stroke)
+    #             # 用拆分得到的两个笔划替换原来的笔划
+    #             strokes.pop(i)
+    #             strokes.insert(i, stroke2)
+    #             strokes.insert(i, stroke1)
+    #             # 标记需要再次检查，因为拆分后可能还是超长
+    #             need_check = True
+    #             # 跳出当前循环，重新开始遍历列表
+    #             break
+    #
+    # return strokes
+
+
 if __name__ == '__main__':
     # bspline_interp1(4, 6)
 
-    datas = np.array([
-        [0, 0],
-        [1, 2],
-        [2, 3],
-        [4, 3],
-        [5, 2],
-        [6, 0],
-        [8, 3.2],
-        [9, 6.5],
-        [8, -5],
-    ])
+    # datas = np.array([
+    #     [0, 0],
+    #     [1, 2],
+    #     [2, 3],
+    #     [4, 3],
+    #     [5, 2],
+    #     [6, 0],
+    #     [8, 3.2],
+    #     [9, 6.5],
+    #     [8, -5],
+    # ])
+    #
+    # bspline_approx(data_points=datas, view_res=True, n_sample=10, n_pole=6, degree=2, sample_mode='e-para')
 
-    bspline_approx(data_points=datas, view_res=True, n_sample=10, n_pole=6, degree=2, sample_mode='e-para')
+    sketch_root = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Key\0a4b71aa11ae34effcdc8e78292671a3_3.txt'
+
+    new_sketch = sketch_split(np.loadtxt(sketch_root, delimiter=','))
+    new_sketch = near_pnt_dist_filter(new_sketch, 0.001)
+    new_sketch = stk_pnt_double_filter(new_sketch)
+
+    # for c_stk_ in new_sketch:
+    #     plt.scatter(c_stk_[:, 0], -c_stk_[:, 1])
+    #     print(f'当前笔划中点数：{len(c_stk_)}')
+    # plt.show()
 
     pass

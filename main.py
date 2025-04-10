@@ -410,9 +410,12 @@ if __name__ == '__main__':
     #
     # print("不同的元素索引位置:", diff_indices)
 
-    atensor = torch.Tensor([[True, True, False, True, True, False], [True, True, True, True, True, False]])
-    # print(atensor[::2])
-    print(~atensor.max(0)[0].bool())
+    # atensor = torch.Tensor([[True, True, False, True, True, False], [True, True, True, True, True, False]])
+    # # print(atensor[::2])
+    # print(~atensor.max(0)[0].bool())
+
+    print(torch.max(torch.tensor([1, 2, 3, 4, float('nan')])))
+
 
 
     pass

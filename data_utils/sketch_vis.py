@@ -51,7 +51,7 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
 
     # -------------------------------
     # 去掉点数过少的笔划
-    sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
+    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
 
     # split all strokes
     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
@@ -351,7 +351,7 @@ if __name__ == '__main__':
 
     # vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\camera\3285.txt', show_dot=True)
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
 
     pass
 
