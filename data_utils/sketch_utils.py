@@ -987,7 +987,7 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # tmp_vis_sketch_list(sketch_data, True)
 
@@ -999,7 +999,7 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # tmp_vis_sketch_list(sketch_data)
 
@@ -1008,35 +1008,35 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # 使所有笔划的点数均为2的整数倍
     sketch_data = sp.stk_pnt_double_filter(sketch_data)
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
     sketch_data = sp.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
     sketch_data = sp.stk_num_minimal_filter(sketch_data, 4)
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
     sketch_data = sp.stk_number_filter(sketch_data, global_defs.n_stk)
 
     if len(sketch_data) == 0:
         print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float)]
+        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # tmp_vis_sketch_list(sketch_data)
     # tmp_vis_sketch_list(sketch_data, True)
