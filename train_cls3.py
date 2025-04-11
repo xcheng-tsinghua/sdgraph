@@ -11,7 +11,8 @@ import numpy as np
 # 自建模块
 import global_defs
 from data_utils.SketchDataset import SketchDataset2
-from encoders.sdgraph3 import SDGraphCls
+# from encoders.sdgraph3 import SDGraphCls
+from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
 
@@ -22,6 +23,34 @@ def has_nan_weight(module):
             return True
     # print("该模块所有参数均无NaN")
     return False
+
+
+def parse_args():
+    '''PARAMETERS'''
+    # 输入参数如下：
+    parser = argparse.ArgumentParser('training')
+
+    parser.add_argument('--bs', type=int, default=20, help='batch size in training')
+    parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
+    parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
+    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
+
+    parser.add_argument('--save_str', type=str, default='sdgraph_test', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
+
+    r'''
+    cad sketch
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
+    TuBerlin
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
+    '''
+
+    return parser.parse_args()
 
 
 def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = './log/false_instance.txt'):
@@ -61,33 +90,6 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
 
         print('save incorrect cls instance: ', save_path)
 
-
-def parse_args():
-    '''PARAMETERS'''
-    # 输入参数如下：
-    parser = argparse.ArgumentParser('training')
-
-    parser.add_argument('--bs', type=int, default=20, help='batch size in training')
-    parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-
-    parser.add_argument('--save_str', type=str, default='sdgraph_test', help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
-
-    r'''
-    cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
-    TuBerlin
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
-    '''
-
-    return parser.parse_args()
 
 
 def main(args):

@@ -54,7 +54,7 @@ def get_graph_feature(x, k=20, idx=None):
 
 
 class DGCNN(nn.Module):
-    def __init__(self, k=20, emb_dims=1024, dropout=0.5, output_channels=40):
+    def __init__(self, output_channels=40, k=20, emb_dims=1024, dropout=0.5):
         super(DGCNN, self).__init__()
         self.k = k
 
