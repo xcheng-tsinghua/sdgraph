@@ -848,8 +848,8 @@ def single_split_(stroke_list: list):
     """
     # stroke_list = copy.deepcopy(stk_list)
 
-    # if len(stroke_list) == 0:
-    #     asasas = 0
+    if len(stroke_list) == 0:
+        raise ValueError('input empty list')
 
     # Find the array with the maximum number of rows
     largest_idx = max(range(len(stroke_list)), key=lambda i: stroke_list[i].shape[0])

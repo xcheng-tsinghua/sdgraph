@@ -717,33 +717,88 @@ def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -
     if len(splits_raw) == 0 or len(splits_raw) >= stroke.shape[0]:
         return []
 
-    c_overall_idx = 0
-    n_splits = len(splits_raw)
+    if len(splits_raw) == 1:
+        return splits_raw
 
-    # 第一个分割点作为初始组的第一个点
-    split_idx = [splits_raw[0]]
+    # 将索引转化为索引与起点到该索引点距离的元组，用于集群表示
+    idx_and_arclen = []
+    for c_split in splits_raw:
+        arc_len = sp.stroke_length(stroke[:c_split + 1, :])
 
-    # 存储每个分割组中第一个和最后一个索引的元组
-    split_idx_start_end = []
+        idx_and_arclen.append((c_split, arc_len))
 
-    for i in range(1, n_splits):
-        # 计算 stroke 中两个分割点之间的欧氏距离
-        if np.linalg.norm(stroke[splits_raw[c_overall_idx]] - stroke[splits_raw[i]]) > dist_thres:
-            split_idx.append(splits_raw[i])
-            c_overall_idx = i
-            # 使用当前组中前一个采样点和上一个 split 点作为起始和结束索引
-            split_idx_start_end.append((split_idx[-2], splits_raw[i - 1]))
+    groups = []       # 最终的分组列表
+    current_group = [idx_and_arclen[0]]  # 当前分组，初始放入第一个元组
 
-    # 如果最后两个分割点距离小于等于阈值，则把最后一个点加入对应分割组
-    if n_splits > 2 and np.linalg.norm(stroke[splits_raw[-1]] - stroke[splits_raw[-2]]) <= dist_thres:
-        split_idx_start_end.append((split_idx[-1], splits_raw[-1]))
+    # 遍历数组，从第二个元素开始
+    for tup in idx_and_arclen[1:]:
+        # 如果当前元组的 dist 与当前分组最后一个元组的 dist 差值小于阈值，
+        # 则认为它们属于同一组
+        if tup[1] - current_group[-1][1] < dist_thres:
+            current_group.append(tup)
+        else:
+            groups.append(current_group)
+            current_group = [tup]  # 开启新一组
 
-    # 清空 split_idx 并用每个分割组中间的索引替代（整数除法，取整）
-    split_idx = []
-    for first, second in split_idx_start_end:
-        split_idx.append((first + second) // 2)
+    # 添加最后一个分组
+    groups.append(current_group)
 
-    return split_idx
+    # 取各组的中间值
+    merged_idx = []
+    for c_group in groups:
+        if len(c_group) == 1:
+            merged_idx.append(c_group[0][0])
+        else:
+            idx_left = c_group[0][0]
+            idx_right = c_group[-1][0]
+
+            merged_idx.append((idx_left + idx_right) // 2)
+
+    return merged_idx
+
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    #
+    # c_overall_idx = 0
+    # n_splits = len(splits_raw)
+    #
+    # # 第一个分割点作为初始组的第一个点
+    # # 该数组存放分割组最左边的点，后续需要处理，将其处理成分割组中间的点
+    # # split_idx = [splits_raw[0]]
+    #
+    # # 存储每个分割组中第一个和最后一个索引的元组
+    # split_idx_start_end = [splits_raw[0]]
+    # c_left = stroke[splits_raw[0]]
+    #
+    # for i in range(1, n_splits):
+    #     # 计算 stroke 中两个分割点之间的欧氏距离
+    #     # c_left = stroke[splits_raw[c_overall_idx]]
+    #     c_split = stroke[splits_raw[i]]
+    #
+    #     if np.linalg.norm(c_left - c_split) > dist_thres:
+    #         split_idx.append(splits_raw[i])
+    #         c_overall_idx = i
+    #         # 使用当前组中前一个采样点和上一个 split 点作为起始和结束索引
+    #         # 有问题，如果某个分割组只有一个点的话
+    #         split_idx_start_end.append((split_idx[-2], splits_raw[i - 1]))
+    #
+    # # 如果最后两个分割点距离小于等于阈值，则把最后一个点加入对应分割组
+    # if n_splits > 2 and np.linalg.norm(stroke[splits_raw[-1]] - stroke[splits_raw[-2]]) <= dist_thres:
+    #     split_idx_start_end.append((split_idx[-1], splits_raw[-1]))
+    #
+    # # 清空 split_idx 并用每个分割组中间的索引替代（整数除法，取整）
+    # split_idx = []
+    # for first, second in split_idx_start_end:
+    #     split_idx.append((first + second) // 2)
+    #
+    # return split_idx
 
 
 def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False):
@@ -764,67 +819,69 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
 
     splited_stk = []
 
-    # 如果原始点数少于10个，则直接返回原数组
-    if len(stroke) < 5:
+    # Step 1: 重采样
+    resample_stk = sp.uni_arclength_resample_strict_single(stroke, resp_dist)
+
+    # 如果重采样后的点数小于 window_width 的3倍，则返回原数组
+    if len(resample_stk) < 3 * window_width:
         splited_stk.append(stroke)
         return splited_stk
 
-    else:
-        # Step 1: 重采样
-        resample_stk = sp.uni_arclength_resample_strict_single(stroke, resp_dist)
+    # Step 2: 计算 straw 值
+    straw_and_idx = []
+    straw_base = 0.0
+    n_resample = len(resample_stk)
+    half_window = window_width // 2
 
-        # 如果重采样后的点数小于 window_width 的3倍，则返回原数组
-        if len(resample_stk) < 3 * window_width:
-            splited_stk.append(stroke)
-            return splited_stk
+    for i in range(half_window, n_resample - half_window):
+        window_left = i - half_window
+        window_right = i + half_window
 
-        # Step 2: 计算 straw 值
-        straw_and_idx = []
-        straw_base = 0.0
-        n_resample = len(resample_stk)
-        half_window = window_width // 2
-
-        for i in range(half_window, n_resample - half_window):
-            window_left = i - half_window
-            window_right = i + half_window
-
-            pnt_left = resample_stk[window_left]
-            pnt_right = resample_stk[window_right]
-            c_straw = np.linalg.norm(pnt_left - pnt_right)
-            straw_and_idx.append((c_straw, i))
-
-            if is_show_status:
-                all_straw.append(c_straw)
-
-            if c_straw > straw_base:
-                straw_base = c_straw
-
-        # Step 3: 根据 straw 阈值确定角点
-        straw_thres = straw_base * thres
-        m_corners_idx = [idx for (straw, idx) in straw_and_idx if straw < straw_thres]
-
-        # Step 4: 合并过于接近的角点
-        m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
-
-        # Step 5: 根据角点分割重采样后的笔画
-        splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+        pnt_left = resample_stk[window_left]
+        pnt_right = resample_stk[window_right]
+        c_straw = np.linalg.norm(pnt_left - pnt_right)
+        straw_and_idx.append((c_straw, i))
 
         if is_show_status:
-            x = range(len(all_straw))
-            plt.plot(x, all_straw)
-            plt.plot([x[0], x[-1]], [straw_thres, straw_thres])
+            all_straw.append(c_straw)
 
-            plt.show()
+        if c_straw > straw_base:
+            straw_base = c_straw
+
+    # Step 3: 根据 straw 阈值确定角点
+    straw_thres = straw_base * thres
+    m_corners_idx = [idx for (straw, idx) in straw_and_idx if straw < straw_thres]
+
+    # for idx, c_val in enumerate(straw_and_idx):
+    #     if c_val[0] < straw_thres:
+    #         asasas = 0
+
+    # Step 4: 合并过于接近的角点
+    m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
+
+    # Step 5: 根据角点分割重采样后的笔画
+    splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+
+    if is_show_status:
+        fig, axs = plt.subplots(1, 2)
+
+        axs[0].plot(stroke[:, 0], -stroke[:, 1])
+
+        x = range(len(all_straw))
+        axs[1].plot(x, all_straw)
+        axs[1].plot([x[0], x[-1]], [straw_thres, straw_thres])
+
+        plt.show()
 
     return splited_stk
 
 
-def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2):
+def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False):
     splited_sketch = []
 
     for c_stk in sketch:
         if sp.stroke_length(c_stk) > split_length:
-            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width)
+            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_print_split_status)
 
     return splited_sketch
 
@@ -922,10 +979,12 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
     sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.001)
 
     # 重采样
-    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+    # sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
     # 角点分割
-    sketch_data = sketch_short_straw_split(sketch_data, resp_dist)
+    sketch_data = sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
+
+    # tmp_vis_sketch_list(sketch_data, True)
 
     # 去掉无效笔划
     # sketch_data = sp.valid_stk_filter(sketch_data)
@@ -1028,8 +1087,8 @@ if __name__ == '__main__':
 
     # pen_updown_alt_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', r'D:\document\DeepLearning\DataSet\sketch_cad\new')
 
-
-    exsketch = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt'
+    # 'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls\\train\\armchair\\530.txt'
+    exsketch = r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls\\train\\armchair\\530.txt'
     asketch = pre_process(exsketch)
     tmp_vis_sketch_list(asketch, True)
 
