@@ -1044,6 +1044,65 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
     return sketch_data
 
 
+
+def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+    """
+    :param sketch_root:
+    :param resp_dist:
+    :param pen_up:
+    :param pen_down:
+    :return:
+    """
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心与大小
+    sketch_data = sketch_std(sketch_data)
+
+    # 分割笔划
+    sketch_data = sp.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉相邻过近的点
+    # -----------------需要先归一化才可使用，不然单位不统一
+    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.001)
+
+    # 重采样
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    # 角点分割
+    # sketch_data = sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
+
+    # tmp_vis_sketch_list(sketch_data, True)
+
+    # 去掉无效笔划
+    # sketch_data = sp.valid_stk_filter(sketch_data)
+
+    # 长笔划分割
+    sketch_data = sp.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
+
+    # tmp_vis_sketch_list(sketch_data)
+
+    # 去掉点数过少的笔划
+    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 8)
+
+    # 使所有笔划的点数均为2的整数倍
+    # sketch_data = sp.stk_pnt_double_filter(sketch_data)
+
+    # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
+    sketch_data = sp.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
+    # sketch_data = sp.stk_num_minimal_filter(sketch_data, 4)
+
+    # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
+    sketch_data = sp.stk_number_filter(sketch_data, global_defs.n_stk)
+
+    # tmp_vis_sketch_list(sketch_data)
+    # tmp_vis_sketch_list(sketch_data, True)
+
+    return sketch_data
+
+
 def test_resample():
     # sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     sketch_root = sketch_test
@@ -1117,9 +1176,16 @@ if __name__ == '__main__':
     # pen_updown_alt_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt', r'D:\document\DeepLearning\DataSet\sketch_cad\new')
 
     # 'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls\\train\\armchair\\530.txt'
-    exsketch = r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls\\train\\armchair\\530.txt'
-    asketch = pre_process(exsketch)
-    tmp_vis_sketch_list(asketch, True)
+    # exsketch = r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls\\train\\armchair\\530.txt'
+    # asketch = pre_process_seg_only(exsketch)
+    # tmp_vis_sketch_list(asketch, True)
+
+    all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
+    # all_sketches = get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+
+    for c_skh in all_sketches:
+        asketch = pre_process_seg_only(c_skh)
+        tmp_vis_sketch_list(asketch, True)
 
 
     pass

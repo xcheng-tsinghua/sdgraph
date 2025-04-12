@@ -26,7 +26,7 @@ import shutil
 # from torch.masked import masked_tensor
 
 import global_defs
-from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch, pre_process
+from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std, short_straw_split_sketch, pre_process, pre_process_seg_only
 import data_utils.sketch_vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 from data_utils.sketch_vis import vis_sketch_orig
@@ -216,7 +216,7 @@ class SketchDataset2(Dataset):
 
         # vis_sketch_orig(fn[1])
         # sketch_data = short_straw_split_sketch(fn[1])
-        sketch_data = pre_process(fn[1])
+        sketch_data = pre_process_seg_only(fn[1])
 
         # 创建 mask 和规则的 sketch
         # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)

@@ -30,7 +30,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=30, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=60, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -38,8 +38,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
 
     parser.add_argument('--save_str', type=str, default='sdgraph_test', help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
 
     r'''
     cad sketch
