@@ -138,5 +138,5 @@ python train_cst_pred.py --model=cstpcd --save_str=cst_pcd_abc26t --abc_pack=21 
 
 
 
-
+invalid stks : occurred zero sketch: /root/my_data/data_set/sketch_cad/sketch_txt/train/Gear/8646fb6b0a7f42bb9d5036995471b6b0_1.txt
 
