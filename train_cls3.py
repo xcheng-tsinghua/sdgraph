@@ -94,7 +94,6 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
         print('save incorrect cls instance: ', save_path)
 
 
-
 def main(args):
     save_str = args.save_str
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
@@ -109,13 +108,6 @@ def main(args):
 
     '''日志记录'''
     logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
-    # logger = logging.getLogger("Model")
-    # logger.setLevel(logging.INFO)
-    # file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
-    # file_handler.setLevel(logging.INFO)
-    # formatter = logging.Formatter('%(message)s')
-    # file_handler.setFormatter(formatter)
-    # logger.addHandler(file_handler)
 
     '''定义数据集'''
     if args.local == 'True':

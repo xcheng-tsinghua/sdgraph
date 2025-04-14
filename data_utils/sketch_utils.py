@@ -100,7 +100,16 @@ def get_allfiles(dir_path, suffix='txt', filename_only=False):
 
     for root, dirs, files in os.walk(dir_path):
         for file in files:
-            if file.split('.')[-1] == suffix:
+
+            if suffix is not None:
+                if file.split('.')[-1] == suffix:
+                    if filename_only:
+                        current_filepath = file
+                    else:
+                        current_filepath = str(os.path.join(root, file))
+                    filepath_all.append(current_filepath)
+
+            else:
                 if filename_only:
                     current_filepath = file
                 else:
@@ -1042,7 +1051,6 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
     # tmp_vis_sketch_list(sketch_data, True)
 
     return sketch_data
-
 
 
 def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:

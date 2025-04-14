@@ -1605,13 +1605,13 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk alt')
 
-        # self.conv = DgcnnEncoder(2, 128, 20)
-        #
-        # dim_mid = int((128 * n_class) ** 0.5)
-        #
-        # self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
+        self.conv = DgcnnEncoder(2, 128, 20)
 
-        self.conv = dgcnn_orig.DGCNN(n_class)
+        dim_mid = int((128 * n_class) ** 0.5)
+
+        self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
+
+        # self.conv = dgcnn_orig.DGCNN(n_class)
 
     def forward(self, xy: torch.Tensor):
         """
@@ -1624,18 +1624,18 @@ class SDGraphClsTest(nn.Module):
         # assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         #
         # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
-        # xy = xy.permute(0, 2, 1)
+        xy = xy.permute(0, 2, 1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)
 
-        # # -> [bs, fea]
-        # fea = fea.max(2)[0]
-        #
-        # # -> [bs, n_classes]
-        # fea = self.linear(fea)
-        #
-        # fea = F.log_softmax(fea, dim=1)
+        # -> [bs, fea]
+        fea = fea.max(2)[0]
+
+        # -> [bs, n_classes]
+        fea = self.linear(fea)
+
+        fea = F.log_softmax(fea, dim=1)
 
         return fea
 

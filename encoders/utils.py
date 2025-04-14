@@ -9,7 +9,7 @@ import re
 import matplotlib.pyplot as plt
 import logging
 
-from data_utils.sketch_utils import save_confusion_mat
+from data_utils.sketch_utils import save_confusion_mat, get_allfiles, get_subdirs
 
 
 class FullConnectedConvXd(nn.Module):
@@ -497,13 +497,27 @@ def clear_confusion(root_dir='./data_utils/confusion', k=2):
     :param root_dir: 根目录
     :param k: 文件数的阈值，小于 k 的文件夹会被删除
     """
-    for foldername, subfolders, filenames in os.walk(root_dir, topdown=False):
-        # 遍历每个文件夹
-        num_files = len(filenames)
-        if num_files < k:
-            # 如果文件数小于 k，则删除整个文件夹
-            print(f"Deleting folder: {foldername} (contains {num_files} files)")
-            shutil.rmtree(foldername)
+    # 找到该目录下的全部一级子文件夹
+    sub_dirs = get_subdirs(root_dir)
+
+    for c_dir_name in sub_dirs:
+        c_dir_path = os.path.join(root_dir, c_dir_name)
+
+        # 获取全部文件列表
+        c_files_all = get_allfiles(c_dir_path, suffix=None)
+        n_files_all = len(c_files_all)
+
+        if n_files_all < k:
+            print(f"Deleting folder: {c_dir_path} (contains {n_files_all} files)")
+            shutil.rmtree(c_dir_path)
+
+    # for foldername, subfolders, filenames in os.walk(root_dir, topdown=False):
+    #     # 遍历每个文件夹
+    #     num_files = len(filenames)
+    #     if num_files < k:
+    #         # 如果文件数小于 k，则删除整个文件夹
+    #         print(f"Deleting folder: {foldername} (contains {num_files} files)")
+    #         shutil.rmtree(foldername)
 
 
 def all_metric_cls(all_preds: list, all_labels: list, confusion_dir: str=''):
