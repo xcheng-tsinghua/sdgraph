@@ -1072,7 +1072,10 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
 
     # 去掉相邻过近的点
     # -----------------需要先归一化才可使用，不然单位不统一
-    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.001)
+    sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.01)
+
+    # 去掉长度过短的笔划
+    sketch_data = sp.stroke_len_filter(sketch_data, 0.1)
 
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
@@ -1188,8 +1191,8 @@ if __name__ == '__main__':
     # asketch = pre_process_seg_only(exsketch)
     # tmp_vis_sketch_list(asketch, True)
 
-    all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
-    # all_sketches = get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+    # all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
+    all_sketches = get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
 
     for c_skh in all_sketches:
         asketch = pre_process_seg_only(c_skh)
