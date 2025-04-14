@@ -885,90 +885,90 @@ class GCNEncoder(nn.Module):
         return x
 
 
-class GCNEncoderSingle(nn.Module):
-    """
-    实际上是 DGCNN Encoder
-    """
-    def __init__(self, emb_in, emb_out, n_near=10,):
-        super().__init__()
-        self.n_near = n_near
-
-        emb_inc = (emb_out / (2 * emb_in)) ** 0.25
-        emb_l1_0 = emb_in * 2
-        emb_l1_1 = int(emb_l1_0 * emb_inc)
-        emb_l1_2 = int(emb_l1_1 * emb_inc)
-
-        emb_l2_0 = emb_l1_2
-        emb_l2_1 = int(emb_l2_0 * emb_inc)
-        emb_l2_2 = emb_out
-
-        self.conv1 = full_connected_conv2d([emb_l1_0, emb_l1_1, emb_l1_2],
-                                           final_proc=True,
-                                           drop_rate=0.0
-                                           )
-
-        self.conv2 = full_connected_conv1d([emb_l2_0, emb_l2_1, emb_l2_2],
-                                           final_proc=True,
-                                           drop_rate=0.0
-                                           )
-
-    def forward(self, x, mask=None):
-        """
-        :param x: [bs, channel, n_token]
-        :param mask: [bs, n_stk, n_stk_pnt]
-        :return:
-        """
-        # -> [bs, channel, n_points, n_near]
-        # x = get_graph_feature(x, k=self.n_near)
-        x = get_graph_feature(x, 2)
-
-        # mask 之后
-        # mask = mask.view(mask.size(0), -1)  # -> [bs, n_point]
-        # mask = mask.unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(3)  # -> [bs, channel, n_point, 1]
-        # x = x.masked_fill(~mask, 0)
-
-        # has_nan = torch.isnan(x).any()  # 检查是否存在 NaN
-        # has_neg_inf = (x == float('-inf')).any()  # 检查是否存在 -∞
-
-        # x[torch.isinf(x)] = float('nan')
-        # aaal = x[0, :, :, :].max(0)[0]
-        # bbbl = mask[0, :, :].view(-1)
-
-
-        # aaal = x[0, :, :, :].max(2)[0]
-        # bbbl = mask[0, :, :].view(-1)
-
-        # aaal = x.permute(0, 2, 3, 1)  # -> [bs, n_points, n_near, channel]
-        # aaal = aaal.reshape(aaal.size(0), aaal.size(1), -1)  # -> [bs, n_points, n_near * channel]
-        # aaal = aaal[0, :, :]  # -> [n_points, n_near * channel]
-        #
-        # bbbl = mask[0, :, :].view(-1)  # -> [n_points]
-
-        # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\aaal.txt', aaal.cpu().numpy())
-        # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\bbbl.txt', bbbl.cpu().numpy(), fmt='%d')
-        # print(aaal)
-        # exit(0)
-
-
-
-        x = self.conv1(x)
-
-        # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\cccl.txt', x[0, :, :, :].max(0)[0].detach().cpu().numpy())
-
-        # -> [bs, emb, n_token]
-        x = x.max(3)[0]
-
-        # -> [bs, emb, n_token]
-        x = self.conv2(x)
-
-        # mask = mask.view(mask.size(0), -1)  # [bs, n_points]
-
-        # x = x.masked_fill(~mask.unsqueeze(1), 0)
-
-        # has_nan = has_invalid_val(x)  # 检查是否存在 NaN
-
-
-        return x
+# class GCNEncoderSingle(nn.Module):
+#     """
+#     实际上是 DGCNN Encoder
+#     """
+#     def __init__(self, emb_in, emb_out, n_near=10,):
+#         super().__init__()
+#         self.n_near = n_near
+#
+#         emb_inc = (emb_out / (2 * emb_in)) ** 0.25
+#         emb_l1_0 = emb_in * 2
+#         emb_l1_1 = int(emb_l1_0 * emb_inc)
+#         emb_l1_2 = int(emb_l1_1 * emb_inc)
+#
+#         emb_l2_0 = emb_l1_2
+#         emb_l2_1 = int(emb_l2_0 * emb_inc)
+#         emb_l2_2 = emb_out
+#
+#         self.conv1 = full_connected_conv2d([emb_l1_0, emb_l1_1, emb_l1_2],
+#                                            final_proc=True,
+#                                            drop_rate=0.0
+#                                            )
+#
+#         self.conv2 = full_connected_conv1d([emb_l2_0, emb_l2_1, emb_l2_2],
+#                                            final_proc=True,
+#                                            drop_rate=0.0
+#                                            )
+#
+#     def forward(self, x, mask=None):
+#         """
+#         :param x: [bs, channel, n_token]
+#         :param mask: [bs, n_stk, n_stk_pnt]
+#         :return:
+#         """
+#         # -> [bs, channel, n_points, n_near]
+#         # x = get_graph_feature(x, k=self.n_near)
+#         x = get_graph_feature(x, 2)
+#
+#         # mask 之后
+#         # mask = mask.view(mask.size(0), -1)  # -> [bs, n_point]
+#         # mask = mask.unsqueeze(1).repeat(1, x.size(1), 1).unsqueeze(3)  # -> [bs, channel, n_point, 1]
+#         # x = x.masked_fill(~mask, 0)
+#
+#         # has_nan = torch.isnan(x).any()  # 检查是否存在 NaN
+#         # has_neg_inf = (x == float('-inf')).any()  # 检查是否存在 -∞
+#
+#         # x[torch.isinf(x)] = float('nan')
+#         # aaal = x[0, :, :, :].max(0)[0]
+#         # bbbl = mask[0, :, :].view(-1)
+#
+#
+#         # aaal = x[0, :, :, :].max(2)[0]
+#         # bbbl = mask[0, :, :].view(-1)
+#
+#         # aaal = x.permute(0, 2, 3, 1)  # -> [bs, n_points, n_near, channel]
+#         # aaal = aaal.reshape(aaal.size(0), aaal.size(1), -1)  # -> [bs, n_points, n_near * channel]
+#         # aaal = aaal[0, :, :]  # -> [n_points, n_near * channel]
+#         #
+#         # bbbl = mask[0, :, :].view(-1)  # -> [n_points]
+#
+#         # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\aaal.txt', aaal.cpu().numpy())
+#         # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\bbbl.txt', bbbl.cpu().numpy(), fmt='%d')
+#         # print(aaal)
+#         # exit(0)
+#
+#
+#
+#         x = self.conv1(x)
+#
+#         # np.savetxt(r'C:\Users\ChengXi\Desktop\sketches\cccl.txt', x[0, :, :, :].max(0)[0].detach().cpu().numpy())
+#
+#         # -> [bs, emb, n_token]
+#         x = x.max(3)[0]
+#
+#         # -> [bs, emb, n_token]
+#         x = self.conv2(x)
+#
+#         # mask = mask.view(mask.size(0), -1)  # [bs, n_points]
+#
+#         # x = x.masked_fill(~mask.unsqueeze(1), 0)
+#
+#         # has_nan = has_invalid_val(x)  # 检查是否存在 NaN
+#
+#
+#         return x
 
 
 class RMSNorm(nn.Module):
@@ -1590,6 +1590,50 @@ class SDGraphUNet(nn.Module):
 
         noise = self.final_linear(dense_graph)
         return noise
+
+
+class SDGraphClsTest(nn.Module):
+    """
+    逐模块测试版
+    """
+    def __init__(self, n_class: int, dropout: float = 0.4):
+        """
+        :param n_class: 总类别数
+        """
+        super().__init__()
+        print('cls stk alt')
+
+        self.conv = GCNEncoder(2, 128, 20)
+
+        dim_mid = int((128 * n_class) ** 0.5)
+
+        self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
+
+    def forward(self, xy: torch.Tensor):
+        """
+        输入某个模块前，无效位置统一设为 nan
+        :param xy: [bs, n_stk, n_skt_pnt, 2]  float
+        # :param mask: [bs, n_stk, n_skt_pnt]  bool
+        :return: [bs, n_classes]
+        """
+        # bs, n_stk, n_stk_pnt, channel_xy = xy.size()
+        # assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
+        #
+        # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
+        xy = xy.permute(0, 2, 1)
+
+        # -> [bs, fea, n_pnt]
+        fea = self.conv(xy)
+
+        # -> [bs, fea]
+        fea = fea.max(2)[0]
+
+        # -> [bs, n_classes]
+        fea = self.linear(fea)
+
+        cls = F.log_softmax(fea, dim=1)
+
+        return cls
 
 
 def test():
