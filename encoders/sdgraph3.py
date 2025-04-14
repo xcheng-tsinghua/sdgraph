@@ -11,7 +11,7 @@ from einops import rearrange
 import math
 import matplotlib.pyplot as plt
 
-from encoders.Dgcnn import DgcnnEncoder
+from encoders import Dgcnn
 import global_defs
 
 
@@ -1604,11 +1604,13 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk alt')
 
-        self.conv = DgcnnEncoder(2, 128, 20)
+        # self.conv = DgcnnEncoder(2, 128, 20)
+        #
+        # dim_mid = int((128 * n_class) ** 0.5)
+        #
+        # self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
 
-        dim_mid = int((128 * n_class) ** 0.5)
-
-        self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
+        self.conv = Dgcnn.DGCNN(n_class)
 
     def forward(self, xy: torch.Tensor):
         """
@@ -1626,15 +1628,15 @@ class SDGraphClsTest(nn.Module):
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)
 
-        # -> [bs, fea]
-        fea = fea.max(2)[0]
+        # # -> [bs, fea]
+        # fea = fea.max(2)[0]
+        #
+        # # -> [bs, n_classes]
+        # fea = self.linear(fea)
+        #
+        # fea = F.log_softmax(fea, dim=1)
 
-        # -> [bs, n_classes]
-        fea = self.linear(fea)
-
-        cls = F.log_softmax(fea, dim=1)
-
-        return cls
+        return fea
 
 
 def test():
