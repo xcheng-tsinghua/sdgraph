@@ -12,6 +12,7 @@ import math
 import matplotlib.pyplot as plt
 
 from encoders import Dgcnn
+from encoders import dgcnn_orig
 import global_defs
 
 
@@ -1610,7 +1611,7 @@ class SDGraphClsTest(nn.Module):
         #
         # self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
 
-        self.conv = Dgcnn.DGCNN(n_class)
+        self.conv = dgcnn_orig.DGCNN(n_class)
 
     def forward(self, xy: torch.Tensor):
         """
@@ -1623,7 +1624,7 @@ class SDGraphClsTest(nn.Module):
         # assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         #
         # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
-        xy = xy.permute(0, 2, 1)
+        # xy = xy.permute(0, 2, 1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)

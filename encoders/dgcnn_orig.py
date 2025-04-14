@@ -27,6 +27,13 @@ def knn(x, k):
 
 
 def get_graph_feature(x, k=20, idx=None):
+    """
+
+    :param x: [bs, emb, n_point]
+    :param k:
+    :param idx:
+    :return:
+    """
     batch_size = x.size(0)
     num_points = x.size(2)
     x = x.view(batch_size, -1, num_points)
@@ -54,7 +61,7 @@ def get_graph_feature(x, k=20, idx=None):
 
 
 class DGCNN(nn.Module):
-    def __init__(self, output_channels=40, k=20, emb_dims=1024, dropout=0.5):
+    def __init__(self, output_channels=40, point_dim=2, k=20, emb_dims=1024, dropout=0.5):
         super(DGCNN, self).__init__()
         self.k = k
 
@@ -64,7 +71,7 @@ class DGCNN(nn.Module):
         self.bn4 = nn.BatchNorm2d(256)
         self.bn5 = nn.BatchNorm1d(emb_dims)
 
-        self.conv1 = nn.Sequential(nn.Conv2d(6, 64, kernel_size=1, bias=False),
+        self.conv1 = nn.Sequential(nn.Conv2d(point_dim * 2, 64, kernel_size=1, bias=False),
                                    self.bn1,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.conv2 = nn.Sequential(nn.Conv2d(64 * 2, 64, kernel_size=1, bias=False),
@@ -89,7 +96,12 @@ class DGCNN(nn.Module):
         self.linear3 = nn.Linear(256, output_channels)
 
     def forward(self, x):
-        x = x.permute(0, 2, 1)
+        """
+
+        :param x: [bs, n_point, emb]
+        :return:
+        """
+        x = x.permute(0, 2, 1)  # [bs, emb, n_point]
         batch_size = x.size(0)
         x = get_graph_feature(x, k=self.k)
         x = self.conv1(x)
@@ -119,6 +131,9 @@ class DGCNN(nn.Module):
         x = F.leaky_relu(self.bn7(self.linear2(x)), negative_slope=0.2)
         x = self.dp2(x)
         x = self.linear3(x)
+
+        x = F.log_softmax(x, dim=1)
+
         return x
 
 
@@ -131,7 +146,7 @@ def test():
     import time
 
     device = torch.device('cuda:0')
-    points = torch.randn(8, 1024, 3).to(device)
+    points = torch.randn(8, 1024, 2).to(device)
     model = DGCNN().to(device)
 
     start = time.time()
