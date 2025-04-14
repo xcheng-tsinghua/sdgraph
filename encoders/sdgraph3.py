@@ -1605,7 +1605,7 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk alt')
 
-        self.conv = DgcnnEncoder(2, 128, 20)
+        self.conv = GCNEncoder(2, 128, 20)
 
         dim_mid = int((128 * n_class) ** 0.5)
 
