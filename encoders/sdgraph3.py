@@ -1603,11 +1603,11 @@ class SDGraphClsTest(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('cls stk alt')
+        print('cls stk test')
 
-        self.point_to_dense = PointToDense(2, 16)
+        # self.point_to_dense = PointToDense(2, 16)
 
-        self.conv = GCNEncoder(16, 128, 20)
+        self.conv = GCNEncoder(2, 128, 20)
 
         dim_mid = int((128 * n_class) ** 0.5)
 
@@ -1618,7 +1618,7 @@ class SDGraphClsTest(nn.Module):
     def forward(self, xy: torch.Tensor):
         """
         输入某个模块前，无效位置统一设为 nan
-        :param xy: [bs, n_stk, n_skt_pnt, 2]  float
+        :param xy: [bs, n_skh_pnt, 2]  float
         # :param mask: [bs, n_stk, n_skt_pnt]  bool
         :return: [bs, n_classes]
         """
@@ -1633,6 +1633,8 @@ class SDGraphClsTest(nn.Module):
         #
         # xy = self.point_to_dense(xy)
         # xy = xy.view(xy.size(0), xy.size(1), -1)
+
+        xy = xy.permute(0, 2, 1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)

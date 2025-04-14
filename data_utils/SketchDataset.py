@@ -241,7 +241,7 @@ class SketchDataset2(Dataset):
 
         # return sketch_cube, sketch_mask, cls
         sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
-        sketch_cube = sketch_cube.permute(1, 0)
+        # sketch_cube = sketch_cube.permute(1, 0)
         return sketch_cube, cls
 
     def __len__(self):

@@ -1094,10 +1094,10 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
     # tmp_vis_sketch_list(sketch_data)
 
     # 去掉点数过少的笔划
-    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 8)
+    sketch_data = sp.stk_pnt_num_filter(sketch_data, 8)
 
     # 使所有笔划的点数均为2的整数倍
-    # sketch_data = sp.stk_pnt_double_filter(sketch_data)
+    sketch_data = sp.stk_pnt_double_filter(sketch_data)
 
     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
     sketch_data = sp.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
