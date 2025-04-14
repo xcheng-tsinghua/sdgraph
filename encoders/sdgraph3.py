@@ -1624,7 +1624,7 @@ class SDGraphClsTest(nn.Module):
         # assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         #
         # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
-        xy = xy.permute(0, 2, 1)
+        # xy = xy.permute(0, 2, 1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)

@@ -63,11 +63,12 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     #     approx_mode='uni-arclength'
     # )
 
+    gap = 3
     for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
+        plt.plot(s[::gap, 0], -s[::gap, 1])
 
         if show_dot:
-            plt.scatter(s[:, 0], -s[:, 1], s=80)
+            plt.scatter(s[::gap, 0], -s[::gap, 1], s=80)
 
     if not show_axis:
         plt.axis('off')
@@ -255,7 +256,7 @@ def test_vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.p
 
     # -------------------------------
     # 去掉点数过少的笔划
-    sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
+    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
 
     # split all strokes
     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
@@ -329,7 +330,7 @@ def test():
 
 
 if __name__ == '__main__':
-    # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch\train\Bearing\00b11be6f26c85ca85f84daf52626b36_2.txt')
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\00b11be6f26c85ca85f84daf52626b36_2.txt', show_dot=True)
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
@@ -351,7 +352,7 @@ if __name__ == '__main__':
 
     # vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
 
     pass
 
