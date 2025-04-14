@@ -1605,7 +1605,9 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk alt')
 
-        self.conv = GCNEncoder(2, 128, 20)
+        self.point_to_dense = PointToDense(2, 16)
+
+        self.conv = GCNEncoder(16, 128, 20)
 
         dim_mid = int((128 * n_class) ** 0.5)
 
@@ -1625,6 +1627,12 @@ class SDGraphClsTest(nn.Module):
         #
         # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
         # xy = xy.permute(0, 2, 1)
+
+        xy = xy.view(xy.size(0), 2, global_defs.n_stk, global_defs.n_stk_pnt)
+        xy = xy.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, 2]
+
+        xy = self.point_to_dense(xy)
+        xy = xy.view(xy.size(0), xy.size(1), -1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)
