@@ -1595,20 +1595,30 @@ class SDGraphClsTest(nn.Module):
     """
     def __init__(self, n_class: int, dropout: float = 0.4):
         """
+
+        测试无误：
+        PointToDense
+        GCNEncoder
+        full_connected
+
+        测试有问题：
+
+
+
         :param n_class: 总类别数
         """
         super().__init__()
         print('cls stk test')
 
-        self.point_to_dense = PointToDense(2, 16)
+        # self.point_to_dense = PointToDense(2, 16)
+        #
+        # self.conv = GCNEncoder(16, 128, 20)
 
-        self.conv = GCNEncoder(16, 128, 20)
+        self.point_to_sparse = PointToSparse(2, 128)
 
         dim_mid = int((128 * n_class) ** 0.5)
 
         self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
-
-        # self.conv = dgcnn_orig.DGCNN(n_class)
 
     def forward(self, xy: torch.Tensor):
         """
@@ -1628,11 +1638,14 @@ class SDGraphClsTest(nn.Module):
         xy = xy.view(xy.size(0), global_defs.n_stk, global_defs.n_stk_pnt, 2)
         # xy = xy.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, 2]
 
-        xy = self.point_to_dense(xy)
-        xy = xy.view(xy.size(0), xy.size(1), -1)
+        # xy = self.point_to_dense(xy)
+        # xy = xy.view(xy.size(0), xy.size(1), -1)
+
+        fea = self.point_to_sparse(xy)  # [bs, emb, n_stk]
+        # xy = xy.view(xy.size(0), xy.size(1), -1)
 
         # -> [bs, fea, n_pnt]
-        fea = self.conv(xy)
+        # fea = self.conv(xy)
 
         # 最大池化之前应把nan转化为-inf
         mask = fea.isnan()
@@ -1717,7 +1730,6 @@ def test():
     print(pnt_list)
 
 
-
 def test_topk():
     pnt_list = torch.rand(4, 2)
     # pnt_list[9, :] = torch.tensor([float('-inf'), float('-inf')])
@@ -1741,11 +1753,9 @@ def test_topk():
 
     neighbor_index = torch.topk(distance, k=3, dim=-1, largest=False)[1]
 
-
     print('topk:\n', neighbor_index)
-
-
     pass
+
 
 def test_sketch():
     from data_utils.preprocess import short_straw_split_sketch
