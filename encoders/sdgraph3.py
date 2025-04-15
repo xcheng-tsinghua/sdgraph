@@ -1328,21 +1328,21 @@ class SDGraphCls(nn.Module):
         self.n_stk_pnt = global_defs.n_stk_pnt
 
         # 各层特征维度
-        # sparse_l0 = 16 + 8
-        # sparse_l1 = 64 + 32
-        # sparse_l2 = 256 + 128
+        sparse_l0 = 16 + 8
+        sparse_l1 = 64 + 32
+        sparse_l2 = 256 + 128
+
+        dense_l0 = 16
+        dense_l1 = 64
+        dense_l2 = 256
+
+        # sparse_l0 = 8
+        # sparse_l1 = 16
+        # sparse_l2 = 32
         #
-        # dense_l0 = 16
-        # dense_l1 = 64
-        # dense_l2 = 256
-
-        sparse_l0 = 8
-        sparse_l1 = 16
-        sparse_l2 = 32
-
-        dense_l0 = 4
-        dense_l1 = 8
-        dense_l2 = 16
+        # dense_l0 = 4
+        # dense_l1 = 8
+        # dense_l2 = 16
 
 
         # 生成初始 sdgraph

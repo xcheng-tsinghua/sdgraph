@@ -11,7 +11,7 @@ import numpy as np
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import SketchDataset2 as SketchDataset
-from encoders.sdgraph3 import SDGraphClsTest as SDGraphCls
+from encoders.sdgraph3 import SDGraphCls as SDGraphCls
 # from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
