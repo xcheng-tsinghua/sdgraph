@@ -1379,6 +1379,8 @@ class SDGraphCls(nn.Module):
         # :param mask: [bs, n_stk, n_skt_pnt]  bool
         :return: [bs, n_classes]
         """
+        xy = xy.view(xy.size(0), self.n_stk, self.n_stk_pnt, 2)
+
         bs, n_stk, n_stk_pnt, channel_xy = xy.size()
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         # assert mask.size(1) == self.n_stk and mask.size(2) == self.n_stk_pnt
