@@ -105,7 +105,7 @@ class SketchDataset(Dataset):
     def __getitem__(self, index):
         """
         :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_stroke_point, 2] (numpy.ndarray)
+        stroke = [n_skh_point, 2] (numpy.ndarray)
         """
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字
@@ -209,7 +209,7 @@ class SketchDataset2(Dataset):
     def __getitem__(self, index):
         """
         :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_stroke_point, 2] (numpy.ndarray)
+        stroke = [n_skh_point, 2] (numpy.ndarray)
         """
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字

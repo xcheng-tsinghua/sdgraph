@@ -1609,9 +1609,9 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk test')
 
-        # self.point_to_dense = PointToDense(2, 16)
+        self.point_to_dense = PointToDense(2, 16)
 
-        self.conv = GCNEncoder(2, 128, 20)
+        self.conv = GCNEncoder(16, 128, 20)
 
         dim_mid = int((128 * n_class) ** 0.5)
 
@@ -1623,7 +1623,6 @@ class SDGraphClsTest(nn.Module):
         """
         输入某个模块前，无效位置统一设为 nan
         :param xy: [bs, n_skh_pnt, 2]  float
-        # :param mask: [bs, n_stk, n_skt_pnt]  bool
         :return: [bs, n_classes]
         """
         # bs, n_stk, n_stk_pnt, channel_xy = xy.size()
@@ -1632,13 +1631,14 @@ class SDGraphClsTest(nn.Module):
         # xy = xy.view(bs, n_stk * n_stk_pnt, channel_xy)
         # xy = xy.permute(0, 2, 1)
 
-        # xy = xy.view(xy.size(0), 2, global_defs.n_stk, global_defs.n_stk_pnt)
-        # xy = xy.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, 2]
-        #
-        # xy = self.point_to_dense(xy)
-        # xy = xy.view(xy.size(0), xy.size(1), -1)
+        # -> [bs, 2, n_skh_pnt]
+        # xy = xy.permute(0, 2, 1)
 
-        xy = xy.permute(0, 2, 1)
+        xy = xy.view(xy.size(0), global_defs.n_stk, global_defs.n_stk_pnt, 2)
+        # xy = xy.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, 2]
+
+        xy = self.point_to_dense(xy)
+        xy = xy.view(xy.size(0), xy.size(1), -1)
 
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)
