@@ -177,14 +177,14 @@ def main(args):
             # points = points.permute(0, 2, 1)
             # assert points.size()[1] == 2
 
-            indexes = data[2].long().cuda()
-
-            with open('log/log_file.txt', 'w') as f:
-                for c_bs in range(args.bs):
-                    c_idx = indexes[c_bs].cpu().item()
-                    c_str = train_dataset.datapath[c_idx][1]
-
-                    f.write(c_str)
+            # indexes = data[2].long().cuda()
+            #
+            # with open('log/log_file.txt', 'w') as f:
+            #     for c_bs in range(args.bs):
+            #         c_idx = indexes[c_bs].cpu().item()
+            #         c_str = train_dataset.datapath[c_idx][1]
+            #
+            #         f.write(c_str)
 
 
             # 梯度置为零，否则梯度会累加
