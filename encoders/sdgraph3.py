@@ -1598,6 +1598,7 @@ class SDGraphClsTest(nn.Module):
 
         测试无误：
         PointToDense
+        PointToSparse
         GCNEncoder
         full_connected
 
@@ -1610,15 +1611,18 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk test')
 
-        # self.point_to_dense = PointToDense(2, 16)
-        #
-        # self.conv = GCNEncoder(16, 128, 20)
+        self.point_to_sparse = PointToSparse(2, 64)
+        self.point_to_dense = PointToDense(2, 64)
 
-        self.point_to_sparse = PointToSparse(2, 128)
+        # 利用 sdgraph 更新特征
+        self.sd1 = SDGraphEncoder(64, 128, 64, 128,
+                                  global_defs.n_stk, global_defs.n_stk_pnt,
+                                  dropout=dropout
+                                  )
 
-        dim_mid = int((128 * n_class) ** 0.5)
+        dim_mid = int((256 * n_class) ** 0.5)
 
-        self.linear = full_connected(channels=[128, dim_mid, n_class], final_proc=False, drop_rate=dropout)
+        self.linear = full_connected(channels=[256, dim_mid, n_class], final_proc=False, drop_rate=dropout)
 
     def forward(self, xy: torch.Tensor):
         """
@@ -1626,6 +1630,51 @@ class SDGraphClsTest(nn.Module):
         :param xy: [bs, n_skh_pnt, 2]  float
         :return: [bs, n_classes]
         """
+        xy = xy.view(xy.size(0), global_defs.n_stk, global_defs.n_stk_pnt, 2)
+
+        # 生成初始 sparse graph
+        sparse_graph0 = self.point_to_sparse(xy)  # -> [bs, emb, n_stk]
+        assert sparse_graph0.size()[2] == global_defs.n_stk
+
+        assert is_dimension_nan_consistent(sparse_graph0, 1)
+
+        # if sparse_graph0.isnan().any().item():
+        #     raise ValueError('nan occurred')
+
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)  # -> [bs, emb, n_stk, n_stk_pnt]
+        assert dense_graph0.size()[2] == global_defs.n_stk and dense_graph0.size()[3] == global_defs.n_stk_pnt
+
+        # if dense_graph0.isnan().any().item():
+        #     raise ValueError('nan occurred')
+
+        # show_tensor_map(dense_graph0[0, :, :, :].max(0)[0], 'dn0')
+        # show_tensor_map(sparse_graph0[0, :, :], 'sp0')
+
+        # 交叉更新数据
+        sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2]
+
+        mask = sparse_graph1.isnan()
+        sparse_graph1 = sparse_graph1.masked_fill(mask, float('-inf'))
+
+        mask = dense_graph1.isnan()
+        dense_graph1 = dense_graph1.masked_fill(mask, float('-inf'))
+
+        sparse_graph1 = sparse_graph1.max(2)[0]
+        dense_graph1 = dense_graph1.max(2)[0].max(2)[0]
+
+        fea = torch.cat([sparse_graph1, dense_graph1], dim=1)  # -> [bs, fea]
+
+        assert not has_invalid_val(fea)
+
+        fea = self.linear(fea)
+
+        fea = F.log_softmax(fea, dim=1)
+
+        return fea
+
+
+
         # bs, n_stk, n_stk_pnt, channel_xy = xy.size()
         # assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_xy == 2
         #
