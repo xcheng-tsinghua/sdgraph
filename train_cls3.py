@@ -179,7 +179,7 @@ def main(args):
 
             indexes = data[2].long().cuda()
 
-            with open('log_file.txt', 'w') as f:
+            with open('log/log_file.txt', 'w') as f:
                 for c_bs in range(args.bs):
                     c_idx = indexes[c_bs].cpu().item()
                     c_str = train_dataset.datapath[c_idx][1]
