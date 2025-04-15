@@ -848,8 +848,12 @@ class GCNEncoder(nn.Module):
         :param x: [bs, channel, n_token]
         :return:
         """
+        # show_tensor_map(x[0, :, :].repeat(500, 1), 'origx')
+
         x = get_graph_feature(x, k=self.n_near)  # -> [bs, 2 * channel, n_token, n_near]
         x = self.conv1(x)
+
+        # show_tensor_map(x[0, :, :, :].max(2)[0], 'origx')
 
         # 进行max之前先将nan转换为-inf，以防止产生影响
         mask = x.isnan()  # -> [bs, channel, n_token, n_near]
@@ -1639,8 +1643,16 @@ class SDGraphClsTest(nn.Module):
         # -> [bs, fea, n_pnt]
         fea = self.conv(xy)
 
+        # 最大池化之前应把nan转化为-inf
+        mask = fea.isnan()
+        fea = fea.masked_fill(mask, float('-inf'))
+
+        # show_tensor_map(fea[0, :, :])
+
         # -> [bs, fea]
         fea = fea.max(2)[0]
+
+        assert not has_invalid_val(fea)
 
         # -> [bs, n_classes]
         fea = self.linear(fea)
