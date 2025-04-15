@@ -30,7 +30,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=90, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -178,9 +178,9 @@ def main(args):
             # assert points.size()[1] == 2
 
             # indexes = data[2].long().cuda()
-            #
+            # bs = points.size(0)
             # with open('log/log_file.txt', 'w') as f:
-            #     for c_bs in range(args.bs):
+            #     for c_bs in range(bs):
             #         c_idx = indexes[c_bs].cpu().item()
             #         c_str = train_dataset.datapath[c_idx][1]
             #
