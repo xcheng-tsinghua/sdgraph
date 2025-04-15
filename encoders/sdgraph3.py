@@ -6,13 +6,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from encoders.utils import full_connected, full_connected_conv1d, full_connected_conv2d, activate_func
 from einops import rearrange
 import math
 import matplotlib.pyplot as plt
 
-from encoders import Dgcnn
-from encoders import dgcnn_orig
+from data_utils.preprocess import pre_process_seg_only
 import global_defs
 
 
@@ -669,7 +667,6 @@ class SparseToDense(nn.Module):
         """
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
-        :param mask: [bs, n_stk, n_stk_pnt]
         :return: [bs, emb, n_stk, n_stk_pnt]
         """
         dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
@@ -705,7 +702,6 @@ class Row2DS(nn.Module):
 
     def forward(self, fea: torch.Tensor):
         '''
-        :param embeddings: [bs, fea_in, n_row, n_col]
         :param fea: [bs, fea_in, n_row, n_col]
         :return: [bs, fea_out, n_row, n_col]
         '''
@@ -756,7 +752,6 @@ class DenseToSparse(nn.Module):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :param mask: [bs, n_stk, n_stk_pnt]
         :return: [bs, emb, n_stk]
         """
         # show_tensor_map(dense_fea[0, :, :, :].max(0)[0], 'orig dn fea')
@@ -1057,7 +1052,6 @@ class Row2D(nn.Module):
 
     def forward(self, fea: torch.Tensor):
         '''
-        :param embeddings: [bs, fea_in, n_row, n_col]
         :param fea: [bs, fea_in, n_row, n_col]
         :return: [bs, fea_out, n_row, n_col]
         '''
@@ -1124,7 +1118,6 @@ class PointToSparse(nn.Module):
     def forward(self, xy: torch.Tensor, time_emb=None):
         """
         :param xy: [bs, n_stk, n_stk_pnt, 2]
-        :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk]
         """
@@ -1202,7 +1195,6 @@ class PointToDense(nn.Module):
     def forward(self, xy: torch.Tensor, time_emb=None) -> torch.Tensor:
         """
         :param xy: [bs, n_stk, n_stk_pnt, 2]
-        :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk, n_stk_pnt]
         """
@@ -1274,7 +1266,6 @@ class SDGraphEncoder(nn.Module):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :param mask: [bs, n_stk, n_stk_pnt]
         :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2]
         """
@@ -1754,15 +1745,10 @@ def test_topk():
     print('topk:\n', neighbor_index)
 
 
-
-
-
-
-
     pass
 
 def test_sketch():
-    from data_utils.sketch_utils import short_straw_split_sketch
+    from data_utils.preprocess import short_straw_split_sketch
 
     file_name = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Key\0a4b71aa11ae34effcdc8e78292671a3_2.txt'
 
@@ -1821,6 +1807,26 @@ def test_batch_norm():
     print("结果是否一致：", torch.allclose(y, y_manual, atol=1e-6))
 
 
+def test_skh_file():
+    c_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt'
+
+    sketch_data = pre_process_seg_only(c_file)
+    sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
+
+    for i, c_stk in enumerate(sketch_data):
+        n_cstk_pnt = len(c_stk)
+        sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+
+    sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
+
+    sketch_cube = sketch_cube.unsqueeze(0).repeat(2, 1, 1).cuda()
+
+    model = SDGraphClsTest(40).cuda()
+
+    res = model(sketch_cube)
+
+    print(res.size())
+
 
 
 
@@ -1841,10 +1847,14 @@ if __name__ == '__main__':
     # test_sketch()
     # test_batch_norm()
 
-    pnt_list = torch.rand(4, 2)
-    # pnt_list[9, :] = torch.tensor([float('-inf'), float('-inf')])
-    # pnt_list[3, :] = torch.tensor([float('-inf'), float('-inf')])
-    # pnt_list[1, :] = torch.tensor([float('inf'), float('nan')])
-    pnt_list[1, 0] = float('-inf')
-    assasasasadf = is_dimension_nan_consistent(pnt_list, 1)
-    print(assasasasadf)
+    # pnt_list = torch.rand(4, 2)
+    # # pnt_list[9, :] = torch.tensor([float('-inf'), float('-inf')])
+    # # pnt_list[3, :] = torch.tensor([float('-inf'), float('-inf')])
+    # # pnt_list[1, :] = torch.tensor([float('inf'), float('nan')])
+    # pnt_list[1, 0] = float('-inf')
+    # assasasasadf = is_dimension_nan_consistent(pnt_list, 1)
+    # print(assasasasadf)
+    test_skh_file()
+
+
+

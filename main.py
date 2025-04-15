@@ -12,7 +12,7 @@ from scipy.interpolate import splprep, splev
 
 # import data_utils.sketch_vis as vis
 # from data_utils.sketch_utils import svg_to_txt
-import data_utils.sketch_utils as skutils
+import data_utils.data_utils as skutils
 
 
 def curve_fit(x, y, k):

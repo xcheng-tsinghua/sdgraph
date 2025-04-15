@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 
 import global_defs
-from data_utils.sketch_utils import get_allfiles, get_subdirs
+from data_utils.data_utils import get_allfiles, get_subdirs
 
 import encoders.spline as sp
 
@@ -330,7 +330,7 @@ def test():
 
 
 if __name__ == '__main__':
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\00b11be6f26c85ca85f84daf52626b36_2.txt', show_dot=True)
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 

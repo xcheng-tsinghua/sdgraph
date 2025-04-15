@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import json
 from tqdm import tqdm
 
-from data_utils.sketch_utils import get_allfiles
+from data_utils.data_utils import get_allfiles
 
 
 def stroke_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', pen_up=16, pen_down=17, decrease=0.95, is_read_data=False):
@@ -36,7 +36,7 @@ def stroke_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_t
         print('每个笔划内的点数分布:', stk_pnt_statis)
 
     else:
-        with open('machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
+        with open('../bks/machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
             stk_pnt_statis = json.load(file)[0]
 
         if decrease < 1:
@@ -82,7 +82,7 @@ def sketch_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_t
         print('每个草图内的点数分布:', stk_pnt_statis)
 
     else:
-        with open('machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
+        with open('../bks/machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
             stk_pnt_statis = json.load(file)[1]
 
         if decrease < 1:
@@ -129,7 +129,7 @@ def stroke_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', pe
         print('每草图个内的笔划数:', stk_pnt_statis)
 
     else:
-        with open('machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
+        with open('../bks/machinery_sketch_statistic.json', 'r', encoding='utf-8') as file:
             stk_pnt_statis = json.load(file)[2]
 
         if decrease < 1:

@@ -10,7 +10,7 @@ import numpy as np
 
 # 自建模块
 import global_defs
-from data_utils.SketchDataset import SketchDataset2 as SketchDataset
+from data_utils.sketch_dataset import SketchDataset2 as SketchDataset
 from encoders.sdgraph3 import SDGraphClsTest as SDGraphCls
 # from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
@@ -30,7 +30,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=90, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=10, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -176,6 +176,16 @@ def main(args):
             # -> [bs, 2, n_points]
             # points = points.permute(0, 2, 1)
             # assert points.size()[1] == 2
+
+            indexes = data[2].long().cuda()
+
+            with open('log_file.txt', 'w') as f:
+                for c_bs in range(args.bs):
+                    c_idx = indexes[c_bs].cpu().item()
+                    c_str = train_dataset.datapath[c_idx][1]
+
+                    f.write(c_str)
+
 
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
