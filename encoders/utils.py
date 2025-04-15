@@ -9,7 +9,7 @@ import re
 import matplotlib.pyplot as plt
 import logging
 
-from data_utils.data_utils import save_confusion_mat, get_allfiles, get_subdirs
+from data_utils.sketch_utils import save_confusion_mat, get_allfiles, get_subdirs
 
 
 class FullConnectedConvXd(nn.Module):

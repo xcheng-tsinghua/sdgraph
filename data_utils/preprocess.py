@@ -5,11 +5,12 @@ import os
 import shutil
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import random
 
 import global_defs
 from data_utils import filter as ft
 from encoders import spline as sp
-from data_utils import data_utils as du
+from data_utils import sketch_utils as du
 from data_utils import vis
 
 
@@ -21,178 +22,6 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
     :param is_mix_proc: 是否反复进行笔划拆分、合并、实现笔划的长度尽量相等
     :return:
     """
-
-    def distance(p1, p2):
-        """
-        计算两点之间的欧氏距离
-        """
-        return ((p1[0] - p2[0]) ** 2 + (p1[1] - p2[1]) ** 2) ** 0.5
-
-    def search_nearest_stroke(stroke_list, end_point, given_idx):
-        """
-        找到stroke_list中stroke_idx对应的笔划中，end_point点最近的笔划，并返回是合并到起点还是终点
-        :param stroke_list:
-        :param end_point:
-        :param given_idx:
-        :return: closest_idx, closet_dist, is_connect_start
-        """
-        # 计算最短笔划与其他笔划的起始点距离，找到最近的笔划
-        closest_idx_start = -1
-        min_distance_start = float('inf')
-
-        closest_idx_end = -1
-        min_distance_end = float('inf')
-
-        for i in range(len(stroke_list)):
-            if i == given_idx:  # 跳过自身
-                continue
-            dist_start = distance(end_point, stroke_list[i][0])
-            if dist_start <= min_distance_start:
-                min_distance_start = dist_start
-                closest_idx_start = i
-
-            dist_end = distance(end_point, stroke_list[i][-1])
-            if dist_end <= min_distance_end:
-                min_distance_end = dist_end
-                closest_idx_end = i
-
-        if min_distance_start <= min_distance_end:
-            if min_distance_start == float('inf'):
-                raise ValueError('inf dist occurred')
-
-                # print(stroke_list)
-                # stroke_list = np.concatenate(stroke_list, axis=0)
-                # np.savetxt('error_stk', stroke_list, delimiter=',')
-                # exit(0)
-
-            return closest_idx_start, min_distance_start, True
-        else:
-            if min_distance_start == float('inf'):
-                raise ValueError('inf dist occurred 2')
-
-                # print(stroke_list)
-                # stroke_list = np.concatenate(stroke_list, axis=0)
-                # np.savetxt('error_stk', stroke_list, delimiter=',')
-                # exit(0)
-
-            return closest_idx_end, min_distance_end, False
-
-    def single_merge(stroke_list, dist_gap=0.2):
-        """
-        将草图中最短的一个笔划合并到其他笔划
-        :param stroke_list:
-        :param dist_gap: 若某个笔划距其它笔划的最近距离大于该值，不合并
-        :return:
-        """
-        # stroke_list = copy.deepcopy(stk_list)
-
-        # 因距离其它笔画太远不合并的笔划
-        stk_cannot_merge = []
-        ita_count = 0
-
-        while True:
-            if (len(stk_cannot_merge) + len(stroke_list)) > 2 and len(stroke_list) < 2:
-                raise ValueError('所有笔划均距其它笔划过远，无法合并，请尝试增加笔划数')
-
-            # 防止迭代次数过多陷入死循环
-            if ita_count > 200:
-                # print('到达最大迭代次数，不合并该笔划')
-                # warnings.warn('cannot merge min stroke')
-                raise ValueError('到达最大迭代次数，不合并该笔划')
-            else:
-                ita_count += 1
-
-            # 找到点数最少的笔划索引
-            min_idx = min(range(len(stroke_list)), key=lambda i: len(stroke_list[i]))
-            min_stroke = stroke_list[min_idx]
-
-            # if len(min_stroke) == 0:
-            #     print(f'file root: {std_root}, 出现最短笔划点数为零')
-            #     exit(0)
-
-            min_start = min_stroke[0]  # 最短笔划的起始点
-            min_end = min_stroke[-1]  # 最短笔划的起始点
-
-            cidx_st, dist_st, is_ct_st_st = search_nearest_stroke(stroke_list, min_start, min_idx)
-            cidx_ed, dist_ed, is_ct_st_ed = search_nearest_stroke(stroke_list, min_end, min_idx)
-
-            # 如果最近的笔画距离其它笔画过远，不合并
-            if min(dist_st, dist_ed) > dist_gap:
-                stk_cannot_merge.append(min_stroke)
-                del stroke_list[min_idx]
-
-            else:
-                if dist_st <= dist_ed:
-                    closest_idx = cidx_st
-                    is_this_start = True
-                    is_target_start = is_ct_st_st
-                else:
-                    closest_idx = cidx_ed
-                    is_this_start = False
-                    is_target_start = is_ct_st_ed
-
-                # 情形1：起点到起点，target不动，this调转后拼接在前面：
-                target_stk = stroke_list[closest_idx]
-                if is_this_start and is_target_start:
-                    min_stroke = np.flip(min_stroke, axis=0)
-                    if distance(min_stroke[-1, :], target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
-                        min_stroke = min_stroke[: -1, :]
-                    stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
-
-                # 情形2：起点到终点，this拼接在target后面：
-                elif is_this_start and (not is_target_start):
-                    if distance(target_stk[-1, :], min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
-                        target_stk = target_stk[: -1, :]
-                    stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
-
-                # 情形3：终点到起点，this拼接在target前面：
-                elif (not is_this_start) and is_target_start:
-                    if distance(min_stroke[-1, :], target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
-                        min_stroke = min_stroke[: -1, :]
-                    stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
-
-                # 情形4：终点到终点，target不动，this调转后拼接在后面：
-                elif (not is_this_start) and (not is_target_start):
-                    min_stroke = np.flip(min_stroke, axis=0)
-                    if distance(target_stk[-1, :], min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
-                        target_stk = target_stk[: -1, :]
-                    stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
-
-                else:
-                    warnings.warn('error occurred when stroke merged')
-                    raise ValueError('error occurred when stroke merged')
-
-                del stroke_list[min_idx]  # 删除已合并的笔划
-
-                # 加入之前不能合并的距其它笔划过远的笔划
-                if len(stk_cannot_merge) != 0:
-                    stroke_list = stroke_list + stk_cannot_merge
-
-                return stroke_list
-
-    def single_split(stroke_list):
-        """
-        将草图中最长的笔画对半分割成两个
-        :param stroke_list:
-        :return:
-        """
-        # stroke_list = copy.deepcopy(stk_list)
-
-        # Find the array with the maximum number of rows
-        largest_idx = max(range(len(stroke_list)), key=lambda i: stroke_list[i].shape[0])
-        largest_array = stroke_list[largest_idx]
-
-        # Split the largest array into two halves
-        split_point = largest_array.shape[0] // 2
-        first_half = largest_array[:split_point + 1, :]
-        second_half = largest_array[split_point:, :]
-
-        # Replace the largest array with the two halves
-        del stroke_list[largest_idx]
-        stroke_list.append(first_half)
-        stroke_list.append(second_half)
-
-        return stroke_list
 
     # 读取std草图数据
     sketch_data = np.loadtxt(std_root, delimiter=',')
@@ -230,12 +59,12 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
 
     if len(strokes) > n_stk:
         while len(strokes) > n_stk:
-            strokes = single_merge(strokes)
+            strokes = du.single_merge(strokes)
 
     # 小于指定数值，拆分点数较多的笔划
     elif len(strokes) < n_stk:
         while len(strokes) < n_stk:
-            strokes = single_split(strokes)
+            strokes = du.single_split(strokes)
 
     if len(strokes) != global_defs.n_stk:
         raise ValueError(f'error stroke number: {len(strokes)}')
@@ -246,8 +75,8 @@ def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: 
         while True:
             before_var = du.stroke_length_var(strokes)
 
-            strokes = single_merge(strokes)
-            strokes = single_split(strokes)
+            strokes = du.single_merge(strokes)
+            strokes = du.single_split(strokes)
 
             after_var = du.stroke_length_var(strokes)
 
@@ -497,6 +326,9 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
     # -----------------需要先归一化才可使用，不然单位不统一
     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.01)
 
+    # 合并过近的笔划
+    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+
     # 去掉长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
@@ -532,14 +364,14 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
 
     # tmp_vis_sketch_list(sketch_data)
-    # tmp_vis_sketch_list(sketch_data, True)
+    # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
     return sketch_data
 
 
 def test_resample():
-    # sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
-    sketch_root = sketch_test
+    sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
+    # sketch_root = sketch_test
 
     # 读取草图数据
     sketch_data = np.loadtxt(sketch_root, delimiter=',')
@@ -618,6 +450,7 @@ if __name__ == '__main__':
 
     # all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
     all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+    random.shuffle(all_sketches)
 
     for c_skh in all_sketches:
         asketch = pre_process_seg_only(c_skh)

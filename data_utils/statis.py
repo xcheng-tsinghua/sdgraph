@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import json
 from tqdm import tqdm
 
-from data_utils.data_utils import get_allfiles
+from data_utils.sketch_utils import get_allfiles
 
 
 def stroke_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', pen_up=16, pen_down=17, decrease=0.95, is_read_data=False):

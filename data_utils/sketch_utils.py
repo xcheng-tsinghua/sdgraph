@@ -616,8 +616,6 @@ def single_split_(stroke_list: list):
     :param stroke_list:
     :return:
     """
-    # stroke_list = copy.deepcopy(stk_list)
-
     if len(stroke_list) == 0:
         raise ValueError('input empty list')
 
@@ -634,6 +632,12 @@ def single_split_(stroke_list: list):
     del stroke_list[largest_idx]
     stroke_list.append(first_half)
     stroke_list.append(second_half)
+
+
+def single_split(stroke_list: list):
+    sketch = stroke_list.copy()
+    single_split_(sketch)
+    return sketch
 
 
 def split_stroke(stroke: np.ndarray) -> (np.ndarray, np.ndarray):
@@ -682,6 +686,160 @@ def sketch_split(sketch, pen_up=global_defs.pen_up, pen_down=global_defs.pen_dow
     sketch = np.split(sketch[:, :2], np.where(sketch[:, 2] == pen_up)[0] + 1)
 
     return sketch
+
+
+def search_nearest_stroke(stroke_list, end_point, given_idx):
+    """
+    找到stroke_list中stroke_idx对应的笔划中，end_point点最近的笔划，并返回是合并到起点还是终点
+    :param stroke_list:
+    :param end_point:
+    :param given_idx:
+    :return: closest_idx, closet_dist, is_connect_start
+    """
+    # 计算最短笔划与其他笔划的起始点距离，找到最近的笔划
+    closest_idx_start = -1
+    min_distance_start = float('inf')
+
+    closest_idx_end = -1
+    min_distance_end = float('inf')
+
+    for i in range(len(stroke_list)):
+        if i == given_idx:  # 跳过自身
+            continue
+        dist_start = np.linalg.norm(end_point - stroke_list[i][0])
+        if dist_start <= min_distance_start:
+            min_distance_start = dist_start
+            closest_idx_start = i
+
+        dist_end = np.linalg.norm(end_point - stroke_list[i][-1])
+        if dist_end <= min_distance_end:
+            min_distance_end = dist_end
+            closest_idx_end = i
+
+    if min_distance_start <= min_distance_end:
+        if min_distance_start == float('inf'):
+            raise ValueError('inf dist occurred')
+
+        return closest_idx_start, min_distance_start, True
+    else:
+        if min_distance_start == float('inf'):
+            raise ValueError('inf dist occurred 2')
+
+        return closest_idx_end, min_distance_end, False
+
+
+def single_merge_(stroke_list, dist_gap, n_max_ita=200):
+    """
+    将草图中最短的一个笔划合并到其他笔划
+    :param stroke_list:
+    :param dist_gap: 若某个笔划距其它笔划的最近距离大于该值，不合并
+    :param n_max_ita: 最大循环次数
+    :return:
+    """
+
+    # 因距离其它笔画太远不合并的笔划
+    stk_cannot_merge = []
+    ita_count = 0
+
+    while True:
+        if (len(stk_cannot_merge) + len(stroke_list)) > 2 and len(stroke_list) < 2:
+            if len(stk_cannot_merge) != 0:
+                stroke_list.extend(stk_cannot_merge)
+            raise ValueError('所有笔划均距其它笔划过远，无法合并，请尝试增加笔划数')
+
+        # 防止迭代次数过多陷入死循环
+        if ita_count > n_max_ita:
+            if len(stk_cannot_merge) != 0:
+                stroke_list.extend(stk_cannot_merge)
+            raise ValueError('到达最大迭代次数，不合并该笔划')
+        else:
+            ita_count += 1
+
+        # 找到点数最少的笔划索引
+        min_idx = min(range(len(stroke_list)), key=lambda i: len(stroke_list[i]))
+        min_stroke = stroke_list[min_idx]
+
+        min_start = min_stroke[0]  # 最短笔划的起始点
+        min_end = min_stroke[-1]  # 最短笔划的起始点
+
+        cidx_st, dist_st, is_ct_st_st = search_nearest_stroke(stroke_list, min_start, min_idx)
+        cidx_ed, dist_ed, is_ct_st_ed = search_nearest_stroke(stroke_list, min_end, min_idx)
+
+        # 如果最近的笔划距离其它笔画过远，不合并
+        # 并将该最近的笔划放入不能合并列表，且将最短笔划从原始笔划列表删除
+        if min(dist_st, dist_ed) > dist_gap:
+            stk_cannot_merge.append(min_stroke)
+            del stroke_list[min_idx]
+
+        else:
+            if dist_st <= dist_ed:
+                closest_idx = cidx_st
+                is_this_start = True
+                is_target_start = is_ct_st_st
+            else:
+                closest_idx = cidx_ed
+                is_this_start = False
+                is_target_start = is_ct_st_ed
+
+            # 情形1：起点到起点，target不动，this调转后拼接在前面：
+            target_stk = stroke_list[closest_idx]
+            if is_this_start and is_target_start:
+                min_stroke = np.flip(min_stroke, axis=0)
+                if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                    min_stroke = min_stroke[: -1, :]
+                stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
+
+            # 情形2：起点到终点，this拼接在target后面：
+            elif is_this_start and (not is_target_start):
+                if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                    target_stk = target_stk[: -1, :]
+                stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
+
+            # 情形3：终点到起点，this拼接在target前面：
+            elif (not is_this_start) and is_target_start:
+                if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                    min_stroke = min_stroke[: -1, :]
+                stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
+
+            # 情形4：终点到终点，target不动，this调转后拼接在后面：
+            elif (not is_this_start) and (not is_target_start):
+                min_stroke = np.flip(min_stroke, axis=0)
+                if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                    target_stk = target_stk[: -1, :]
+                stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
+
+            else:
+                raise ValueError('error occurred in stroke merge start end judgement')
+
+            del stroke_list[min_idx]  # 删除已合并的笔划
+
+            # 加入之前不能合并的距其它笔划过远的笔划
+            if len(stk_cannot_merge) != 0:
+                stroke_list.extend(stk_cannot_merge)
+
+            break
+
+
+def single_merge(stroke_list, dist_gap, n_max_ita=200):
+    sketch = stroke_list.copy()
+    single_merge_(sketch, dist_gap, n_max_ita)
+    return sketch
+
+
+def stroke_merge_until(stroke_list, min_dist):
+    """
+    反复将stroke_list中的笔划合并，直到所有笔划间的距离大于min_dist为止
+    这里笔划间的距离定义为笔划端点之间距离的最小值
+    :param stroke_list:
+    :param min_dist:
+    :return:
+    """
+    new_list = stroke_list.copy()
+    while True:
+        try:
+            single_merge_(new_list, min_dist)
+        except:
+            return new_list
 
 
 if __name__ == '__main__':

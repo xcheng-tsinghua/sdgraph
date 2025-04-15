@@ -25,7 +25,7 @@ import re
 import shutil
 
 import global_defs
-from data_utils.data_utils import get_subdirs, get_allfiles, sketch_std
+from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
 import data_utils.vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 from data_utils import preprocess

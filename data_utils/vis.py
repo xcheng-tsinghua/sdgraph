@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import splprep, splev
 
 import global_defs
-from data_utils.data_utils import get_allfiles, get_subdirs
+from data_utils.sketch_utils import get_allfiles, get_subdirs
 
 import encoders.spline as sp
 
@@ -164,14 +164,16 @@ def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=g
     plt.show()
 
 
-def vis_sketch_list(strokes, show_dot=False):
+def vis_sketch_list(strokes, show_dot=False, title=None):
     for s in strokes:
         plt.plot(s[:, 0], -s[:, 1])
 
         if show_dot:
             plt.scatter(s[:, 0], -s[:, 1])
 
-    plt.axis('off')
+    # plt.axis('off')
+    plt.axis("equal")
+    plt.title(title)
     plt.show()
 
 

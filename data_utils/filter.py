@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import global_defs
-from data_utils import data_utils as du
+from data_utils import sketch_utils as du
 
 
 def stk_pnt_num_filter(sketch, min_point=5) -> list:
