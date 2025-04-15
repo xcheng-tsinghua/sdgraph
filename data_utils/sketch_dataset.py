@@ -168,7 +168,6 @@ class SketchDataset(Dataset):
 
 
 class SketchDataset2(Dataset):
-
     def __init__(self,
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  is_train=True,

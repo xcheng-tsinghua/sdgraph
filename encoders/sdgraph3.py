@@ -1611,12 +1611,17 @@ class SDGraphClsTest(nn.Module):
         super().__init__()
         print('cls stk test')
 
-        self.point_to_sparse = PointToSparse(2, 64)
-        self.point_to_dense = PointToDense(2, 64)
+        self.point_to_sparse = PointToSparse(2, 32)
+        self.point_to_dense = PointToDense(2, 32)
 
         # 利用 sdgraph 更新特征
-        self.sd1 = SDGraphEncoder(64, 128, 64, 128,
+        self.sd1 = SDGraphEncoder(32, 64, 32, 64,
                                   global_defs.n_stk, global_defs.n_stk_pnt,
+                                  dropout=dropout
+                                  )
+
+        self.sd2 = SDGraphEncoder(64, 128, 64, 128,
+                                  global_defs.n_stk, global_defs.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
@@ -1653,17 +1658,21 @@ class SDGraphClsTest(nn.Module):
 
         # 交叉更新数据
         sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2]
+        sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)
 
-        mask = sparse_graph1.isnan()
-        sparse_graph1 = sparse_graph1.masked_fill(mask, float('-inf'))
+        graph_sp = sparse_graph2
+        graph_dn = dense_graph2
 
-        mask = dense_graph1.isnan()
-        dense_graph1 = dense_graph1.masked_fill(mask, float('-inf'))
+        mask = graph_sp.isnan()
+        graph_sp = graph_sp.masked_fill(mask, float('-inf'))
 
-        sparse_graph1 = sparse_graph1.max(2)[0]
-        dense_graph1 = dense_graph1.max(2)[0].max(2)[0]
+        mask = graph_dn.isnan()
+        graph_dn = graph_dn.masked_fill(mask, float('-inf'))
 
-        fea = torch.cat([sparse_graph1, dense_graph1], dim=1)  # -> [bs, fea]
+        graph_sp = graph_sp.max(2)[0]
+        graph_dn = graph_dn.max(2)[0].max(2)[0]
+
+        fea = torch.cat([graph_sp, graph_dn], dim=1)  # -> [bs, fea]
 
         assert not has_invalid_val(fea)
 
