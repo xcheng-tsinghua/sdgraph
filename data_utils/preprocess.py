@@ -327,8 +327,12 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
 
+    # vis.vis_sketch_list(sketch_data)
+
     # 合并过近的笔划
-    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+    sketch_data = du.stroke_merge_until(sketch_data, 0.2)
+
+    # vis.vis_sketch_list(sketch_data)
 
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
@@ -337,42 +341,30 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.5, is_print_split_status=False, is_resample=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.8, is_print_split_status=False, is_resample=False)
+
+    # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
+    sketch_data = du.short_stk_merge(sketch_data, 0.4)
 
     # 长笔划分割
-    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, int(1.5 * global_defs.n_stk_pnt))
+    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1)
+
+    # vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
+
+    # 去掉无效笔划，包含点数小于等于1的时无效笔划
+    sketch_data = ft.valid_stk_filter(sketch_data)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.04)
 
     # 将笔划点数采样至指定值
-    # 重采样，使得点之间的距离近似相等
     sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
 
-
-
-
-    # tmp_vis_sketch_list(sketch_data, True)
-
-    # 去掉无效笔划
-    # sketch_data = sp.valid_stk_filter(sketch_data)
-
-
-
-    # tmp_vis_sketch_list(sketch_data)
-
-    # 去掉点数过少的笔划
-    # sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
-
-    # 使所有笔划的点数均为2的整数倍
-    # sketch_data = ft.stk_pnt_double_filter(sketch_data)
-
-    # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
-    # sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
-
-    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
-    # 如果低于指定数值，将草图全部数值置为零
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
 
-    # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
-    sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
+    # 有效笔划数大于上限时，仅保留长度最长的前 global_def.n_stk 个笔划
+    sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
 
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
@@ -486,7 +478,6 @@ def test_resample():
     pass
 
 
-
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -535,10 +526,21 @@ if __name__ == '__main__':
     #     asketch = pre_process(c_skh)
     #     vis.vis_sketch_list(asketch, True)
 
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pin\\b9a6e6512939a09d26d8892ff84253eb_1.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pulley\\587e77a22dc8e953acfa7422d8cbfa6a_1.txt'
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Washer\\c73f2caa3d402863f727891573d57e86_1.txt'
 
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'
-    asketch = pre_process(thefile)
-    vis.vis_sketch_list(asketch, True)
+    vis.vis_sketch_orig(thefile)
+
+    asasasas = pre_process_equal_stkpnt(thefile)
+
+    vis.vis_sketch_list(asasasas, title='last')
+
+
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'
+    # asketch = pre_process(thefile)
+    # vis.vis_sketch_list(asketch, True)
 
 
 

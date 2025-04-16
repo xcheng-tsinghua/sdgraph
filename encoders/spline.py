@@ -11,8 +11,6 @@ import numpy as np
 import math
 import warnings
 
-import global_defs
-
 
 class LinearInterp(object):
     def __init__(self, stk_points):

@@ -546,10 +546,6 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     straw_thres = straw_base * thres
     m_corners_idx = [idx for (straw, idx) in straw_and_idx if straw < straw_thres]
 
-    # for idx, c_val in enumerate(straw_and_idx):
-    #     if c_val[0] < straw_thres:
-    #         asasas = 0
-
     # Step 4: 合并过于接近的角点
     m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
 
@@ -731,12 +727,13 @@ def search_nearest_stroke(stroke_list, end_point, given_idx):
         return closest_idx_end, min_distance_end, False
 
 
-def single_merge_(stroke_list, dist_gap, n_max_ita=200):
+def single_merge_(stroke_list, dist_gap, n_max_ita=200, max_merge_stk_len=float('inf')) -> bool:
     """
     将草图中最短的一个笔划合并到其他笔划
     :param stroke_list:
     :param dist_gap: 若某个笔划距其它笔划的最近距离大于该值，不合并
     :param n_max_ita: 最大循环次数
+    :param max_merge_stk_len: 合并的笔划长度大于该值，不执行合并
     :return:
     """
 
@@ -745,16 +742,18 @@ def single_merge_(stroke_list, dist_gap, n_max_ita=200):
     ita_count = 0
 
     while True:
-        if (len(stk_cannot_merge) + len(stroke_list)) > 2 and len(stroke_list) < 2:
+        if len(stroke_list) < 2:
             if len(stk_cannot_merge) != 0:
                 stroke_list.extend(stk_cannot_merge)
-            raise ValueError('所有笔划均距其它笔划过远，无法合并，请尝试增加笔划数')
+
+            return False
 
         # 防止迭代次数过多陷入死循环
         if ita_count > n_max_ita:
             if len(stk_cannot_merge) != 0:
                 stroke_list.extend(stk_cannot_merge)
-            raise ValueError('到达最大迭代次数，不合并该笔划')
+
+            return False
         else:
             ita_count += 1
 
@@ -775,52 +774,60 @@ def single_merge_(stroke_list, dist_gap, n_max_ita=200):
             del stroke_list[min_idx]
 
         else:
-            if dist_st <= dist_ed:
-                closest_idx = cidx_st
-                is_this_start = True
-                is_target_start = is_ct_st_st
+            if stroke_length(min_stroke) <= max_merge_stk_len:
+
+                if dist_st <= dist_ed:
+                    closest_idx = cidx_st
+                    is_this_start = True
+                    is_target_start = is_ct_st_st
+                else:
+                    closest_idx = cidx_ed
+                    is_this_start = False
+                    is_target_start = is_ct_st_ed
+
+                # 情形1：起点到起点，target不动，this调转后拼接在前面：
+                target_stk = stroke_list[closest_idx]
+                if is_this_start and is_target_start:
+                    min_stroke = np.flip(min_stroke, axis=0)
+                    if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        min_stroke = min_stroke[: -1, :]
+                    stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
+
+                # 情形2：起点到终点，this拼接在target后面：
+                elif is_this_start and (not is_target_start):
+                    if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        target_stk = target_stk[: -1, :]
+                    stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
+
+                # 情形3：终点到起点，this拼接在target前面：
+                elif (not is_this_start) and is_target_start:
+                    if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        min_stroke = min_stroke[: -1, :]
+                    stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
+
+                # 情形4：终点到终点，target不动，this调转后拼接在后面：
+                elif (not is_this_start) and (not is_target_start):
+                    min_stroke = np.flip(min_stroke, axis=0)
+                    if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
+                        target_stk = target_stk[: -1, :]
+                    stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
+
+                else:
+                    raise ValueError('error occurred in stroke merge start end judgement')
+
+                del stroke_list[min_idx]  # 删除已合并的笔划
+
+                # 加入之前不能合并的距其它笔划过远的笔划
+                if len(stk_cannot_merge) != 0:
+                    stroke_list.extend(stk_cannot_merge)
+
+                return True
+
             else:
-                closest_idx = cidx_ed
-                is_this_start = False
-                is_target_start = is_ct_st_ed
+                if len(stk_cannot_merge) != 0:
+                    stroke_list.extend(stk_cannot_merge)
 
-            # 情形1：起点到起点，target不动，this调转后拼接在前面：
-            target_stk = stroke_list[closest_idx]
-            if is_this_start and is_target_start:
-                min_stroke = np.flip(min_stroke, axis=0)
-                if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
-                    min_stroke = min_stroke[: -1, :]
-                stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
-
-            # 情形2：起点到终点，this拼接在target后面：
-            elif is_this_start and (not is_target_start):
-                if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
-                    target_stk = target_stk[: -1, :]
-                stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
-
-            # 情形3：终点到起点，this拼接在target前面：
-            elif (not is_this_start) and is_target_start:
-                if np.linalg.norm(min_stroke[-1, :] - target_stk[0, :]) < 1e-6:  # 距离过近删除拼接点
-                    min_stroke = min_stroke[: -1, :]
-                stroke_list[closest_idx] = np.concatenate([min_stroke, target_stk], axis=0)
-
-            # 情形4：终点到终点，target不动，this调转后拼接在后面：
-            elif (not is_this_start) and (not is_target_start):
-                min_stroke = np.flip(min_stroke, axis=0)
-                if np.linalg.norm(target_stk[-1, :] - min_stroke[0, :]) < 1e-6:  # 距离过近删除拼接点
-                    target_stk = target_stk[: -1, :]
-                stroke_list[closest_idx] = np.concatenate([target_stk, min_stroke], axis=0)
-
-            else:
-                raise ValueError('error occurred in stroke merge start end judgement')
-
-            del stroke_list[min_idx]  # 删除已合并的笔划
-
-            # 加入之前不能合并的距其它笔划过远的笔划
-            if len(stk_cannot_merge) != 0:
-                stroke_list.extend(stk_cannot_merge)
-
-            break
+                return False
 
 
 def single_merge(stroke_list, dist_gap, n_max_ita=200):
@@ -837,12 +844,43 @@ def stroke_merge_until(stroke_list, min_dist):
     :param min_dist:
     :return:
     """
+
+    # def vis_sketch_list(strokes, show_dot=False, title=None):
+    #     for s in strokes:
+    #         plt.plot(s[:, 0], -s[:, 1])
+    #
+    #         if show_dot:
+    #             plt.scatter(s[:, 0], -s[:, 1])
+    #
+    #     # plt.axis('off')
+    #     plt.axis("equal")
+    #     plt.title(title)
+    #     plt.show()
+
     new_list = stroke_list.copy()
     while True:
-        try:
-            single_merge_(new_list, min_dist)
-        except:
+        is_merge_success = single_merge_(new_list, min_dist)
+
+        # vis_sketch_list(new_list)
+
+        if not is_merge_success:
             return new_list
+
+
+def short_stk_merge(stroke_list: list, max_stk_len: float) -> list:
+    """
+    当草图中存在长度小于max_stk_len的笔划时，尝试将其合并
+    :param stroke_list:
+    :param max_stk_len:
+    :return:
+    """
+    new_sketch = stroke_list.copy()
+
+    while True:
+        is_success = single_merge_(new_sketch, dist_gap=0.01, max_merge_stk_len=max_stk_len)
+
+        if not is_success:
+            return new_sketch
 
 
 if __name__ == '__main__':

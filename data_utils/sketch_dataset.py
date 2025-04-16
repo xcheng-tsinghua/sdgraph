@@ -175,7 +175,7 @@ class SketchDataset2(Dataset):
                  is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
                  ):
 
-        print('sketch dataset, from:' + root)
+        print('sketch dataset NEW, from:' + root)
         self.data_augmentation = data_argumentation
         self.is_unify = is_unify
 

@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
 
 import global_defs
 from data_utils import sketch_utils as du
@@ -229,13 +228,14 @@ def stk_num_minimal_filter(sketch, n_stk_min):
 def valid_stk_filter(sketch: list):
     """
     某些笔划可能为空，即该位置的笔划为size=(0,)，需要删除
+    另外有些笔划可能只有一个点，需要删除
     :param sketch:
     :return:
     """
     sketch_new = []
 
     for c_stk in sketch:
-        if c_stk.size != 0:
+        if len(c_stk) >= 2:
             sketch_new.append(c_stk)
 
     return sketch_new
@@ -278,6 +278,44 @@ def stk_n_pnt_maximum_filter(sketch: list, n_pnt_max: int) -> list:
     #             break
     #
     # return strokes
+
+
+def top_stk_len_filter(sketch: list, n_stk_max: int) -> list:
+    """
+    取长度最长的n_stk_max个笔划
+    :param sketch:
+    :param n_stk_max:
+    :return:
+    """
+
+    if len(sketch) <= n_stk_max:
+        return sketch
+
+    else:
+        sorted_list = sorted(sketch, key=lambda arr: du.stroke_length(arr), reverse=True)
+        return sorted_list[:n_stk_max]
+
+
+def stk_len_maximum_filter(sketch: list, stk_len_max: float) -> list:
+    """
+    最长笔划的长度必须小于 stk_len_max，否则递归对半拆分最长的笔划
+    :param sketch:
+    :param stk_len_max:
+    :return:
+    """
+    strokes = sketch.copy()
+
+    while True:
+        max_stroke = max(strokes, key=lambda _stroke: du.stroke_length(_stroke))
+
+        if du.stroke_length(max_stroke) <= stk_len_max:
+            break
+        else:
+            du.single_split_(strokes)
+
+    return strokes
+
+
 
 
 
