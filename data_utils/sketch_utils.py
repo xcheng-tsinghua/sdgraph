@@ -492,7 +492,7 @@ def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -
     # return split_idx
 
 
-def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False):
+def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False, is_resample=True):
     """
     利用short straw进行角点分割，使用前必须将草图进行归一化至质心(0, 0)，范围[-1, 1]^2
     :param stroke: 单个笔划 [n, 2]
@@ -511,7 +511,10 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     splited_stk = []
 
     # Step 1: 重采样
-    resample_stk = sp.uni_arclength_resample_strict_single(stroke, resp_dist)
+    if is_resample:
+        resample_stk = sp.uni_arclength_resample_strict_single(stroke, resp_dist)
+    else:
+        resample_stk = stroke
 
     # 如果重采样后的点数小于 window_width 的3倍，则返回原数组
     if len(resample_stk) < 3 * window_width:
@@ -567,12 +570,12 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     return splited_stk
 
 
-def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False):
+def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False, is_resample=True):
     splited_sketch = []
 
     for c_stk in sketch:
         if stroke_length(c_stk) > split_length:
-            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_print_split_status)
+            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_print_split_status, is_resample)
 
     return splited_sketch
 

@@ -10,7 +10,7 @@ from einops import rearrange
 import math
 import matplotlib.pyplot as plt
 
-from data_utils.preprocess import pre_process_seg_only
+from data_utils.preprocess import pre_process
 import global_defs
 
 

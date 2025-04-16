@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import torch
 
 import global_defs
 from data_utils import sketch_utils as du
@@ -199,10 +200,10 @@ def stk_pnt_double_filter(sketch):
     return filtered_sketch
 
 
-
 def stk_num_minimal_filter(sketch, n_stk_min):
     """
-    保证草图中的笔划数不能小于指定值，否则递归分割最长笔划，指导符合为止
+    保证草图中的笔划数不能小于指定值
+    如果小于，sketch变为全为零数组
     :param sketch:
     :param n_stk_min:
     :return:
@@ -210,11 +211,17 @@ def stk_num_minimal_filter(sketch, n_stk_min):
     if isinstance(sketch, np.ndarray):
         sketch = du.sketch_split(sketch)
 
-    while True:
-        if len(sketch) >= n_stk_min:
-            break
+    if len(sketch) < n_stk_min:
+        sketch = []
 
-        du.single_split_(sketch)
+        for i in range(global_defs.n_stk):
+            sketch.append(np.zeros((global_defs.n_stk_pnt, 2), dtype=np.float32))
+
+    # while True:
+    #     if len(sketch) >= n_stk_min:
+    #         break
+    #
+    #     du.single_split_(sketch)
 
     return sketch
 

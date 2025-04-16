@@ -218,9 +218,97 @@ def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_d
     return strokes_splited
 
 
-def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+# def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+#     """
+#     TODO: 需考虑太长笔划和太短笔划不能放在一起的问题，必须进行分割
+#     :param sketch_root:
+#     :param resp_dist:
+#     :param pen_up:
+#     :param pen_down:
+#     :return:
+#     """
+#     # 读取草图数据
+#     sketch_data = np.loadtxt(sketch_root, delimiter=',')
+#
+#     # 移动草图质心与大小
+#     sketch_data = du.sketch_std(sketch_data)
+#
+#     # 分割笔划
+#     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+#
+#     # 去掉相邻过近的点
+#     # -----------------需要先归一化才可使用，不然单位不统一
+#     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.001)
+#
+#     # 重采样
+#     # sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+#
+#     # 角点分割
+#     sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # tmp_vis_sketch_list(sketch_data, True)
+#
+#     # 去掉无效笔划
+#     # sketch_data = sp.valid_stk_filter(sketch_data)
+#
+#     # 长笔划分割
+#     sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # tmp_vis_sketch_list(sketch_data)
+#
+#     # 去掉点数过少的笔划
+#     sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # 使所有笔划的点数均为2的整数倍
+#     sketch_data = ft.stk_pnt_double_filter(sketch_data)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
+#     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
+#     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
+#     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
+#
+#     if len(sketch_data) == 0:
+#         print(f'occurred zero sketch: {sketch_root}')
+#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+#
+#     # tmp_vis_sketch_list(sketch_data)
+#     # tmp_vis_sketch_list(sketch_data, True)
+#
+#     return sketch_data
+
+
+def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
     """
-    TODO: 需考虑太长笔划和太短笔划不能放在一起的问题，必须进行分割
+    每个笔划的点数相同
+    因此不同笔划的点密度可能不同
     :param sketch_root:
     :param resp_dist:
     :param pen_up:
@@ -236,76 +324,63 @@ def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pe
     # 分割笔划
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
-    # 去掉相邻过近的点
-    # -----------------需要先归一化才可使用，不然单位不统一
-    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.001)
+    # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
+    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
+
+    # 合并过近的笔划
+    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
     # 重采样
-    # sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.5, is_print_split_status=False, is_resample=False)
 
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+    # 长笔划分割
+    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, int(1.5 * global_defs.n_stk_pnt))
+
+    # 将笔划点数采样至指定值
+    # 重采样，使得点之间的距离近似相等
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+
+
+
 
     # tmp_vis_sketch_list(sketch_data, True)
 
     # 去掉无效笔划
     # sketch_data = sp.valid_stk_filter(sketch_data)
 
-    # 长笔划分割
-    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
 
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # tmp_vis_sketch_list(sketch_data)
 
     # 去掉点数过少的笔划
-    sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
-
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+    # sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
 
     # 使所有笔划的点数均为2的整数倍
-    sketch_data = ft.stk_pnt_double_filter(sketch_data)
-
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+    # sketch_data = ft.stk_pnt_double_filter(sketch_data)
 
     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
-    sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
-
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
+    # sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
 
     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
+    # 如果低于指定数值，将草图全部数值置为零
     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
-
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
 
     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
 
-    if len(sketch_data) == 0:
-        print(f'occurred zero sketch: {sketch_root}')
-        return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-
     # tmp_vis_sketch_list(sketch_data)
-    # tmp_vis_sketch_list(sketch_data, True)
+    # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
     return sketch_data
 
 
-def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+def pre_process(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
     """
     :param sketch_root:
     :param resp_dist:
@@ -329,14 +404,17 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
     # 合并过近的笔划
     sketch_data = du.stroke_merge_until(sketch_data, 0.05)
 
-    # 去掉长度过短的笔划
+    # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
+    # 去掉长度过短的笔划
+    # sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+
     # 角点分割
-    # sketch_data = sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.5, is_print_split_status=False, is_resample=False)
 
     # tmp_vis_sketch_list(sketch_data, True)
 
@@ -358,7 +436,8 @@ def pre_process_seg_only(sketch_root: str, resp_dist: float = 0.03, pen_up=globa
     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
 
     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
-    # sketch_data = sp.stk_num_minimal_filter(sketch_data, 4)
+    # 如果低于指定数值，将草图全部数值置为零
+    sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
 
     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
@@ -449,12 +528,18 @@ if __name__ == '__main__':
     # tmp_vis_sketch_list(asketch, True)
 
     # all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
-    all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
-    random.shuffle(all_sketches)
+    # all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+    # random.shuffle(all_sketches)
+    #
+    # for c_skh in all_sketches:
+    #     asketch = pre_process(c_skh)
+    #     vis.vis_sketch_list(asketch, True)
 
-    for c_skh in all_sketches:
-        asketch = pre_process_seg_only(c_skh)
-        vis.vis_sketch_list(asketch, True)
+
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'
+    asketch = pre_process(thefile)
+    vis.vis_sketch_list(asketch, True)
+
 
 
     pass

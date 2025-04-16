@@ -414,8 +414,12 @@ if __name__ == '__main__':
     # # print(atensor[::2])
     # print(~atensor.max(0)[0].bool())
 
-    print(torch.max(torch.tensor([1, 2, 3, 4, float('nan')])))
+    # print(torch.max(torch.tensor([1, 2, 3, 4, float('nan')])))
 
+    atensor = torch.ones(2, 4)
+
+    print(atensor)
+    print(atensor.max(1)[1])
 
 
     pass

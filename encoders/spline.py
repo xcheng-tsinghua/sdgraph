@@ -104,21 +104,26 @@ class LinearInterp(object):
 
             return target_point
 
-    def batch_interp(self, paras):
+    def batch_interp(self, paras) -> np.ndarray:
         interp_points = []
         for i in range(len(paras)):
             interp_points.append(self.single_interp(paras[i]))
 
-        # 目前只是点坐标，还需要加上每个点的属性
+        # # 目前只是点坐标，还需要加上每个点的属性
         interp_points = np.array(interp_points)
-        pen_attr = np.zeros_like(interp_points)
-        pen_attr[:, 0] = 17
-        pen_attr[-1, 0] = 16
-        interp_points = np.concatenate([interp_points, pen_attr], axis=1)
+        # pen_attr = np.zeros_like(interp_points)
+        # pen_attr[:, 0] = 17
+        # pen_attr[-1, 0] = 16
+        # interp_points = np.concatenate([interp_points, pen_attr], axis=1)
 
         return interp_points
 
-    def single_interp(self, para):
+    def single_interp(self, para: np.ndarray) -> np.ndarray:
+        """
+        参数为单位弧长参数
+        :param para: np.ndarray [n, 2]
+        :return:
+        """
         assert 0 <= para <= 1
 
         if para == 0:
@@ -435,6 +440,30 @@ def uni_arclength_resample_strict_single(stroke, resp_dist) -> np.ndarray:
     stroke_resampled = lin_interp.uni_dist_interp_strict(resp_dist)
 
     return stroke_resampled
+
+
+def uni_arclength_resample_certain_pnts_single(stroke, n_point) -> np.ndarray:
+    """
+    均匀布点，单个笔划上的点数相同
+    :param stroke:
+    :param n_point:
+    :return:
+    """
+    paras = np.linspace(0, 1, n_point).tolist()
+
+    lin_interp = LinearInterp(stroke)
+    stroke_resampled = lin_interp.batch_interp(paras)
+
+    return stroke_resampled
+
+
+def uni_arclength_resample_certain_pnts_batched(stroke_list, n_point) -> list:
+    resampled = []
+
+    for c_stk in stroke_list:
+        resampled.append(uni_arclength_resample_certain_pnts_single(c_stk, n_point))
+
+    return resampled
 
 
 def bspl_approx2(points, n_samples=100, degree=3):

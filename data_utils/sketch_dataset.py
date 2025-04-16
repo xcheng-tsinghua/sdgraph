@@ -214,22 +214,27 @@ class SketchDataset2(Dataset):
 
         # vis_sketch_orig(fn[1])
         # sketch_data = short_straw_split_sketch(fn[1])
-        sketch_data = preprocess.pre_process_seg_only(fn[1])
+        sketch_data = preprocess.pre_process_equal_stkpnt(fn[1])
 
-        # 创建 mask 和规则的 sketch
-        # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
-        # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+        if all(np.all(arr == 0) for arr in sketch_data):
+            sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+            cls = 0
 
-        sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
-        # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
-        for i, c_stk in enumerate(sketch_data):
-            n_cstk_pnt = len(c_stk)
-            # sketch_mask[i, :n_cstk_pnt] = 1
+        else:
+            # 创建 mask 和规则的 sketch
+            # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
+            # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
 
-            # asaas = sketch_cube[i, :n_cstk_pnt, :]
-            # bbass = torch.from_numpy(c_stk)
+            sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
+            # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
+            for i, c_stk in enumerate(sketch_data):
+                n_cstk_pnt = len(c_stk)
+                # sketch_mask[i, :n_cstk_pnt] = 1
 
-            sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+                # asaas = sketch_cube[i, :n_cstk_pnt, :]
+                # bbass = torch.from_numpy(c_stk)
+
+                sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
 
         # mask_fit = sketch_mask.unsqueeze(2).repeat(1, 1, 2).bool()  # [n_stk, n_stk_pnt, 2]
         # sketch_cube = masked_tensor(sketch_cube, mask_fit)
