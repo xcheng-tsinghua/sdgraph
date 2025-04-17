@@ -341,13 +341,13 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.8, is_print_split_status=False, is_resample=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=1.2, is_print_split_status=False, is_resample=False)
 
     # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
-    sketch_data = du.short_stk_merge(sketch_data, 0.4)
+    sketch_data = du.short_stk_merge(sketch_data, 0.8)
 
     # 长笔划分割
-    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1)
+    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.5)
 
     # vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
 

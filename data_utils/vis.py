@@ -22,13 +22,14 @@ def vis_sketch_folder(root):
             vis_sketch_orig(c_file_show)
 
 
-def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
+def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False):
     """
     显示原始采集的机械草图
     存储的每行应该为： [x, y, state]
     :param root:
     :param pen_up: 抬笔指令
     :param pen_down: 落笔指令
+    :param title: 落笔指令
     :param show_dot:
     :param show_axis:
     :return:
@@ -72,6 +73,8 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
 
     if not show_axis:
         plt.axis('off')
+
+    plt.title(title)
     plt.show()
 
 
@@ -332,11 +335,11 @@ def test():
 
 
 if __name__ == '__main__':
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
-    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
@@ -354,7 +357,7 @@ if __name__ == '__main__':
 
     # vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
 
-    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
 
     pass
 
