@@ -222,6 +222,37 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         plt.savefig(ahead + 'smooth' + ext)
 
 
+def save_format_sketch_test(sketch_points, file_path):
+    """
+    保存设定格式的草图
+    :param sketch_points: [2, n_stk * n_stk_pnt]
+    :param file_path:
+    :param is_smooth: 是否保存光顺后的草图
+    :return:
+    """
+
+    def curve_smooth(x, y):
+        tck, u = splprep([x, y], s=0.5)  # s 控制平滑程度
+        new_u = np.linspace(0, 1, 100)
+        new_x, new_y = splev(new_u, tck)
+        return new_x, new_y
+
+    n_stk = global_defs.n_stk
+
+    sketch_points = sketch_points.detach().cpu().numpy()
+
+    # 去掉无效点
+    sketch_points = sketch_points[sketch_points[:, 2] > 0]
+
+    plt.clf()
+    for stk_idx in range(n_stk):
+        plt.plot(sketch_points[stk_idx, :, 0], -sketch_points[stk_idx, :, 1])
+        # plt.scatter(s[:, 0], -s[:, 1])
+
+    plt.axis('off')
+    plt.savefig(file_path)
+
+
 def vis_false_log(log_root: str) -> None:
     # 读取每行
     with open(log_root, 'r') as f:

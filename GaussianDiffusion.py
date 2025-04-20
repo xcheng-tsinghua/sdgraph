@@ -6,6 +6,8 @@ from torch.nn import Module
 import torch
 import torch.nn.functional as F
 
+import global_defs
+
 
 def extract(a, t, x_shape):
     """
@@ -106,7 +108,8 @@ class GaussianDiffusion(Module):
         :return:
         """
         # 获取纯高斯噪音
-        img = torch.randn((batch_size, self.pnt_channel, self.n_skh_pnt), device=self.device)
+        # img = torch.randn((batch_size, self.pnt_channel, self.n_skh_pnt), device=self.device)
+        img = torch.randn((batch_size, global_defs.n_stk, global_defs.n_stk_pnt, self.pnt_channel), device=self.device)
 
         # 倒着遍历所有时间步，从噪音还原图片
         for t in tqdm(reversed(range(self.timesteps)), desc='sampling loop time step', total=self.timesteps):

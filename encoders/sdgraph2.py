@@ -718,7 +718,7 @@ class SDGraphCls(nn.Module):
 class SDGraphUNet(nn.Module):
     def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
-        print('diff drop (x, y, 1) and (0, 0, -1)')
+        print('diff drop 0. (x, y, 1) and (0, 0, -1)')
 
         '''草图参数'''
         self.channel_in = channel_in
@@ -784,7 +784,7 @@ class SDGraphUNet(nn.Module):
 
         '''最终输出层'''
         final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
-        self.final_linear = full_connected_conv1d(
+        self.final_linear = full_connected_conv2d(
             channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out],
             final_proc=False,
             drop_rate=dropout
@@ -847,10 +847,11 @@ class SDGraphUNet(nn.Module):
         dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk, self.n_stk_pnt)
         xy = xy.view(bs, channel, self.n_stk, self.n_stk_pnt)
 
-        dense_graph = torch.cat([dense_graph, sparse_graph, xy], dim=1)
-        dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk * self.n_stk_pnt)
-
+        dense_graph = torch.cat([dense_graph, sparse_graph, xy], dim=1)  # [bs, dim, n_stk, n_stk_pnt]
+        # dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk * self.n_stk_pnt)
         noise = self.final_linear(dense_graph)
+
+        noise = noise.permute(0, 2, 3, 1)
         return noise
 
 

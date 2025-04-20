@@ -9,7 +9,7 @@ from datetime import datetime
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import DiffDataset2 as DiffDataset
-from data_utils.vis import save_format_sketch
+from data_utils.vis import save_format_sketch_test
 from encoders.sdgraph2 import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log
@@ -19,8 +19,8 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
 
-    parser.add_argument('--bs', type=int, default=200, help='batch size in training')
-    parser.add_argument('--epoch', default=50, type=int, help='number of epoch in training')
+    parser.add_argument('--bs', type=int, default=20, help='batch size in training')
+    parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
@@ -29,9 +29,9 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     # parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
     parser.add_argument('--root_sever', type=str,
-                        default=f'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk30_stkpnt32/train/Bearing',
+                        default=rf'/root/my_data/data_set/sketch_cad/sketch_txt/train/Rivet',
                         help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Rivet', help='root of dataset')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -62,7 +62,7 @@ def main(args):
     logger.addHandler(file_handler)
 
     '''加载模型及权重'''
-    model = SDGraphUNet(2, 2)
+    model = SDGraphUNet(3, 3)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
@@ -104,7 +104,7 @@ def main(args):
             print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
             for batch_idx, data in enumerate(train_dataloader, 0):
-                points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
+                points = data.float().cuda()  # -> [bs, 2, n_points]
 
                 optimizer.zero_grad()
                 loss = diffusion(points)
@@ -131,7 +131,7 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch(sampled_images[batch_fig_idx, :, :], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch_test(sampled_images[batch_fig_idx, :, :], f'imgs_gen/{save_str}-{gen_idx}.png')
                 gen_idx += 1
 
 
