@@ -520,7 +520,7 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short')
 
     # 长笔划分割
-    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.2)
+    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.3)
 
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
 
@@ -534,13 +534,19 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
 
     # 按指定间隔采样点
     # sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
-    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.03)
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.04)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample speci dist')
 
     # 使所有笔划的点数均为2的整数倍
     sketch_data = ft.stk_pnt_double_filter(sketch_data)
 
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after strech to double')
+
     # 对于点数大于指定数值的笔划，直接截断
     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too long points')
 
     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
 
@@ -551,6 +557,8 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
 
     # 有效笔划数大于上限时，仅保留长度最长的前 global_def.n_stk 个笔划
     sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove more stroke')
 
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
@@ -655,7 +663,8 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_4.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_1.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_13.txt'  # after proc, n_stk < 4
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\test\\Flange\\64448e0877e197d89ba815e4ae203ed1_1.txt'  # after proc, n_stk < 4
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\test\\Flange\\64448e0877e197d89ba815e4ae203ed1_1.txt'  # after proc, n_stk < 4
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
 
     vis.vis_sketch_orig(thefile, title='sketch_orig')
 
