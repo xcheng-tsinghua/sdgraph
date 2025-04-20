@@ -1336,15 +1336,6 @@ class SDGraphCls(nn.Module):
         dense_l1 = 64
         dense_l2 = 256
 
-        # sparse_l0 = 8
-        # sparse_l1 = 16
-        # sparse_l2 = 32
-        #
-        # dense_l0 = 4
-        # dense_l1 = 8
-        # dense_l2 = 16
-
-
         # 生成初始 sdgraph
         self.point_to_sparse = PointToSparse(2, sparse_l0)
         self.point_to_dense = PointToDense(2, dense_l0)
@@ -1391,40 +1382,13 @@ class SDGraphCls(nn.Module):
 
         assert is_dimension_nan_consistent(sparse_graph0, 1)
 
-        # if sparse_graph0.isnan().any().item():
-        #     raise ValueError('nan occurred')
-
         # 生成初始 dense graph
         dense_graph0 = self.point_to_dense(xy)  # -> [bs, emb, n_stk, n_stk_pnt]
         assert dense_graph0.size()[2] == self.n_stk and dense_graph0.size()[3] == self.n_stk_pnt
 
-        # if dense_graph0.isnan().any().item():
-        #     raise ValueError('nan occurred')
-
-        # show_tensor_map(dense_graph0[0, :, :, :].max(0)[0], 'dn0')
-        # show_tensor_map(sparse_graph0[0, :, :], 'sp0')
-
         # 交叉更新数据
         sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 2]
         sparse_graph2, dense_graph2 = self.sd2(sparse_graph1, dense_graph1)  # [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt // 4]
-
-        # show_tensor_map(dense_graph1[0, :, :, :].max(0)[0], 'dn1')
-        # show_tensor_map(sparse_graph1[0, :, :], 'sp1')
-        #
-        # show_tensor_map(dense_graph2[0, :, :, :].max(0)[0], 'dn2')
-        # show_tensor_map(sparse_graph2[0, :, :], 'sp2')
-
-        # if dense_graph1.isnan().any().item():
-        #     raise ValueError('nan occurred')
-        #
-        # if dense_graph2.isnan().any().item():
-        #     raise ValueError('nan occurred')
-        #
-        # if sparse_graph1.isnan().any().item():
-        #     raise ValueError('nan occurred')
-        #
-        # if sparse_graph2.isnan().any().item():
-        #     raise ValueError('nan occurred')
 
         # 提取全局特征
         # 将各阶段的 sparse_graph 的nan位置置为 '-inf'，从而在max时忽略这些位置

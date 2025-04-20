@@ -74,6 +74,7 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     if not show_axis:
         plt.axis('off')
 
+    plt.axis("equal")
     plt.title(title)
     plt.show()
 

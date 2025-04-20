@@ -316,6 +316,49 @@ def stk_len_maximum_filter(sketch: list, stk_len_max: float) -> list:
     return strokes
 
 
+def outlier_filter(stroke_list: list, len_thres, rect_dec_thres=0.3, near_rect_thres=0.1):
+    """
+    筛选出 outlier
+    :param stroke_list:
+    :param len_thres: 长度小于该值，可能为 outlier
+    :param rect_dec_thres: 删除疑似 outlier 后，rect减小比例
+    :param near_rect_thres: 删除疑似 outlier 后，rect减小比例
+    :return:
+    """
+    # 计算草图 rect
+    out_rect = du.get_rect(stroke_list)
+    out_rect_area = out_rect.area()
+
+    # 获取长度小于指定数值的笔划
+    outliers = []
+    valid_stks = []
+
+    for c_stk in stroke_list:
+        if du.stroke_length(c_stk) < len_thres and out_rect.is_near(c_stk, near_rect_thres):
+            outliers.append(c_stk)
+        else:
+            valid_stks.append(c_stk)
+
+    # 计算删除全部outlier后的草图的rect
+    inner_rect_area = du.get_rect(valid_stks).area()
+
+    if inner_rect_area / out_rect_area < 1.0 - rect_dec_thres:
+        # 逐个将outliers内的元素添加进valid_stks，计算有效值
+        for c_outlier in outliers:
+            before_add_rect_area = du.get_rect(valid_stks).area()
+
+            valid_stks.append(c_outlier)
+            after_add_rect_area = du.get_rect(valid_stks).area()
+
+            if after_add_rect_area / before_add_rect_area > 1 + rect_dec_thres:
+                valid_stks.pop()
+
+        return valid_stks
+    else:
+        return stroke_list
+
+
+
 
 
 

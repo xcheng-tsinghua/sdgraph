@@ -154,19 +154,50 @@ def sketch_std(sketch):
     :param sketch: [n_point, s]
     :return:
     """
-    assert isinstance(sketch, np.ndarray)
+    def _mean_coor_and_dist(_sketch_np):
+        """
 
-    coordinates = sketch[:, :2]
+        :param _sketch_np: n*2 的 numpy 数组，表示草图
+        :return:
+        """
+        _mean_coor = np.mean(_sketch_np, axis=0)
+        _coordinates = _sketch_np - _mean_coor  # 实测是否加expand_dims效果一样
+        _dist = np.max(np.sqrt(np.sum(_coordinates ** 2, axis=1)), 0)
 
-    # sketch mass move to (0, 0), x y scale to [-1, 1]
-    mean_coor = np.mean(coordinates, axis=0)
-    mean_coor = np.expand_dims(mean_coor, 0)
-    coordinates = coordinates - mean_coor  # 实测是否加expand_dims效果一样
-    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-    coordinates = coordinates / dist
+        return _mean_coor, _dist
 
-    sketch[:, :2] = coordinates
-    return sketch
+    def _move_scale_proc(_sketch_np, _mean_coor, _dist):
+        _sketch_np = _sketch_np - _mean_coor  # 实测是否加expand_dims效果一样
+        _sketch_np = _sketch_np / _dist
+
+        return _sketch_np
+
+    if isinstance(sketch, np.ndarray):
+        coordinates = sketch[:, :2]
+
+        mean_coor, dist = _mean_coor_and_dist(coordinates)
+        coordinates = _move_scale_proc(coordinates, mean_coor, dist)
+
+        sketch[:, :2] = coordinates
+        return sketch
+
+    elif isinstance(sketch, list) and isinstance(sketch[0], np.ndarray):
+        # 草图表示为sketch_list
+        sketch_np = np.vstack(sketch)
+        assert sketch_np.shape[1] == 2
+
+        mean_coor, dist = _mean_coor_and_dist(sketch_np)
+
+        stroke_list_new = []
+
+        for c_stk in sketch:
+            stk_new = _move_scale_proc(c_stk, mean_coor, dist)
+            stroke_list_new.append(stk_new)
+
+        return stroke_list_new
+
+    else:
+        raise TypeError('error sketch type')
 
 
 def svg_to_txt(svg_path, txt_path):
@@ -566,12 +597,26 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     return splited_stk
 
 
-def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.01, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False, is_resample=True):
+def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False, is_resample=True):
+    """
+
+    :param sketch:
+    :param resp_dist:
+    :param filter_dist: 相邻两个分割点之间的距离不小于该值
+    :param thres: 当前点的 short_straw < thres * max(short_straw) 时，将该点判定为分割点
+    :param window_width:
+    :param split_length:
+    :param is_print_split_status:
+    :param is_resample:
+    :return:
+    """
     splited_sketch = []
 
     for c_stk in sketch:
         if stroke_length(c_stk) > split_length:
             splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_print_split_status, is_resample)
+        else:
+            splited_sketch.append(c_stk)
 
     return splited_sketch
 
@@ -845,23 +890,23 @@ def stroke_merge_until(stroke_list, min_dist):
     :return:
     """
 
-    # def vis_sketch_list(strokes, show_dot=False, title=None):
-    #     for s in strokes:
-    #         plt.plot(s[:, 0], -s[:, 1])
-    #
-    #         if show_dot:
-    #             plt.scatter(s[:, 0], -s[:, 1])
-    #
-    #     # plt.axis('off')
-    #     plt.axis("equal")
-    #     plt.title(title)
-    #     plt.show()
+    def vis_sketch_list(strokes, show_dot=False, title=None):
+        for s in strokes:
+            plt.plot(s[:, 0], -s[:, 1])
+
+            if show_dot:
+                plt.scatter(s[:, 0], -s[:, 1])
+
+        plt.axis('off')
+        plt.axis("equal")
+        plt.title(title)
+        plt.show()
 
     new_list = stroke_list.copy()
     while True:
         is_merge_success = single_merge_(new_list, min_dist)
 
-        # vis_sketch_list(new_list)
+        # vis_sketch_list(sorted(new_list, key=lambda x: x.shape[0], reverse=True))
 
         if not is_merge_success:
             return new_list
@@ -881,6 +926,71 @@ def short_stk_merge(stroke_list: list, max_stk_len: float) -> list:
 
         if not is_success:
             return new_sketch
+
+
+class Rectangle(object):
+    def __init__(self, min_x, max_x, min_y, max_y):
+        super().__init__()
+        self.min_x = min_x
+        self.max_x = max_x
+        self.min_y = min_y
+        self.max_y = max_y
+
+    def area(self) -> float:
+        width = abs(self.min_x - self.max_x)  # 水平边长
+        height = abs(self.min_y - self.max_y)  # 垂直边长
+        rect_area = width * height  # 矩形面积
+
+        return rect_area
+
+    def stk_mass_center_to_rect_boundary_dist(self, stroke) -> float:
+        """
+        计算笔划的质心到Rect边界的最小距离
+        :param stroke:
+        :return:
+        """
+        cx, cy = stroke.mean(axis=0)
+        delta_x = max(self.min_x - cx, 0, cx - self.max_x)
+        delta_y = max(self.min_y - cy, 0, cy - self.max_y)
+
+        if delta_x == 0 and delta_y == 0:
+            # 点在矩形内部：取到四边的最小距离
+            dists = [cx - self.min_x, self.max_x - cx, cy - self.min_y, self.max_y - cy]
+            distance = min(dists)
+        else:
+            # 点在矩形外部：欧氏距离
+            distance = np.hypot(delta_x, delta_y)
+
+        return distance
+
+    def is_near(self, stroke, dist_thres) -> float:
+        """
+        判断 stroke 的质心是否离边界距离小于指定值
+        :param stroke:
+        :param dist_thres:
+        :return:
+        """
+        dist = self.stk_mass_center_to_rect_boundary_dist(stroke)
+
+        if dist < dist_thres:
+            return True
+        else:
+            return False
+
+
+def get_rect(stroke_list):
+    """
+    获取草图的包围盒
+    :param stroke_list:
+    :return: min_x, max_x, min_y, max_y
+    """
+    sketch = np.vstack(stroke_list)
+    min_x = sketch[:, 0].min()
+    max_x = sketch[:, 0].max()
+    min_y = sketch[:, 1].min()
+    max_y = sketch[:, 1].max()
+
+    return Rectangle(min_x, max_x, min_y, max_y)
 
 
 if __name__ == '__main__':

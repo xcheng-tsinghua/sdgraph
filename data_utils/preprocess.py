@@ -324,27 +324,43 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     # 分割笔划
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
+    # 去掉outlier
+    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+    # vis.vis_sketch_list(sketch_data, title='after filter outlier')
+
+    # 归一化
+    sketch_data = du.sketch_std(sketch_data)
+    # vis.vis_sketch_list(sketch_data, title='after unify')
+
     # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
 
     # vis.vis_sketch_list(sketch_data)
 
     # 合并过近的笔划
-    sketch_data = du.stroke_merge_until(sketch_data, 0.2)
+    sketch_data = du.stroke_merge_until(sketch_data, 0.1)
 
-    # vis.vis_sketch_list(sketch_data)
+    # vis.vis_sketch_list(sketch_data, title='after merge')
 
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
+    # vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    # vis.vis_sketch_list(sketch_data, title='after resample')
 
     # 角点分割
     sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=1.2, is_print_split_status=False, is_resample=False)
 
+    # vis.vis_sketch_list(sketch_data, title='after split')
+
     # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
     sketch_data = du.short_stk_merge(sketch_data, 0.8)
+
+    # vis.vis_sketch_list(sketch_data, title='after merge short')
 
     # 长笔划分割
     sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.5)
@@ -355,7 +371,9 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     sketch_data = ft.valid_stk_filter(sketch_data)
 
     # 删除长度过短的笔划
-    sketch_data = ft.stroke_len_filter(sketch_data, 0.04)
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.05)
+
+    # vis.vis_sketch_list(sketch_data, title='after remove too short')
 
     # 将笔划点数采样至指定值
     sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
@@ -367,7 +385,7 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
 
     # tmp_vis_sketch_list(sketch_data)
-    # vis.vis_sketch_list(sketch_data, True, sketch_root)
+    vis.vis_sketch_list(sketch_data, True, sketch_root)
 
     return sketch_data
 
@@ -523,13 +541,17 @@ if __name__ == '__main__':
     # random.shuffle(all_sketches)
     #
     # for c_skh in all_sketches:
-    #     asketch = pre_process(c_skh)
-    #     vis.vis_sketch_list(asketch, True)
+    #     vis.vis_sketch_orig(c_skh, title=c_skh)
 
-    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'
+        # asketch = pre_process(c_skh)
+        # vis.vis_sketch_list(asketch, True)
+
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'  # merge
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pin\\b9a6e6512939a09d26d8892ff84253eb_1.txt'
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pulley\\587e77a22dc8e953acfa7422d8cbfa6a_1.txt'
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Washer\\c73f2caa3d402863f727891573d57e86_1.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Washer\\c73f2caa3d402863f727891573d57e86_1.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Joint\\085e56b3e4e9720977dda64a98c2ca6b_3.txt'  # outlier
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Rivet\\405a1dc601df05bda836a1aabeb68fdd_5.txt'
 
     vis.vis_sketch_orig(thefile)
 
