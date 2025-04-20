@@ -458,7 +458,7 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
 #     return sketch_data
 
 
-def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
     """
     每个笔划的点数不同
     因此不同笔划的点密度可能不同
@@ -466,6 +466,7 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     :param resp_dist:
     :param pen_up:
     :param pen_down:
+    :param is_show_status:
     :return:
     """
     # 读取草图数据
@@ -479,11 +480,12 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
 
     # 去掉outlier
     sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
-    # vis.vis_sketch_list(sketch_data, title='after filter outlier')
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier')
 
     # 归一化
     sketch_data = du.sketch_std(sketch_data)
-    # vis.vis_sketch_list(sketch_data, title='after unify')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify')
 
     # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
@@ -493,32 +495,34 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     # 合并过近的笔划
     sketch_data = du.stroke_merge_until(sketch_data, 0.1)
 
-    # vis.vis_sketch_list(sketch_data, title='after merge')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge')
 
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
-    # vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+    sketch_data = du.sketch_std(sketch_data)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
 
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
-    # vis.vis_sketch_list(sketch_data, title='after resample')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample')
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=1.2, is_print_split_status=False, is_resample=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, thres=0.95, split_length=1.2, is_print_split_status=False, is_resample=False)
 
-    # vis.vis_sketch_list(sketch_data, title='after split')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after split')
 
     # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
     sketch_data = du.short_stk_merge(sketch_data, 0.8)
 
-    # vis.vis_sketch_list(sketch_data, title='after merge short')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short')
 
     # 长笔划分割
     sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.2)
 
-    # vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
 
     # 去掉无效笔划，包含点数小于等于1的时无效笔划
     sketch_data = ft.valid_stk_filter(sketch_data)
@@ -526,7 +530,7 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
-    # vis.vis_sketch_list(sketch_data, title='after remove too short')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too short')
 
     # 按指定间隔采样点
     # sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
@@ -647,11 +651,16 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pulley\\587e77a22dc8e953acfa7422d8cbfa6a_1.txt'
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Washer\\c73f2caa3d402863f727891573d57e86_1.txt'
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Joint\\085e56b3e4e9720977dda64a98c2ca6b_3.txt'  # outlier
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Rivet\\405a1dc601df05bda836a1aabeb68fdd_5.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Rivet\\405a1dc601df05bda836a1aabeb68fdd_5.txt'
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_4.txt'  # after proc, n_stk < 4
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_1.txt'  # after proc, n_stk < 4
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_13.txt'  # after proc, n_stk < 4
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\test\\Flange\\64448e0877e197d89ba815e4ae203ed1_1.txt'  # after proc, n_stk < 4
 
-    vis.vis_sketch_orig(thefile)
+    vis.vis_sketch_orig(thefile, title='sketch_orig')
 
-    asasasas = pre_process_equal_stkpnt(thefile)
+    asasasas = preprocess(thefile, is_show_status=True)
+    # asasasas = pre_process_equal_stkpnt(thefile)
 
     vis.vis_sketch_list(asasasas, title='last')
 
