@@ -550,8 +550,8 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
 
     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
 
-    if len(sketch_data) < 4:
-        warnings.warn(f'occurred n_stk lower than 4, is {sketch_root}')
+    # if len(sketch_data) < 4:
+    #     warnings.warn(f'occurred n_stk lower than 4, is {sketch_root}')
 
     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
 

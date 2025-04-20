@@ -319,6 +319,44 @@ class DiffDataset(Dataset):
         vis.vis_unified_sketch_data(c_sketch)
 
 
+class DiffDataset2(Dataset):
+    """
+    diffusion 数据集加载
+    读取 root 文件夹下的全部 txt 文件
+    """
+    def __init__(self,
+                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
+                 shuffle_stk=False,  # 是否随机变换笔划顺序
+                 data_aug=False  # 是否进行数据增强
+                 ):
+
+        self.data_aug = data_aug
+        self.shuffle_stk = shuffle_stk
+        self.datapath = get_allfiles(root)
+
+        print(f'diffusion dataset, from: {root}')
+        print(f'shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
+        print(f'number of instance all: {len(self.datapath)}')
+
+    def __getitem__(self, index):
+        """
+        :return: [stroke1, stroke2, ..., stroke_n] (list)
+        stroke = [n_stk, n_stk_pnt, 3] (numpy.ndarray)
+        """
+        fn = self.datapath[index]
+        sketch_data = pp.preprocess(fn)
+        sketch_cube = du.stroke_list_to_sketch_cube(sketch_data)
+
+        return sketch_cube
+
+    def __len__(self):
+        return len(self.datapath)
+
+    def vis_sketch(self, idx):
+        c_sketch = self.__getitem__(idx)
+        vis.vis_unified_sketch_data(c_sketch)
+
+
 class QuickdrawDataset(Dataset):
     def __init__(self, root=r'D:\document\DeepLearning\DataSet\quickdraw\sketchrnn_apple.npz', mode='train', max_seq_length=1000):
         """
