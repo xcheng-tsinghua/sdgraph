@@ -664,7 +664,8 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_1.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_13.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\test\\Flange\\64448e0877e197d89ba815e4ae203ed1_1.txt'  # after proc, n_stk < 4
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
+    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_4.txt'  # after proc, n_stk < 4
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
 
     vis.vis_sketch_orig(thefile, title='sketch_orig')
 

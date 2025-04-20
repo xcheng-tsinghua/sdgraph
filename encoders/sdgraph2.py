@@ -718,7 +718,7 @@ class SDGraphCls(nn.Module):
 class SDGraphUNet(nn.Module):
     def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
-        print('diff drop 0')
+        print('diff drop (x, y, 1) and (0, 0, -1)')
 
         '''草图参数'''
         self.channel_in = channel_in
@@ -802,13 +802,16 @@ class SDGraphUNet(nn.Module):
         '''生成时间步特征'''
         time_emb = self.time_encode(time)
 
-        bs, channel_in, n_point = xy.size()
-        assert n_point == self.n_stk * self.n_stk_pnt and channel_in == self.channel_in
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == 3
+
+        xy = xy.view(bs, n_stk * n_stk_pnt, channel)
+        xy = xy.permute(0, 2, 1)  # -> [bs, 3, n_skh_pnt]
 
         '''生成初始 sdgraph'''
         sparse_graph_up0 = self.point_to_sparse(xy, time_emb)  # -> [bs, emb, n_stk]
         dense_graph_up0 = self.point_to_dense(xy, time_emb)  # -> [bs, emb, n_point]
-        assert sparse_graph_up0.size()[2] == self.n_stk and dense_graph_up0.size()[2] == n_point
+        assert sparse_graph_up0.size()[2] == self.n_stk and dense_graph_up0.size()[2] == n_stk * n_stk_pnt
 
         '''下采样'''
         sparse_graph_up1, dense_graph_up1 = self.sd_down1(sparse_graph_up0, dense_graph_up0, time_emb)
@@ -842,7 +845,7 @@ class SDGraphUNet(nn.Module):
         '''将sparse graph及xy转移到dense graph并输出'''
         sparse_graph = sparse_graph.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
         dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk, self.n_stk_pnt)
-        xy = xy.view(bs, channel_in, self.n_stk, self.n_stk_pnt)
+        xy = xy.view(bs, channel, self.n_stk, self.n_stk_pnt)
 
         dense_graph = torch.cat([dense_graph, sparse_graph, xy], dim=1)
         dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk * self.n_stk_pnt)
@@ -871,11 +874,11 @@ def test():
     atensor = torch.rand([bs, global_defs.n_stk, global_defs.n_stk_pnt, 3])
     t1 = torch.randint(0, 1000, (bs,)).long()
 
-    # classifier = SDGraphSeg2(2, 2)
-    # cls11 = classifier(atensor, t1)
+    classifier = SDGraphUNet(3, 3)
+    cls11 = classifier(atensor, t1)
 
-    classifier = SDGraphCls(10)
-    cls11 = classifier(atensor)
+    # classifier = SDGraphCls(10)
+    # cls11 = classifier(atensor)
 
     print(cls11.size())
 
