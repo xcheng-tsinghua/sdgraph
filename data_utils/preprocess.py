@@ -385,7 +385,7 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
 
     # tmp_vis_sketch_list(sketch_data)
-    vis.vis_sketch_list(sketch_data, True, sketch_root)
+    # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
     return sketch_data
 
