@@ -1,3 +1,5 @@
+import warnings
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -212,6 +214,7 @@ def stk_num_minimal_filter(sketch, n_stk_min):
 
     if len(sketch) < n_stk_min:
         sketch = []
+        warnings.warn(f'the number of strokes is lower than {n_stk_min}, all data is set to ZERO')
 
         for i in range(global_defs.n_stk):
             sketch.append(np.zeros((global_defs.n_stk_pnt, 2), dtype=np.float32))

@@ -11,7 +11,8 @@ import numpy as np
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import SketchDataset2 as SketchDataset
-from encoders.sdgraph3 import SDGraphCls as SDGraphCls
+# from encoders.sdgraph3 import SDGraphCls as SDGraphCls
+from encoders.sdgraph2 import SDGraphCls as SDGraphCls
 # from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
@@ -30,9 +31,9 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=50, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
-    parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
+    parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
@@ -149,7 +150,7 @@ def main(args):
     '''定义优化器'''
     optimizer = torch.optim.Adam(
         classifier.parameters(),
-        lr=args.learning_rate,
+        lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
         weight_decay=args.decay_rate

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from einops import rearrange
 
-from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func, fps, index_points, square_distance
+from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func
 import global_defs
 
 

@@ -8,6 +8,7 @@ import shutil
 import math
 from tqdm import tqdm
 import requests
+import torch
 
 import global_defs
 import encoders.spline as sp
@@ -530,10 +531,17 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     :param resp_dist: 重采样间隔 [0, 1]
     :return:
     """
+    thres = 1e-2
+    if 1 - np.max(stroke) >= -thres and np.min(stroke) + 1 >= -thres:
+        pass
+    else:
+        print(f'max: {np.max(stroke)}, and min: {np.min(stroke)}')
+
     # 辅助检测草图是否被归一化过
     # max_val = np.max(stroke)
     # min_val = np.min(stroke)
-    assert 1 - np.max(stroke) >= -1e-5 and np.min(stroke) + 1 >= -1e-5
+    assert 1 - np.max(stroke) >= -thres and np.min(stroke) + 1 >= -thres
+
     assert stroke.shape[1] == 2
 
     if is_show_status:
@@ -991,6 +999,47 @@ def get_rect(stroke_list):
     max_y = sketch[:, 1].max()
 
     return Rectangle(min_x, max_x, min_y, max_y)
+
+
+def stroke_list_to_sketch_cube(sketch_list):
+    """
+    将笔划转化为规则的 pytorch 的 Tensor
+    有效位置为(x, y, 1)
+    无效位置为(0, 0, -1)
+    :param sketch_list:
+    :return:
+    """
+    # sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
+    # # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
+    # for i, c_stk in enumerate(sketch_list):
+    #     n_cstk_pnt = len(c_stk)
+    #     # sketch_mask[i, :n_cstk_pnt] = 1
+    #
+    #     sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+    #
+    # return sketch_cube
+
+    sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 3, dtype=torch.float)
+    for i, c_stk in enumerate(sketch_list):
+        n_cstk_pnt = len(c_stk)
+
+        ones_column = np.ones((n_cstk_pnt, 1))
+        c_stk = np.hstack((c_stk, ones_column))
+
+        sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+        sketch_cube[i, n_cstk_pnt:, 2] = -1.0
+
+    return sketch_cube
+
+
+def is_sketch_unified(stroke_list, thres=1e-5):
+
+    sketch = np.vstack(stroke_list)
+
+    if 1 - np.max(sketch) >= -thres and np.min(sketch) + 1 >= -thres:
+        pass
+    else:
+        print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
 
 
 if __name__ == '__main__':

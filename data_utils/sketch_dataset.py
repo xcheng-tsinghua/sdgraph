@@ -28,7 +28,8 @@ import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
 import data_utils.vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
-from data_utils import preprocess
+from data_utils import preprocess as pp
+from data_utils import sketch_utils as du
 
 
 class SketchDataset(Dataset):
@@ -207,44 +208,23 @@ class SketchDataset2(Dataset):
     def __getitem__(self, index):
         """
         :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_skh_point, 2] (numpy.ndarray)
+        stroke = [n_stk, n_stk_pnt, 3] (torch.Tensor)
         """
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字
 
         # vis_sketch_orig(fn[1])
         # sketch_data = short_straw_split_sketch(fn[1])
-        sketch_data = preprocess.pre_process_equal_stkpnt(fn[1])
+        # sketch_data = pp.pre_process_equal_stkpnt(fn[1])
+        sketch_data = pp.preprocess(fn[1])
 
         if all(np.all(arr == 0) for arr in sketch_data):
-            sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+            sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 3, dtype=torch.float)
             cls = 0
 
         else:
-            # 创建 mask 和规则的 sketch
-            # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
-            # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+            sketch_cube = du.stroke_list_to_sketch_cube(sketch_data)
 
-            sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
-            # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
-            for i, c_stk in enumerate(sketch_data):
-                n_cstk_pnt = len(c_stk)
-                # sketch_mask[i, :n_cstk_pnt] = 1
-
-                # asaas = sketch_cube[i, :n_cstk_pnt, :]
-                # bbass = torch.from_numpy(c_stk)
-
-                sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
-
-        # mask_fit = sketch_mask.unsqueeze(2).repeat(1, 1, 2).bool()  # [n_stk, n_stk_pnt, 2]
-        # sketch_cube = masked_tensor(sketch_cube, mask_fit)
-
-        # sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
-        # sketch_mask = sketch_mask.bool()
-
-        # return sketch_cube, sketch_mask, cls
-        sketch_cube = sketch_cube.view(global_defs.n_stk * global_defs.n_stk_pnt, 2)
-        # sketch_cube = sketch_cube.permute(1, 0)
         return sketch_cube, cls, index
 
     def __len__(self):

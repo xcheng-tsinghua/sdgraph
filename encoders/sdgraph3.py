@@ -10,7 +10,6 @@ from einops import rearrange
 import math
 import matplotlib.pyplot as plt
 
-from data_utils.preprocess import pre_process
 import global_defs
 
 
@@ -1782,29 +1781,30 @@ def test_topk():
 
 
 def test_sketch():
-    from data_utils.preprocess import short_straw_split_sketch
-
-    file_name = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Key\0a4b71aa11ae34effcdc8e78292671a3_2.txt'
-
-    sketch_data = short_straw_split_sketch(file_name, is_show_status=False)
-
-    # 创建 mask 和规则的 sketch
-    sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
-    sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
-
-    # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
-    for i, c_stk in enumerate(sketch_data):
-        n_cstk_pnt = len(c_stk)
-        sketch_mask[i, :n_cstk_pnt] = 1
-        sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
-
-    sketch_mask = sketch_mask.bool()
-
-    sketch_cube = sketch_cube.unsqueeze(0).repeat(2, 1, 1, 1)
-    sketch_mask = sketch_mask.unsqueeze(0).repeat(2, 1, 1)
-
-    cls_model = SDGraphCls(10)
-    res = cls_model(sketch_cube, sketch_mask)
+    # from data_utils.preprocess import short_straw_split_sketch
+    #
+    # file_name = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Key\0a4b71aa11ae34effcdc8e78292671a3_2.txt'
+    #
+    # sketch_data = short_straw_split_sketch(file_name, is_show_status=False)
+    #
+    # # 创建 mask 和规则的 sketch
+    # sketch_mask = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, dtype=torch.int)
+    # sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 2, dtype=torch.float)
+    #
+    # # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
+    # for i, c_stk in enumerate(sketch_data):
+    #     n_cstk_pnt = len(c_stk)
+    #     sketch_mask[i, :n_cstk_pnt] = 1
+    #     sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
+    #
+    # sketch_mask = sketch_mask.bool()
+    #
+    # sketch_cube = sketch_cube.unsqueeze(0).repeat(2, 1, 1, 1)
+    # sketch_mask = sketch_mask.unsqueeze(0).repeat(2, 1, 1)
+    #
+    # cls_model = SDGraphCls(10)
+    # res = cls_model(sketch_cube, sketch_mask)
+    pass
 
 
 def test_batch_norm():

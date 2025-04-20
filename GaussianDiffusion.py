@@ -128,9 +128,9 @@ class GaussianDiffusion(Module):
         x_t = extract(self.sqrt_1minus_alphas_bar, t, x_0.shape) * noise + extract(self.sqrt_alphas_bar, t, x_0.shape) * x_0
 
         # 获取模型预测的原始图片
-        x_0_pred = self.model(x_t, t)
+        noise_pred = self.model(x_t, t)
 
-        return F.mse_loss(x_0_pred, noise)
+        return F.mse_loss(noise_pred, noise)
 
         # 计算噪音
         # noise_pred = extract(self.sqrt_recip_1minus_alphas_bar, t, x_t.shape) * x_t - extract(self.sqrt_recip_recip_alphas_bar_minus1, t, x_t.shape) * x_0_pred

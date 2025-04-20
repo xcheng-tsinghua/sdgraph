@@ -53,7 +53,7 @@ class LinearInterp(object):
 
     def uni_dist_interp_strict(self, dist) -> np.ndarray:
         """
-        严格按照该距离采样，可能丢失最后一个点
+        严格按照该距离采样，最后一个点向前插值到间隔距离
         :param dist:
         :return:
         """
@@ -63,11 +63,18 @@ class LinearInterp(object):
 
         else:
             interp_points = []
-            c_arclen = 1e-5
+            c_arclen = 0.0
 
             while c_arclen < self.arc_length:
                 interp_points.append(self.length_interp(c_arclen))
                 c_arclen += dist
+
+            # 向前插值最后一个点
+            last_pnt = self.stk_points[-1]
+            last_former_pnt = interp_points[-1]
+
+            interp_pnt = 2 * last_pnt - last_former_pnt
+            interp_points.append(interp_pnt)
 
             return np.vstack(interp_points)
 
@@ -78,6 +85,12 @@ class LinearInterp(object):
         :return:
         """
         assert 0 <= target_len <= self.arc_length
+
+        # 特殊情况，始末点
+        if target_len < 1e-5:
+            return self.stk_points[0]
+        elif target_len > self.arc_length - 1e-5:
+            return self.stk_points[-1]
 
         # cumulative[left_idx] <= target_len <= cumulative[left_idx + 1]
         left_idx = np.searchsorted(self.cumulative_dist, target_len) - 1
@@ -124,9 +137,9 @@ class LinearInterp(object):
         """
         assert 0 <= para <= 1
 
-        if para == 0:
+        if para < 1e-5:
             return self.stk_points[0]
-        elif para == 1:
+        elif para > 1.0 - 1e-5:
             return self.stk_points[-1]
 
         # 计算参数对应的弧长
@@ -145,7 +158,7 @@ class LinearInterp(object):
         direc_len = np.linalg.norm(direc)
 
         # 左右点过于接近
-        if direc_len < 1e-4:
+        if direc_len < 1e-5:
             warnings.warn('left and right points are too close, return left point')
             return right_point
 
@@ -409,7 +422,7 @@ def uni_arclength_resample(stroke_list, mid_ratio=0.1):
 
 def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
     """
-    均匀布点，相邻点之间距离严格为 resp_dist，可能笔划中丢失最后一个点
+    均匀布点，相邻点之间距离严格为 resp_dist，最后一个点向前插值到间隔距离
     :param stroke_list:
     :param resp_dist:
     :return:

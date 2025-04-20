@@ -148,74 +148,74 @@ def std_unify_batched(source_dir=r'D:\document\DeepLearning\DataSet\sketch\sketc
                 warnings.warn(f'error occurred when trans {c_file}, has skipped!')
 
 
-def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3,
-                             pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=True) -> list:
-    """
-    利用short straw对彩图进行角点分割
-    :param sketch_root:
-    :param resp_dist:
-    :param filter_dist:
-    :param thres:
-    :param window_width:
-    :param is_show_status:
-    :return:
-    """
-
-    # 读取草图数据
-    sketch_data = np.loadtxt(sketch_root, delimiter=',')
-
-    # 移动草图质心与大小
-    sketch_data = du.sketch_std(sketch_data)
-
-    # 分割草图
-    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
-
-    # tmp_vis_sketch_list(sketch_data)
-
-    # 去掉点数过少的笔划
-    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
-
-    # 去掉笔划上距离过近的点
-    # sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
-
-    # 去掉长度过短的笔划
-    # sketch_data = sp.stroke_len_filter(sketch_data, 0.07)
-
-    vis.vis_sketch_list(sketch_data)
-
-    if du.n_sketch_pnt(sketch_data) <= 20:
-        warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
-        return []
-
-    # 分割笔划
-    strokes_splited = []
-    for c_stk in sketch_data:
-        strokes_splited += du.short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, False)
-
-    vis.vis_sketch_list(strokes_splited)
-
-    # 去掉点数过少的笔划
-    # strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 16)
-
-    # 去掉笔划上距离过近的点
-    # strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
-
-    # 去掉长度过短的笔划
-    # strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
-
-    # 仅保留点数最多的前 global_def.n_stk 个笔划
-    strokes_splited = ft.stk_number_filter(strokes_splited, global_defs.n_stk)
-
-    # 每个笔划中的点数仅保留前 global_def.n_pnt 个
-    strokes_splited = ft.stk_pnt_filter(strokes_splited, global_defs.n_stk_pnt)
-
-    if is_show_status:
-        for s in strokes_splited:
-            plt.plot(s[:, 0], -s[:, 1])
-            plt.scatter(s[:, 0], -s[:, 1])
-        plt.show()
-
-    return strokes_splited
+# def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3,
+#                              pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=True) -> list:
+#     """
+#     利用short straw对彩图进行角点分割
+#     :param sketch_root:
+#     :param resp_dist:
+#     :param filter_dist:
+#     :param thres:
+#     :param window_width:
+#     :param is_show_status:
+#     :return:
+#     """
+#
+#     # 读取草图数据
+#     sketch_data = np.loadtxt(sketch_root, delimiter=',')
+#
+#     # 移动草图质心与大小
+#     sketch_data = du.sketch_std(sketch_data)
+#
+#     # 分割草图
+#     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+#
+#     # tmp_vis_sketch_list(sketch_data)
+#
+#     # 去掉点数过少的笔划
+#     # sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
+#
+#     # 去掉笔划上距离过近的点
+#     # sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
+#
+#     # 去掉长度过短的笔划
+#     # sketch_data = sp.stroke_len_filter(sketch_data, 0.07)
+#
+#     vis.vis_sketch_list(sketch_data)
+#
+#     if du.n_sketch_pnt(sketch_data) <= 20:
+#         warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
+#         return []
+#
+#     # 分割笔划
+#     strokes_splited = []
+#     for c_stk in sketch_data:
+#         strokes_splited += du.short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, False)
+#
+#     vis.vis_sketch_list(strokes_splited)
+#
+#     # 去掉点数过少的笔划
+#     # strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 16)
+#
+#     # 去掉笔划上距离过近的点
+#     # strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
+#
+#     # 去掉长度过短的笔划
+#     # strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
+#
+#     # 仅保留点数最多的前 global_def.n_stk 个笔划
+#     strokes_splited = ft.stk_number_filter(strokes_splited, global_defs.n_stk)
+#
+#     # 每个笔划中的点数仅保留前 global_def.n_pnt 个
+#     strokes_splited = ft.stk_pnt_filter(strokes_splited, global_defs.n_stk_pnt)
+#
+#     if is_show_status:
+#         for s in strokes_splited:
+#             plt.plot(s[:, 0], -s[:, 1])
+#             plt.scatter(s[:, 0], -s[:, 1])
+#         plt.show()
+#
+#     return strokes_splited
 
 
 # def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
@@ -390,8 +390,78 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
     return sketch_data
 
 
-def pre_process(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+# def pre_process(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+#     """
+#     :param sketch_root:
+#     :param resp_dist:
+#     :param pen_up:
+#     :param pen_down:
+#     :return:
+#     """
+#     # 读取草图数据
+#     sketch_data = np.loadtxt(sketch_root, delimiter=',')
+#
+#     # 移动草图质心与大小
+#     sketch_data = du.sketch_std(sketch_data)
+#
+#     # 分割笔划
+#     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+#
+#     # 去掉相邻过近的点
+#     # -----------------需要先归一化才可使用，不然单位不统一
+#     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.01)
+#
+#     # 合并过近的笔划
+#     sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+#
+#     # 删除长度过短的笔划
+#     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+#
+#     # 重采样
+#     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+#
+#     # 去掉长度过短的笔划
+#     # sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+#
+#     # 角点分割
+#     sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.5, is_print_split_status=False, is_resample=False)
+#
+#     # tmp_vis_sketch_list(sketch_data, True)
+#
+#     # 去掉无效笔划
+#     # sketch_data = sp.valid_stk_filter(sketch_data)
+#
+#     # 长笔划分割
+#     sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
+#
+#     # tmp_vis_sketch_list(sketch_data)
+#
+#     # 去掉点数过少的笔划
+#     sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
+#
+#     # 使所有笔划的点数均为2的整数倍
+#     sketch_data = ft.stk_pnt_double_filter(sketch_data)
+#
+#     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
+#     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+#
+#     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
+#     # 如果低于指定数值，将草图全部数值置为零
+#     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
+#
+#     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
+#     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
+#
+#     # tmp_vis_sketch_list(sketch_data)
+#     # vis.vis_sketch_list(sketch_data, True, sketch_root)
+#
+#     return sketch_data
+
+
+def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
     """
+    每个笔划的点数不同
+    因此不同笔划的点密度可能不同
     :param sketch_root:
     :param resp_dist:
     :param pen_up:
@@ -407,50 +477,72 @@ def pre_process(sketch_root: str, resp_dist: float = 0.03, pen_up=global_defs.pe
     # 分割笔划
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
-    # 去掉相邻过近的点
-    # -----------------需要先归一化才可使用，不然单位不统一
-    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.01)
+    # 去掉outlier
+    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+    # vis.vis_sketch_list(sketch_data, title='after filter outlier')
+
+    # 归一化
+    sketch_data = du.sketch_std(sketch_data)
+    # vis.vis_sketch_list(sketch_data, title='after unify')
+
+    # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
+    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
+
+    # vis.vis_sketch_list(sketch_data)
 
     # 合并过近的笔划
-    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+    sketch_data = du.stroke_merge_until(sketch_data, 0.1)
+
+    # vis.vis_sketch_list(sketch_data, title='after merge')
 
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
 
+    # vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
-    # 去掉长度过短的笔划
-    # sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+    # vis.vis_sketch_list(sketch_data, title='after resample')
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=0.5, is_print_split_status=False, is_resample=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, split_length=1.2, is_print_split_status=False, is_resample=False)
 
-    # tmp_vis_sketch_list(sketch_data, True)
+    # vis.vis_sketch_list(sketch_data, title='after split')
 
-    # 去掉无效笔划
-    # sketch_data = sp.valid_stk_filter(sketch_data)
+    # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
+    sketch_data = du.short_stk_merge(sketch_data, 0.8)
+
+    # vis.vis_sketch_list(sketch_data, title='after merge short')
 
     # 长笔划分割
-    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
+    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.2)
 
-    # tmp_vis_sketch_list(sketch_data)
+    # vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
 
-    # 去掉点数过少的笔划
-    sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
+    # 去掉无效笔划，包含点数小于等于1的时无效笔划
+    sketch_data = ft.valid_stk_filter(sketch_data)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+
+    # vis.vis_sketch_list(sketch_data, title='after remove too short')
+
+    # 按指定间隔采样点
+    # sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.03)
 
     # 使所有笔划的点数均为2的整数倍
     sketch_data = ft.stk_pnt_double_filter(sketch_data)
 
-    # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
+    # 对于点数大于指定数值的笔划，直接截断
     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
 
-    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
-    # 如果低于指定数值，将草图全部数值置为零
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
 
-    # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
-    sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
+    # 有效笔划数大于上限时，仅保留长度最长的前 global_def.n_stk 个笔划
+    sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
 
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
