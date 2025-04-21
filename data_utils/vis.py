@@ -22,7 +22,7 @@ def vis_sketch_folder(root):
             vis_sketch_orig(c_file_show)
 
 
-def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False):
+def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1):
     """
     显示原始采集的机械草图
     存储的每行应该为： [x, y, state]
@@ -64,12 +64,11 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     #     approx_mode='uni-arclength'
     # )
 
-    gap = 3
     for s in strokes:
-        plt.plot(s[::gap, 0], -s[::gap, 1])
+        plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
 
         if show_dot:
-            plt.scatter(s[::gap, 0], -s[::gap, 1], s=80)
+            plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80)
 
     if not show_axis:
         plt.axis('off')

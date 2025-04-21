@@ -1027,7 +1027,7 @@ def stroke_list_to_sketch_cube(sketch_list):
         c_stk = np.hstack((c_stk, ones_column))
 
         sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
-        sketch_cube[i, n_cstk_pnt:, 2] = -1.0
+        # sketch_cube[i, n_cstk_pnt:, 2] = -1.0
 
     return sketch_cube
 

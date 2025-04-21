@@ -344,7 +344,7 @@ class DiffDataset2(Dataset):
         stroke = [n_stk, n_stk_pnt, 3] (numpy.ndarray)
         """
         fn = self.datapath[index]
-        sketch_data = pp.preprocess(fn)
+        sketch_data = pp.preprocess_just_pad(fn)
         sketch_cube = du.stroke_list_to_sketch_cube(sketch_data)
 
         return sketch_cube

@@ -566,6 +566,46 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     return sketch_data
 
 
+def preprocess_just_pad(sketch_root: str, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
+    """
+    仅仅填充
+    :param sketch_root:
+    :param pen_up:
+    :param pen_down:
+    :param is_show_status:
+    :return:
+    """
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心与大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉outlier
+    # sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+
+    # 对于点数大于指定数值的笔划，直接截断
+    sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too long points')
+
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
+    # sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
+
+    # 有效笔划数大于上限时，仅保留长度最长的前 global_def.n_stk 个笔划
+    sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove more stroke')
+
+    # tmp_vis_sketch_list(sketch_data)
+    # vis.vis_sketch_list(sketch_data, True, sketch_root)
+
+    return sketch_data
+
+
 def test_resample():
     sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_root = sketch_test
@@ -644,15 +684,16 @@ if __name__ == '__main__':
     # asketch = pre_process_seg_only(exsketch)
     # tmp_vis_sketch_list(asketch, True)
 
-    # all_sketches = get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
+    # all_sketches = du.get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
     # all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
     # random.shuffle(all_sketches)
     #
     # for c_skh in all_sketches:
-    #     vis.vis_sketch_orig(c_skh, title=c_skh)
-
-        # asketch = pre_process(c_skh)
-        # vis.vis_sketch_list(asketch, True)
+    #     # vis.vis_sketch_orig(c_skh, title=c_skh, show_dot=True, dot_gap=5)
+    #     vis.vis_sketch_orig(c_skh, show_dot=True, dot_gap=5)
+    #
+    #     # asketch = pre_process(c_skh)
+    #     # vis.vis_sketch_list(asketch, True)
 
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'  # merge
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pin\\b9a6e6512939a09d26d8892ff84253eb_1.txt'
