@@ -718,7 +718,7 @@ class SDGraphCls(nn.Module):
 class SDGraphUNet(nn.Module):
     def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
-        print('diff drop 0. (x, y, 1) and (0, 0, -1)')
+        print('diff drop 0. (x, y, 1) and (0, 0, 0)')
 
         '''草图参数'''
         self.channel_in = channel_in

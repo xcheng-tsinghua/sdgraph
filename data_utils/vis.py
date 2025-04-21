@@ -221,20 +221,14 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         plt.savefig(ahead + 'smooth' + ext)
 
 
-def save_format_sketch_test(sketch_points, file_path):
+def save_format_sketch_test(sketch_points, file_path, z_thres=0.5):
     """
     保存设定格式的草图
     :param sketch_points: [2, n_stk * n_stk_pnt]
     :param file_path:
-    :param is_smooth: 是否保存光顺后的草图
+    :param z_thres: z 位置大于该值才判定为有效笔划
     :return:
     """
-
-    def curve_smooth(x, y):
-        tck, u = splprep([x, y], s=0.5)  # s 控制平滑程度
-        new_u = np.linspace(0, 1, 100)
-        new_x, new_y = splev(new_u, tck)
-        return new_x, new_y
 
     n_stk = sketch_points.size(0)
 
@@ -246,7 +240,7 @@ def save_format_sketch_test(sketch_points, file_path):
         c_stk = sketch_points[stk_idx]  # -> [n_stk_pnt, channel]
 
         # 去掉无效点
-        c_stk = c_stk[c_stk[:, 2] >= 0]
+        c_stk = c_stk[c_stk[:, 2] >= z_thres]
 
         plt.plot(c_stk[:, 0], -c_stk[:, 1])
 
