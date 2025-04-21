@@ -237,17 +237,19 @@ def save_format_sketch_test(sketch_points, file_path):
         new_x, new_y = splev(new_u, tck)
         return new_x, new_y
 
-    n_stk = global_defs.n_stk
+    n_stk = sketch_points.size(0)
 
+    # -> [n_stk, n_stk_pnt, channel]
     sketch_points = sketch_points.detach().cpu().numpy()
-
-    # 去掉无效点
-    sketch_points = sketch_points[sketch_points[:, 2] > 0]
 
     plt.clf()
     for stk_idx in range(n_stk):
-        plt.plot(sketch_points[stk_idx, :, 0], -sketch_points[stk_idx, :, 1])
-        # plt.scatter(s[:, 0], -s[:, 1])
+        c_stk = sketch_points[stk_idx]  # -> [n_stk_pnt, channel]
+
+        # 去掉无效点
+        c_stk = c_stk[c_stk[:, 2] >= 0]
+
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
 
     plt.axis('off')
     plt.savefig(file_path)

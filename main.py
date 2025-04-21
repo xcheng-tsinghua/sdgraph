@@ -416,10 +416,23 @@ if __name__ == '__main__':
 
     # print(torch.max(torch.tensor([1, 2, 3, 4, float('nan')])))
 
-    atensor = torch.ones(2, 4)
+    # atensor = torch.ones(2, 4)
+    #
+    # print(atensor)
+    # print(atensor.max(1)[1])
 
-    print(atensor)
-    print(atensor.max(1)[1])
+    arr = np.array([
+        [1.0, 2.0, 3.0],
+        [4.0, 5.0, -1.0],
+        [7.0, 8.0, 0.5],
+        [9.0, 0.0, -2.0]
+    ])
+
+    # 使用布尔索引过滤掉 z < 0 的点
+    filter_idx = arr[:, 2] >= 0
+    filtered_arr = arr[filter_idx]
+
+    print(filtered_arr)
 
 
     pass
