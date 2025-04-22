@@ -311,7 +311,7 @@ class SketchDatasetTotal(Dataset):
         :param n_max_len:
         """
         print('sketch dataset total, from:' + root)
-        self.mode = None
+        self.mode = 'train'
         self.back_mode = back_mode
         self.n_max_len = n_max_len
 

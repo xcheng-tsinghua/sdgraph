@@ -6,56 +6,14 @@ import argparse
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import os
-import numpy as np
 
 # 自建模块
-import global_defs
 from data_utils.sketch_dataset import SketchDatasetTotal
 from encoders.sdgraph import SDGraphCls
-from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
-
-
-def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = './log/false_instance.txt'):
-    """
-    获取全部分类错误的实例路径
-    :param all_preds:
-    :param all_labels:
-    :param all_indexes:
-    :param dataset:
-    :param save_path:
-    :return:
-    """
-    # 将所有batch的预测和真实标签整合在一起
-    all_preds = np.vstack(all_preds)  # 形状为 [n_samples, n_classes]
-    all_labels = np.hstack(all_labels)  # 形状为 [n_samples]
-    all_indexes = np.hstack(all_indexes)  # 形状为 [n_samples]
-
-    # 确保all_labels, all_indexes中保存的为整形数据
-    assert np.issubdtype(all_labels.dtype, np.integer) and np.issubdtype(all_indexes.dtype, np.integer)
-
-    all_preds = np.argmax(all_preds, axis=1)  # -> [n_samples, ]
-    incorrect_index = np.where(all_preds != all_labels)[0]
-    incorrect_index = all_indexes[incorrect_index]
-    incorrect_preds = all_preds[incorrect_index]
-
-    if save_path is not None:
-        with open(save_path, 'w', encoding='utf-8') as f:
-            for c_idx, c_data_idx in enumerate(incorrect_index):
-                # 找到分类错误的类型：
-                false_class = ''
-                for k, v in dataset.classes.items():
-                    if incorrect_preds[c_idx] == v:
-                        false_class = k
-                        break
-
-                f.write(dataset.datapath[c_data_idx][1] + ' | ' + false_class + '\n')
-
-        print('save incorrect cls instance: ', save_path)
+from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
 def parse_args():
-    '''PARAMETERS'''
-    # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
@@ -82,7 +40,6 @@ def parse_args():
     /opt/data/private/data_set/TU_Berlin/raw/svg
     
     '''
-
     return parser.parse_args()
 
 
@@ -108,13 +65,10 @@ def main(args):
         data_root = args.root_sever
 
     dataset = SketchDatasetTotal(data_root)
-    dataset.set_mode('train')
-    num_class = len(dataset.classes)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
-    classifier = SDGraphCls(num_class).cuda()
-
+    classifier = SDGraphCls(len(dataset.classes)).cuda()
     if args.is_load_weight == 'True':
         try:
             classifier.load_state_dict(torch.load(model_savepth))
@@ -150,6 +104,7 @@ def main(args):
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
+            # 模型传入数据，获取输出，并计算loss
             pred = classifier(points)
             loss = F.nll_loss(pred, target)
 
@@ -208,5 +163,4 @@ if __name__ == '__main__':
     clear_confusion('./data_utils/confusion')
     init(autoreset=True)
     main(parse_args())
-
 
