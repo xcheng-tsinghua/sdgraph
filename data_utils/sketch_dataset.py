@@ -357,6 +357,14 @@ class SketchDatasetTotal(Dataset):
         S5: [n_max_len, 5], [n_max_len, ]
         """
 
+        while True:
+            try:
+                sketch_cube, mask, cls = self.get_data(index)
+                return sketch_cube, mask, cls
+            except:
+                index = self.next_index(index)
+
+    def get_data(self, index):
         if self.mode == 'train':
             datapath = self.datapath_train
         elif self.mode == 'test':
@@ -376,6 +384,14 @@ class SketchDatasetTotal(Dataset):
             raise TypeError('error back mode')
 
         return sketch_cube, mask, cls
+
+    def next_index(self, index):
+        max_index = self.__len__()
+
+        if index + 1 < max_index:
+            return index + 1
+        else:
+            return 0
 
     def __len__(self):
         if self.mode == 'train':

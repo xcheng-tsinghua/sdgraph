@@ -10,6 +10,9 @@ from tqdm import tqdm
 import requests
 import torch
 from matplotlib.collections import LineCollection
+import re
+import xml.etree.ElementTree as ET
+from typing import List, Tuple, Union
 
 import global_defs
 import encoders.spline as sp
@@ -203,14 +206,16 @@ def sketch_std(sketch):
 
 
 def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
-    try:
-        paths, attributes, svg_attributes = svg2paths2(svg_path)
-    except:
-        print('error read file ------', svg_path)
-        exit(0)
+    """
+    从 svg 文件读取草图
+    :param svg_path:
+    :param pen_down:
+    :param pen_up:
+    :return: [n, 3] (x, y, s)
+    """
+    paths, attributes, svg_attributes = svg2paths2(svg_path)
 
     strokes = []
-
     for path, attr in zip(paths, attributes):
         if len(path) == 0:
             continue

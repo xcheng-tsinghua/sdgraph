@@ -888,7 +888,8 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_4.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
 
-    thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\sword\16974.svg'
+    # thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\sword\16974.svg'
+    thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\cigarette\4262.svg'  # false read<path id="12" d="M447,253C447,253 NaN,NaN 447,256CNaN,NaN 446.9427050983125,253.05729490168753 447,253C447.0190983005625,252.98090169943748 449,254 449,254"/>
 
     vis.vis_sketch_orig(thefile, title='sketch_orig')
 
