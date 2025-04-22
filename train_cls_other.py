@@ -14,10 +14,8 @@ import numpy as np
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import SketchDataset2
-# from encoders.sdgraph3 import SDGraphCls as SDGraphCls
-# from encoders.sdgraph2 import SDGraphCls as SDGraphCls
-# from encoders.sdgraph import SDGraphCls
 from encoders.SketchTransformer import SketchTransformerCls
+from encoders.SketchRNN import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
 
@@ -40,7 +38,8 @@ def parse_args():
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--save_str', type=str, default='sketch_transformer')
+    parser.add_argument('--save_str', type=str, default='sketch_rnn')
+    parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer'])
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls')
@@ -135,12 +134,12 @@ def main(args):
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
     '''加载模型及权重'''
-    classifier = SketchTransformerCls(num_class).cuda()
-    # classifier = PointNet2(num_class)
-    # classifier = DGCNN(num_class)
-    # classifier = Attention(num_class)
-    # classifier = pointnet(num_class)
-    # loss_func = get_loss().cuda()
+    if args.model == 'SketchRNN':
+        classifier = SketchRNN_Cls(num_class).cuda()
+    elif args.model == 'SketchTransformer':
+        classifier = SketchTransformerCls(num_class).cuda()
+    else:
+        raise TypeError('error model type')
 
     if args.is_load_weight == 'True':
         try:

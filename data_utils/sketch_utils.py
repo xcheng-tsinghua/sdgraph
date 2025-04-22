@@ -235,6 +235,13 @@ def svg_to_txt(svg_path, txt_path):
 
             strokes.append(points)
 
+    for c_stk in strokes:
+        c_stk = np.array(c_stk)
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+
+    plt.axis('equal')
+    plt.show()
+
     with open(txt_path, 'w') as f:
         for stroke_idx, stroke in enumerate(strokes):
             for i, (x, y) in enumerate(stroke):
@@ -1110,7 +1117,14 @@ def is_sketch_unified(stroke_list, thres=1e-5):
         print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
 
 
-def txt_to_S5(root_txt, max_length):
+def txt_to_S5(root_txt, max_length, coor_mode='ABS'):
+    """
+    将草图转换为 S5 格式，(x, y, s1, s2, s3)
+    :param root_txt:
+    :param max_length:
+    :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
+    :return:
+    """
     data_raw = np.loadtxt(root_txt, delimiter=',')
 
     # 多于指定点数则进行采样
@@ -1120,6 +1134,19 @@ def txt_to_S5(root_txt, max_length):
         data_raw = data_raw[choice, :]
 
     data_raw = sketch_std(data_raw)
+
+    # 相对坐标
+    if coor_mode == 'REL':
+        coordinate = data_raw[:, :2]
+        coordinate[1:] = coordinate[1:] - coordinate[:-1]
+        data_raw[:, :2] = coordinate
+
+    elif coor_mode == 'ABS':
+        # 无需处理
+        pass
+
+    else:
+        raise TypeError('error coor mode')
 
     c_sketch_len = len(data_raw)
     data_raw = torch.from_numpy(data_raw)
@@ -1184,6 +1211,8 @@ if __name__ == '__main__':
     #     asketch = pre_process_seg_only(c_skh)
     #     tmp_vis_sketch_list(asketch, True)
 
+    svg_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg'
+    svg_to_txt(svg_root, '')
 
     pass
 

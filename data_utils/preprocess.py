@@ -863,15 +863,15 @@ if __name__ == '__main__':
     # tmp_vis_sketch_list(asketch, True)
 
     # all_sketches = du.get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
-    # all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
-    # random.shuffle(all_sketches)
-    #
-    # for c_skh in all_sketches:
-    #     # vis.vis_sketch_orig(c_skh, title=c_skh, show_dot=True, dot_gap=5)
-    #     vis.vis_sketch_orig(c_skh, show_dot=True, dot_gap=5)
-    #
-    #     # asketch = pre_process(c_skh)
-    #     # vis.vis_sketch_list(asketch, True)
+    all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+    random.shuffle(all_sketches)
+
+    for c_skh in all_sketches:
+        # vis.vis_sketch_orig(c_skh, title=c_skh, show_dot=True, dot_gap=5)
+        vis.vis_sketch_orig(c_skh, show_dot=True, dot_gap=5)
+
+        asketch = preprocess_force_seg_merge(c_skh)
+        vis.vis_unified_sketch_data(asketch.reshape([-1, 2]))
 
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'  # merge
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pin\\b9a6e6512939a09d26d8892ff84253eb_1.txt'

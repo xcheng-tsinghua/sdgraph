@@ -10,6 +10,7 @@ from tqdm import tqdm
 import einops
 from torch.nn import Module
 import argparse
+import torch.nn.functional as F
 
 
 def sketch_plot(data):
@@ -17,6 +18,67 @@ def sketch_plot(data):
     plt.plot(data[:, 0, 0], data[:, 0, 1])
 
     plt.show()
+
+
+def parse_args():
+    '''PARAMETERS'''
+    # 输入参数如下：
+    parser = argparse.ArgumentParser('training')
+
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
+    parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
+    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+
+    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', help='npz file root')
+
+    return parser.parse_args()
+
+
+def reconstruction_loss(mask: torch.Tensor,
+                target: torch.Tensor,
+                dist: 'BivariateGaussianMixture',
+                q_logits: torch.Tensor):
+    # Get $\Pi$ and $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$
+    pi, mix = dist.get_distribution()
+    # `target` has shape `[seq_len, batch_size, 5]` where the last dimension is the features
+    # $(\Delta x, \Delta y, p_1, p_2, p_3)$.
+    # We want to get $\Delta x, \Delta$ y and get the probabilities from each of the distributions
+    # in the mixture $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$.
+    #
+    # `xy` will have shape `[seq_len, batch_size, n_distributions, 2]`
+    xy = target[:, :, 0:2].unsqueeze(-2).expand(-1, -1, dist.n_distributions, -1)
+    # Calculate the probabilities
+    # $$p(\Delta x, \Delta y) =
+    # \sum_{j=1}^M \Pi_j \mathcal{N} \big( \Delta x, \Delta y \vert
+    # \mu_{x,j}, \mu_{y,j}, \sigma_{x,j}, \sigma_{y,j}, \rho_{xy,j}
+    # \big)$$
+    probs = torch.sum(pi.probs * torch.exp(mix.log_prob(xy)), 2)
+
+    # $$L_s = - \frac{1}{N_{max}} \sum_{i=1}^{N_s} \log \big (p(\Delta x, \Delta y) \big)$$
+    # Although `probs` has $N_{max}$ (`longest_seq_len`) elements, the sum is only taken
+    # upto $N_s$ because the rest is masked out.
+    #
+    # It might feel like we should be taking the sum and dividing by $N_s$ and not $N_{max}$,
+    # but this will give higher weight for individual predictions in shorter sequences.
+    # We give equal weight to each prediction $p(\Delta x, \Delta y)$ when we divide by $N_{max}$
+    loss_stroke = -torch.mean(mask * torch.log(1e-5 + probs))
+
+    # $$L_p = - \frac{1}{N_{max}} \sum_{i=1}^{N_{max}} \sum_{k=1}^{3} p_{k,i} \log(q_{k,i})$$
+    loss_pen = -torch.mean(target[:, :, 2:] * q_logits)
+
+    # $$L_R = L_s + L_p$$
+    return loss_stroke + loss_pen
+
+
+def kl_div_loss(sigma_hat: torch.Tensor, mu: torch.Tensor):
+    """
+    ## KL-Divergence loss
+
+    This calculates the KL divergence between a given normal distribution and $\mathcal{N}(0, 1)$
+    """
+    # $$L_{KL} = - \frac{1}{2 N_z} \bigg( 1 + \hat{\sigma} - \mu^2 - \exp(\hat{\sigma}) \bigg)$$
+    return -0.5 * torch.mean(1 + sigma_hat - mu ** 2 - torch.exp(sigma_hat))
 
 
 class SketchRNNEmbedding(Module):
@@ -56,19 +118,37 @@ class SketchRNNEmbedding(Module):
         return emb
 
 
-def parse_args():
-    '''PARAMETERS'''
-    # 输入参数如下：
-    parser = argparse.ArgumentParser('training')
+class SketchRNN_Cls(Module):
+    def __init__(self, n_classes: int, dropout=0.4):
+        super().__init__()
+        print('create sketch_rnn classifier')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
-    parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+        self.encoder = SketchRNNEmbedding()
 
-    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', help='npz file root')
+        channel_l0 = 512
+        channel_l1 = int((channel_l0 * n_classes) ** 0.5)
+        channel_l2 = n_classes
 
-    return parser.parse_args()
+        self.linear = nn.Sequential(
+            nn.BatchNorm1d(channel_l0),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Linear(channel_l0, channel_l1),
+            nn.BatchNorm1d(channel_l1),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Linear(channel_l1, channel_l2),
+        )
+
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor=None):
+        fea = self.encoder(inputs, mask)
+        fea = self.linear(fea)
+
+        fea = F.log_softmax(fea, dim=1)
+
+        return fea
 
 
 class StrokesDataset(Dataset):
@@ -337,52 +417,6 @@ class DecoderRNN(Module):
                                         torch.exp(sigma_x), torch.exp(sigma_y), torch.tanh(rho_xy))
 
         return dist, q_logits, state
-
-
-def reconstruction_loss(mask: torch.Tensor,
-                target: torch.Tensor,
-                dist: 'BivariateGaussianMixture',
-                q_logits: torch.Tensor):
-    # Get $\Pi$ and $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$
-    pi, mix = dist.get_distribution()
-    # `target` has shape `[seq_len, batch_size, 5]` where the last dimension is the features
-    # $(\Delta x, \Delta y, p_1, p_2, p_3)$.
-    # We want to get $\Delta x, \Delta$ y and get the probabilities from each of the distributions
-    # in the mixture $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$.
-    #
-    # `xy` will have shape `[seq_len, batch_size, n_distributions, 2]`
-    xy = target[:, :, 0:2].unsqueeze(-2).expand(-1, -1, dist.n_distributions, -1)
-    # Calculate the probabilities
-    # $$p(\Delta x, \Delta y) =
-    # \sum_{j=1}^M \Pi_j \mathcal{N} \big( \Delta x, \Delta y \vert
-    # \mu_{x,j}, \mu_{y,j}, \sigma_{x,j}, \sigma_{y,j}, \rho_{xy,j}
-    # \big)$$
-    probs = torch.sum(pi.probs * torch.exp(mix.log_prob(xy)), 2)
-
-    # $$L_s = - \frac{1}{N_{max}} \sum_{i=1}^{N_s} \log \big (p(\Delta x, \Delta y) \big)$$
-    # Although `probs` has $N_{max}$ (`longest_seq_len`) elements, the sum is only taken
-    # upto $N_s$ because the rest is masked out.
-    #
-    # It might feel like we should be taking the sum and dividing by $N_s$ and not $N_{max}$,
-    # but this will give higher weight for individual predictions in shorter sequences.
-    # We give equal weight to each prediction $p(\Delta x, \Delta y)$ when we divide by $N_{max}$
-    loss_stroke = -torch.mean(mask * torch.log(1e-5 + probs))
-
-    # $$L_p = - \frac{1}{N_{max}} \sum_{i=1}^{N_{max}} \sum_{k=1}^{3} p_{k,i} \log(q_{k,i})$$
-    loss_pen = -torch.mean(target[:, :, 2:] * q_logits)
-
-    # $$L_R = L_s + L_p$$
-    return loss_stroke + loss_pen
-
-
-def kl_div_loss(sigma_hat: torch.Tensor, mu: torch.Tensor):
-    """
-    ## KL-Divergence loss
-
-    This calculates the KL divergence between a given normal distribution and $\mathcal{N}(0, 1)$
-    """
-    # $$L_{KL} = - \frac{1}{2 N_z} \bigg( 1 + \hat{\sigma} - \mu^2 - \exp(\hat{\sigma}) \bigg)$$
-    return -0.5 * torch.mean(1 + sigma_hat - mu ** 2 - torch.exp(sigma_hat))
 
 
 class Sampler(object):

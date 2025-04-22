@@ -485,7 +485,7 @@ class QuickdrawDataset(Dataset):
         sketch = sketch[:, :3]
 
         # 去掉第一行最后一行
-        sketch = sketch[1:-1, :]
+        sketch = sketch[1: -1, :]
         mask = mask[1:]
 
         sketch = sketch[mask == 1]

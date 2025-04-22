@@ -435,13 +435,20 @@ if __name__ == '__main__':
     #
     # print(filtered_arr)
 
-    alist = []
+    # alist = []
+    #
+    # for i in range(10):
+    #     alist.append(numpy.zeros([13, 2]))
+    #
+    # print(alist)
+    # print(np.array(alist).shape)
 
-    for i in range(10):
-        alist.append(numpy.zeros([13, 2]))
+    anda = np.ones([10, 2])
 
-    print(alist)
-    print(np.array(alist).shape)
+    adad = np.cumsum(anda, axis=0)
+
+    print(adad)
+    print(adad.shape)
 
 
     pass
