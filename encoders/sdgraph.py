@@ -64,13 +64,11 @@ class SDGraphCls(nn.Module):
 
     def forward(self, xy):
         """
-        :param xy: [bs, 2, n_skh_pnt]
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
         :return: [bs, n_classes]
         """
-        xy = xy[:, :2, :]
-
-        bs, channel, n_point = xy.size()
-        assert n_point == self.n_stk * self.n_stk_pnt and channel == 2
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == 2
 
         # 生成初始 sparse graph
         sparse_graph0 = self.point_to_sparse(xy)
@@ -78,7 +76,7 @@ class SDGraphCls(nn.Module):
 
         # 生成初始 dense graph
         dense_graph0 = self.point_to_dense(xy)
-        assert dense_graph0.size()[2] == n_point
+        assert dense_graph0.size()[2] == n_stk * n_stk_pnt
 
         # 交叉更新数据
         sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)

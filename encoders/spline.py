@@ -73,8 +73,13 @@ class LinearInterp(object):
             last_pnt = self.stk_points[-1]
             last_former_pnt = interp_points[-1]
 
-            interp_pnt = 2 * last_pnt - last_former_pnt
-            interp_points.append(interp_pnt)
+            interp_dir = last_pnt - last_former_pnt
+            norm = np.linalg.norm(interp_dir)
+
+            if norm > 1e-5:
+                interp_dir = interp_dir / norm
+                interp_pnt = last_former_pnt + interp_dir * dist
+                interp_points.append(interp_pnt)
 
             return np.vstack(interp_points)
 

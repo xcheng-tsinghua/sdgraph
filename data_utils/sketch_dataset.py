@@ -16,6 +16,8 @@ unified_std 草图：
 保存方式与 std 草图类似，不同点在于 unified_std 草图中不同草图的笔划数及笔划上的点数相同
 
 """
+import random
+import math
 import numpy as np
 from torch.utils.data import Dataset
 import torch
@@ -267,6 +269,132 @@ class SketchDataset2(Dataset):
                         break
 
         return format_fit
+
+
+class SketchDatasetTotal(Dataset):
+    """
+    无需分割训练集、测试集，将数据放在一起即可自动按比例划分
+    定位文件的路径如下：
+    root
+    ├─ Bushes
+    │   ├─0.suffix
+    │   ├─1.suffix
+    │   ...
+    │
+    ├─ Clamps
+    │   ├─0.suffix
+    │   ├─1.suffix
+    │   ...
+    │
+    ├─ Bearing
+    │   ├─0.suffix
+    │   ├─1.suffix
+    │   ...
+    │
+    ...
+
+    """
+    def __init__(self,
+                 root,
+                 test_ratio=0.2,
+                 suffix='svg',
+                 is_random_divide=False,
+                 back_mode='STK',
+                 n_max_len=200,
+                 ):
+        """
+        :param root:
+        :param test_ratio: 测试集占总数据比例
+        :param suffix: 数据文件后缀
+        :param is_random_divide: 分割训练集测试集时是否随机
+        :param back_mode: ['STK', 'S5']. 'STK': [n_stk, n_stk_pnt, 2], 'S5': data: [n_max_len, 5], mask: [n_max_len, ]
+        :param n_max_len:
+        """
+        print('sketch dataset total, from:' + root)
+        self.mode = None
+        self.back_mode = back_mode
+        self.n_max_len = n_max_len
+
+        # 获取全部类别列表，即 root 内的全部文件夹名
+        category_all = get_subdirs(root)
+        category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
+
+        for c_class in category_all:
+            class_root = os.path.join(root, c_class)
+            file_path_all = get_allfiles(class_root, suffix)
+
+            category_path[c_class] = file_path_all
+
+        self.datapath_train = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
+        self.datapath_test = []
+        for item in category_path:  # item 为字典的键，即类型‘plane','car'
+            c_class_path_list = category_path[item]
+
+            if is_random_divide:
+                random.shuffle(c_class_path_list)
+
+            n_instance = len(c_class_path_list)
+            n_test = math.ceil(test_ratio * n_instance)
+
+            for i in range(n_instance):
+                if i < n_test:
+                    self.datapath_test.append((item, c_class_path_list[i]))
+                else:
+                    self.datapath_train.append((item, c_class_path_list[i]))
+
+        # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0, 1
+        self.classes = dict(zip(sorted(category_path), range(len(category_path))))
+
+        print(self.classes)
+        print('number of training instance all:', len(self.datapath_train))
+        print('number of testing instance all:', len(self.datapath_test))
+        print('number of classes all:', len(self.classes))
+
+    def __getitem__(self, index):
+        """
+        :return:
+        STK: [n_stk, n_stk_pnt, 2], Null
+        S5: [n_max_len, 5], [n_max_len, ]
+        """
+
+        if self.mode == 'train':
+            datapath = self.datapath_train
+        elif self.mode == 'test':
+            datapath = self.datapath_test
+        else:
+            raise TypeError('error dataset mode')
+
+        fn = datapath[index]  # (‘plane’, Path1)
+        cls = self.classes[fn[0]]  # 表示类别的整形数字
+
+        if self.back_mode == 'STK':
+            sketch_cube = pp.preprocess_force_seg_merge(fn[1])
+            mask = cls
+        elif self.back_mode == 'S5':
+            sketch_cube, mask = du.txt_to_S5(fn[1], self.n_max_len)
+        else:
+            raise TypeError('error back mode')
+
+        return sketch_cube, mask, cls
+
+    def __len__(self):
+        if self.mode == 'train':
+            return len(self.datapath_train)
+        elif self.mode == 'test':
+            return len(self.datapath_test)
+        else:
+            raise TypeError('error dataset mode')
+
+    def n_classes(self):
+        return len(self.classes)
+
+    def set_mode(self, mode):
+        """
+        设置数据集模式，即训练集还是测试集
+        :param mode: ['train', 'test']
+        :return:
+        """
+        self.mode = mode
 
 
 class DiffDataset(Dataset):

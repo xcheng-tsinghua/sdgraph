@@ -1,3 +1,5 @@
+import random
+import math
 import numpy
 import torch
 import torch.nn as nn
@@ -443,13 +445,19 @@ if __name__ == '__main__':
     # print(alist)
     # print(np.array(alist).shape)
 
-    anda = np.ones([10, 2])
+    # anda = np.ones([10, 2])
+    #
+    # adad = np.cumsum(anda, axis=0)
+    #
+    # print(adad)
+    # print(adad.shape)
 
-    adad = np.cumsum(anda, axis=0)
+    test_list = list(range(10))
+    print(test_list)
+    random.shuffle(test_list)
+    print(test_list)
 
-    print(adad)
-    print(adad.shape)
-
+    print(math.ceil(0.21 * 10))
 
     pass
 

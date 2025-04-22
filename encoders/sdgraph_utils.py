@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import math
 from einops import rearrange
 
-from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func
+from encoders.utils import full_connected_conv1d, full_connected_conv2d, activate_func, index_points
 import global_defs
 
 
@@ -12,7 +12,7 @@ class SDGraphEncoder(nn.Module):
     def __init__(self,
                  sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
                  n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
-                 sp_near=10, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sp_near=2, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
                  sample_type='down_sample',  # 采样类型
                  with_time=False, time_emb_dim=0,  # 是否附加时间步
                  dropout=0.4
@@ -77,47 +77,91 @@ class SDGraphEncoder(nn.Module):
         return union_sparse, union_dense
 
 
-def knn(x, k):
+# def knn(x, k):
+#     """
+#     找到最近的点的索引，包含自身
+#     :param x: [bs, 2, n_point]
+#     :param k:
+#     :return: [batch_size, num_points, k]
+#     """
+#     # -> x: [bs, 2, n_point]
+#
+#     inner = -2 * torch.matmul(x.transpose(2, 1), x)
+#     xx = torch.sum(x ** 2, dim=1, keepdim=True)
+#     pairwise_distance = -xx - inner - xx.transpose(2, 1)
+#
+#     idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
+#     return idx
+
+
+def knn(vertices, neighbor_num):
     """
-    找到最近的点的索引，包含自身
-    :param x: [bs, 2, n_point]
+    找到最近的点的索引，不包含自身
+    :param vertices: [bs, n_point, 2]
+    :param neighbor_num:
+    :return: [bs, n_point, k]
+    """
+    bs, n_point, _ = vertices.size()
+
+    inner = torch.bmm(vertices, vertices.transpose(1, 2))  # (bs, v, v)
+    quadratic = torch.sum(vertices**2, dim=2)  # (bs, v)
+    distance = inner * (-2) + quadratic.unsqueeze(1) + quadratic.unsqueeze(2)
+
+    neighbor_index = torch.topk(distance, k=neighbor_num + 1, dim=-1, largest=False)[1]
+    neighbor_index = neighbor_index[:, :, 1:]
+
+    return neighbor_index
+
+
+# def get_graph_feature(x, k, idx=None):
+#     # -> x: [bs, 2, n_point]
+#
+#     batch_size, channel, num_points = x.size()
+#
+#     x = x.view(batch_size, -1, num_points)
+#     if idx is None:
+#         idx = knn(x, k=k)  # (batch_size, num_points, k)
+#     device = x.device
+#
+#     idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
+#
+#     idx = idx + idx_base
+#
+#     idx = idx.view(-1)
+#
+#     _, num_dims, _ = x.size()
+#
+#     x = x.transpose(2, 1).contiguous()
+#     feature = x.view(batch_size * num_points, -1)[idx, :]
+#     feature = feature.view(batch_size, num_points, k, num_dims)
+#     x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+#
+#     feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2)
+#
+#     return feature
+
+
+def get_graph_feature(x, k):
+    """
+    找到x中每个点附近的k个点，然后计算中心点到附近点的向量，然后拼接在一起
+    :param x: [bs, channel, n_point]
     :param k:
-    :return: [batch_size, num_points, k]
+    :return: [bs, channel, n_point, n_near]
     """
-    # -> x: [bs, 2, n_point]
+    x = x.permute(0, 2, 1)  # -> [bs, n_point, channel]
 
-    inner = -2 * torch.matmul(x.transpose(2, 1), x)
-    xx = torch.sum(x ** 2, dim=1, keepdim=True)
-    pairwise_distance = -xx - inner - xx.transpose(2, 1)
+    # step1: 通过knn计算附近点坐标，邻近点不包含自身
+    knn_idx = knn(x, k)  # (batch_size, num_points, k)
 
-    idx = pairwise_distance.topk(k=k, dim=-1)[1]  # (batch_size, num_points, k)
-    return idx
+    # step2: 找到附近点
+    neighbors = index_points(x, knn_idx)  # -> [bs, n_point, k, channel]
 
+    # step3: 计算向量
+    cen_to_nei = neighbors - x.unsqueeze(2)  # -> [bs, n_point, k, channel]
 
-def get_graph_feature(x, k=20, idx=None):
-    # -> x: [bs, 2, n_point]
-
-    batch_size, channel, num_points = x.size()
-
-    x = x.view(batch_size, -1, num_points)
-    if idx is None:
-        idx = knn(x, k=k)  # (batch_size, num_points, k)
-    device = x.device
-
-    idx_base = torch.arange(0, batch_size, device=device).view(-1, 1, 1) * num_points
-
-    idx = idx + idx_base
-
-    idx = idx.view(-1)
-
-    _, num_dims, _ = x.size()
-
-    x = x.transpose(2, 1).contiguous()
-    feature = x.view(batch_size * num_points, -1)[idx, :]
-    feature = feature.view(batch_size, num_points, k, num_dims)
-    x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
-
-    feature = torch.cat((feature - x, x), dim=3).permute(0, 3, 1, 2)
+    # step4: 拼接特征
+    feature = torch.cat([cen_to_nei, x.unsqueeze(2).repeat(1, 1, k, 1)], dim=3)  # -> [bs, n_point, k, channel]
+    feature = feature.permute(0, 3, 1, 2)  # -> [bs, channel, n_point, k]
 
     return feature
 
@@ -126,7 +170,7 @@ class GCNEncoder(nn.Module):
     """
     实际上是 DGCNN Encoder
     """
-    def __init__(self, emb_in, emb_out, n_near=10,):
+    def __init__(self, emb_in, emb_out, n_near=10):
         super().__init__()
         self.n_near = n_near
 
@@ -368,14 +412,12 @@ class PointToSparse(nn.Module):
 
     def forward(self, xy, time_emb=None):
         """
-        :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
         :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk]
         """
-        bs, emb, _ = xy.size()
-
         # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = xy.view(bs, emb, self.n_stk, self.n_stk_pnt)
+        xy = xy.permute(0, 3, 1, 2)
 
         # -> [bs, emb, n_stk, n_stk_pnt]
         xy = self.point_increase(xy)
@@ -406,10 +448,14 @@ class PointToDense(nn.Module):
 
     def forward(self, xy, time_emb=None):
         """
-        :param xy: [bs, emb, n_stk * n_stk_pnt]
+        :param xy: [bs, n_stk, n_stk_pnt, 2]
         :param time_emb: [bs, emb]
         :return: [bs, emb, n_stk * n_stk_pnt]
         """
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+        xy = xy.view(bs, n_stk * n_stk_pnt, channel)
+        xy = xy.permute(0, 2, 1)  # -> [bs, channel, n_skh_pnt]
+
         dense_emb = self.encoder(xy)
 
         assert self.with_time ^ (time_emb is None)

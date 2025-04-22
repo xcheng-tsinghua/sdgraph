@@ -9,6 +9,7 @@ import math
 from tqdm import tqdm
 import requests
 import torch
+from matplotlib.collections import LineCollection
 
 import global_defs
 import encoders.spline as sp
@@ -201,7 +202,7 @@ def sketch_std(sketch):
         raise TypeError('error sketch type')
 
 
-def svg_to_txt(svg_path, txt_path):
+def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
     paths, attributes, svg_attributes = svg2paths2(svg_path)
     strokes = []
 
@@ -235,21 +236,74 @@ def svg_to_txt(svg_path, txt_path):
 
             strokes.append(points)
 
+    stroke_list_np = []
     for c_stk in strokes:
         c_stk = np.array(c_stk)
-        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+        n = len(c_stk)
+        ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
+        ones_col[-1, 0] = pen_up
+        c_stk = np.hstack((c_stk, ones_col))
 
-    plt.axis('equal')
-    plt.show()
+        stroke_list_np.append(c_stk)
 
-    with open(txt_path, 'w') as f:
-        for stroke_idx, stroke in enumerate(strokes):
-            for i, (x, y) in enumerate(stroke):
-                # 笔划状态判断（当前笔划的最后一个点标记s=0）
-                s = 0 if (i == len(stroke) - 1) and (stroke_idx != len(strokes) - 1) else 1
+    stroke_list_np = np.vstack(stroke_list_np)
 
-                # 写入文件，保留3位小数
-                f.write(f"{round(x, 3):.3f},{round(y, 3):.3f},{s}\n")
+    return stroke_list_np
+
+
+def svg_to_txt(svg_path, txt_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
+    svg_data = svg_read(svg_path, pen_down, pen_up)
+    # np.savetxt(txt_path, svg_data, fmt="%.5f", delimiter=delimiter)
+    np.savetxt(txt_path, svg_data, delimiter=delimiter)
+
+    # paths, attributes, svg_attributes = svg2paths2(svg_path)
+    # strokes = []
+    #
+    # for path, attr in zip(paths, attributes):
+    #     if len(path) == 0:
+    #         continue
+    #
+    #     # 分割子路径（处理M/m移动命令）
+    #     subpaths = []
+    #     current_subpath = []
+    #
+    #     for segment in path:
+    #         if segment.start != (current_subpath[-1].end if current_subpath else None):
+    #             if current_subpath:
+    #                 subpaths.append(current_subpath)
+    #             current_subpath = []
+    #         current_subpath.append(segment)
+    #
+    #     if current_subpath:
+    #         subpaths.append(current_subpath)
+    #
+    #     # 处理每个子路径
+    #     for subpath in subpaths:
+    #         points = []
+    #         # 添加第一个线段的起点
+    #         points.append((subpath[0].start.real, subpath[0].start.imag))
+    #
+    #         # 添加所有线段的终点
+    #         for segment in subpath:
+    #             points.append((segment.end.real, segment.end.imag))
+    #
+    #         strokes.append(points)
+    #
+    # # for c_stk in strokes:
+    # #     c_stk = np.array(c_stk)
+    # #     plt.plot(c_stk[:, 0], -c_stk[:, 1])
+    # #
+    # # plt.axis('equal')
+    # # plt.show()
+    #
+    # with open(txt_path, 'w') as f:
+    #     for stroke_idx, stroke in enumerate(strokes):
+    #         for i, (x, y) in enumerate(stroke):
+    #             # 笔划状态判断（当前笔划的最后一个点标记s=0）
+    #             s = 0 if (i == len(stroke) - 1) and (stroke_idx != len(strokes) - 1) else 1
+    #
+    #             # 写入文件，保留3位小数
+    #             f.write(f"{round(x, 3):.3f},{round(y, 3):.3f},{s}\n")
 
 
 def svg_to_txt_batched(source_dir, target_dir):
@@ -443,19 +497,22 @@ def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -
     """
     将 stroke（n×2 的 ndarray）中的分割点 splits_raw 根据距离阈值 dist_thres 进行合并，
     返回每个分割组中间的索引列表。
+    :param stroke: stroke points
+    :param splits_raw: [(idx, straw), ...]
+    :param dist_thres: 分割点组之间的距离必须大于该值
     """
     if len(splits_raw) == 0 or len(splits_raw) >= stroke.shape[0]:
         return []
 
     if len(splits_raw) == 1:
-        return splits_raw
+        return [splits_raw[0][0]]
 
     # 将索引转化为索引与起点到该索引点距离的元组，用于集群表示
     idx_and_arclen = []
-    for c_split in splits_raw:
+    for c_split, c_straw in splits_raw:
         arc_len = stroke_length(stroke[:c_split + 1, :])
 
-        idx_and_arclen.append((c_split, arc_len))
+        idx_and_arclen.append((c_split, arc_len, c_straw))
 
     groups = []       # 最终的分组列表
     current_group = [idx_and_arclen[0]]  # 当前分组，初始放入第一个元组
@@ -473,16 +530,16 @@ def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -
     # 添加最后一个分组
     groups.append(current_group)
 
-    # 取各组的中间值
+    # 取各组的short straw最短的一个
     merged_idx = []
     for c_group in groups:
         if len(c_group) == 1:
             merged_idx.append(c_group[0][0])
         else:
-            idx_left = c_group[0][0]
-            idx_right = c_group[-1][0]
-
-            merged_idx.append((idx_left + idx_right) // 2)
+            # idx_left = c_group[0][0]
+            # idx_right = c_group[-1][0]
+            min_tuple = min(c_group, key=lambda t: t[1])
+            merged_idx.append(min_tuple[0])
 
     return merged_idx
 
@@ -531,6 +588,20 @@ def merge_point_group(stroke: np.ndarray, splits_raw: list, dist_thres: float) -
     # return split_idx
 
 
+def split_continue(arr, breaks):
+    # 总行数
+    n = arr.shape[0]
+
+    # 起止索引
+    starts = [0] + breaks  # [0, 3, 6]
+    ends = [b + 1 for b in breaks] + [n]  # [4, 7, 10]
+
+    # 生成带重叠边界的子数组列表
+    segments = [arr[s:e] for s, e in zip(starts, ends)]
+
+    return segments
+
+
 def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False, is_resample=True):
     """
     利用short straw进行角点分割，使用前必须将草图进行归一化至质心(0, 0)，范围[-1, 1]^2
@@ -538,16 +609,14 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     :param resp_dist: 重采样间隔 [0, 1]
     :return:
     """
-    thres = 1e-2
-    if 1 - np.max(stroke) >= -thres and np.min(stroke) + 1 >= -thres:
-        pass
-    else:
-        print(f'max: {np.max(stroke)}, and min: {np.min(stroke)}')
+    thres_unify_judge = 1e-2
+    # if 1 - np.max(stroke) >= -thres_unify_judge and np.min(stroke) + 1 >= -thres_unify_judge:
+    #     pass
+    # else:
+    #     print(f'max: {np.max(stroke)}, and min: {np.min(stroke)}')
 
     # 辅助检测草图是否被归一化过
-    # max_val = np.max(stroke)
-    # min_val = np.min(stroke)
-    assert 1 - np.max(stroke) >= -thres and np.min(stroke) + 1 >= -thres
+    assert 1 - np.max(stroke) >= -thres_unify_judge and np.min(stroke) + 1 >= -thres_unify_judge
 
     assert stroke.shape[1] == 2
 
@@ -573,6 +642,9 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     n_resample = len(resample_stk)
     half_window = window_width // 2
 
+    straws_all = []
+    straws_all.extend([0] * half_window)
+
     for i in range(half_window, n_resample - half_window):
         window_left = i - half_window
         window_right = i + half_window
@@ -582,26 +654,47 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
         c_straw = np.linalg.norm(pnt_left - pnt_right)
         straw_and_idx.append((c_straw, i))
 
+        straws_all.append(c_straw)
+
         if is_show_status:
             all_straw.append(c_straw)
 
         if c_straw > straw_base:
             straw_base = c_straw
 
+        # if c_straw > 0.0225:
+        #     asas = 0
+
+    straws_all.extend([0] * half_window)
+
     # Step 3: 根据 straw 阈值确定角点
     straw_thres = straw_base * thres
-    m_corners_idx = [idx for (straw, idx) in straw_and_idx if straw < straw_thres]
+    m_corners_idx = [(idx, straw) for (straw, idx) in straw_and_idx if straw < straw_thres]
 
     # Step 4: 合并过于接近的角点
     m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
 
     # Step 5: 根据角点分割重采样后的笔画
-    splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+    # splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+    splited_stk = split_continue(resample_stk, m_corners_idx)
 
     if is_show_status:
         fig, axs = plt.subplots(1, 2)
 
-        axs[0].plot(stroke[:, 0], -stroke[:, 1])
+        x = stroke[:, 0]
+        y = -stroke[:, 1]
+        c = straws_all
+
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+        lc = LineCollection(segments, array=c, cmap='plasma', linewidth=3)
+        axs[0].add_collection(lc)
+        axs[0].set_xlim(x.min(), x.max())
+        axs[0].set_ylim(y.min(), y.max())
+        fig.colorbar(lc, ax=axs[0], label='Color value (c)')
+
+        # axs[0].plot(stroke[:, 0], -stroke[:, 1], c=straws_all)
 
         x = range(len(all_straw))
         axs[1].plot(x, all_straw)
@@ -1125,7 +1218,7 @@ def txt_to_S5(root_txt, max_length, coor_mode='ABS'):
     :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
     :return:
     """
-    data_raw = np.loadtxt(root_txt, delimiter=',')
+    data_raw = load_sketch_file(root_txt)
 
     # 多于指定点数则进行采样
     n_point_raw = len(data_raw)
@@ -1162,6 +1255,27 @@ def txt_to_S5(root_txt, max_length, coor_mode='ABS'):
     mask[:c_sketch_len] = 1
 
     return data_cube, mask
+
+
+def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
+    """
+    从草图文件中获取草图数据
+    :param skh_file:
+    :param pen_down:
+    :param pen_up:
+    :param delimiter:
+    :return: [n, 3] (x, y, s)
+    """
+    suffix = os.path.splitext(skh_file)[1]
+
+    if suffix == '.txt':
+        sketch_data = np.loadtxt(skh_file, delimiter=delimiter)
+    elif suffix == '.svg':
+        sketch_data = svg_read(skh_file, pen_down, pen_up)
+    else:
+        raise TypeError('error file suffix')
+
+    return sketch_data
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ from scipy.interpolate import splprep, splev
 
 import global_defs
 from data_utils.sketch_utils import get_allfiles, get_subdirs
+import data_utils.sketch_utils as du
 
 import encoders.spline as sp
 
@@ -35,7 +36,7 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     :return:
     """
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = np.loadtxt(root, delimiter=',')
+    sketch_data = du.load_sketch_file(root, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -142,7 +143,7 @@ def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n
     plt.show()
 
 
-def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
+def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False, title=None):
     """
     显示笔划与笔划点归一化后的草图
     """
@@ -164,6 +165,8 @@ def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=g
             plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
 
     # plt.axis('off')
+    plt.axis('equal')
+    plt.title(title)
     plt.show()
 
 
@@ -367,7 +370,7 @@ if __name__ == '__main__':
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls\train\alarm clock\85.txt', show_dot=True)
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls\train\alarm clock\85.txt', show_dot=True)
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')
@@ -385,7 +388,14 @@ if __name__ == '__main__':
 
     # vis_false_log(r'C:\Users\ChengXi\Downloads\false_instance.txt')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
+
+    du.svg_to_txt(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg', r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
+
+    # svg_fig = du.svg_read(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg')
+    # vis_sketch_data(svg_fig)
+
+    vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
 
     pass
 

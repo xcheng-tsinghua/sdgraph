@@ -717,7 +717,7 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
     :return:
     """
     # 读取草图数据
-    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+    sketch_data = du.load_sketch_file(sketch_root)
 
     # 移动草图质心并缩放大小
     sketch_data = du.sketch_std(sketch_data)
@@ -728,11 +728,11 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
     # 去掉outlier
     sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier', show_dot=True)
 
     # 归一化
     sketch_data = du.sketch_std(sketch_data)
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify', show_dot=True)
 
     # 合并过近的笔划
     sketch_data = du.stroke_merge_until(sketch_data, 0.05)
@@ -742,22 +742,22 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
 
     sketch_data = du.sketch_std(sketch_data)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke', show_dot=True)
 
     # 重采样
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
 
     # 角点分割
-    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, thres=0.95, split_length=1.2, is_print_split_status=False, is_resample=False)
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, thres=0.95, split_length=0.8, is_print_split_status=False, is_resample=False)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after corner split')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after corner split', show_dot=True)
 
     # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
     sketch_data = du.short_stk_merge(sketch_data, 0.2, 0.2)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short', show_dot=True)
 
     # 去掉无效笔划，包含点数小于等于1的时无效笔划
     sketch_data = ft.valid_stk_filter(sketch_data)
@@ -765,11 +765,12 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
     # 删除长度过短的笔划
     sketch_data = ft.stroke_len_filter(sketch_data, 0.03)
 
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too short')
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too short', show_dot=True)
 
     # 若笔划数小于指定值，返回False
-    if len(sketch_data) < 3:
-        return False
+    # if len(sketch_data) < 3:
+    #     vis.vis_sketch_list(sketch_data, title=sketch_root)
+    #     return False
 
     # 若笔划数大于指定值，强制合并到指定数值
     sketch_data = du.stroke_merge_number_until(sketch_data, global_defs.n_stk)
@@ -863,15 +864,16 @@ if __name__ == '__main__':
     # tmp_vis_sketch_list(asketch, True)
 
     # all_sketches = du.get_allfiles(r'D:\\document\\DeepLearning\\DataSet\\TU_Berlin\\TU_Berlin_txt_cls')
-    all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
-    random.shuffle(all_sketches)
-
-    for c_skh in all_sketches:
-        # vis.vis_sketch_orig(c_skh, title=c_skh, show_dot=True, dot_gap=5)
-        vis.vis_sketch_orig(c_skh, show_dot=True, dot_gap=5)
-
-        asketch = preprocess_force_seg_merge(c_skh)
-        vis.vis_unified_sketch_data(asketch.reshape([-1, 2]))
+    # all_sketches = du.get_allfiles(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt')
+    # random.shuffle(all_sketches)
+    #
+    # for c_skh in all_sketches:
+    #     # vis.vis_sketch_orig(c_skh, title=c_skh, show_dot=True, dot_gap=5)
+    #     vis.vis_sketch_orig(c_skh, show_dot=True, dot_gap=5)
+    #
+    #     asketch = preprocess_force_seg_merge(c_skh)
+    #     print(asketch.shape)
+    #     vis.vis_unified_sketch_data(asketch.reshape([-1, 2]), title=c_skh, show_dot=True)
 
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\9ac633e7e85d75207de0f4d44d51f456_2.txt'  # merge
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Pin\\b9a6e6512939a09d26d8892ff84253eb_1.txt'
@@ -883,15 +885,17 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_1.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Screw\\c8aed3582b5fe107324abed1afd0111b_13.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\test\\Flange\\64448e0877e197d89ba815e4ae203ed1_1.txt'  # after proc, n_stk < 4
-    thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_4.txt'  # after proc, n_stk < 4
+    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Spring\\6e15365c70999807dd07ff812a7f4095_4.txt'  # after proc, n_stk < 4
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
+
+    thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\sword\16974.svg'
 
     vis.vis_sketch_orig(thefile, title='sketch_orig')
 
-    asasasas = preprocess(thefile, is_show_status=True)
+    asasasas = preprocess_force_seg_merge(thefile, is_show_status=True)
     # asasasas = pre_process_equal_stkpnt(thefile)
 
-    vis.vis_sketch_list(asasasas, title='last')
+    vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
 
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'

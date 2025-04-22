@@ -10,7 +10,7 @@ import numpy as np
 
 # 自建模块
 import global_defs
-from data_utils.sketch_dataset import SketchDataset
+from data_utils.sketch_dataset import SketchDatasetTotal
 from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
 
@@ -62,20 +62,25 @@ def parse_args():
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
 
-    parser.add_argument('--save_str', type=str, default='sdgraph', help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/raw/svg')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
 
     r'''
     cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     TuBerlin
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    
+    TuBerlin_raw
+    D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg
+    /opt/data/private/data_set/TU_Berlin/raw/svg
+    
     '''
 
     return parser.parse_args()
@@ -109,25 +114,12 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = SketchDataset(root=data_root, is_train=True)
-    test_dataset = SketchDataset(root=data_root, is_train=False)
-    num_class = len(train_dataset.classes)
-
-    # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
-    # train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
-    # sampler = torch.utils.data.RandomSampler(test_dataset, num_samples=64, replacement=False)
-    # test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
-
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
+    dataset = SketchDatasetTotal(data_root)
+    num_class = len(dataset.classes)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
     classifier = SDGraphCls(num_class).cuda()
-    # classifier = PointNet2(num_class)
-    # classifier = DGCNN(num_class)
-    # classifier = Attention(num_class)
-    # classifier = pointnet(num_class)
-    # loss_func = get_loss().cuda()
 
     if args.is_load_weight == 'True':
         try:
@@ -157,14 +149,13 @@ def main(args):
         all_preds = []
         all_labels = []
 
-        for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            points, target = data[0].float().cuda(), data[1].long().cuda()
-            # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-            # assert stk_coor.size(1) == global_defs.n_stk
+        dataset.set_mode('train')
+        for batch_id, data in tqdm(enumerate(dataloader, 0), total=len(dataloader)):
+            points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
             # -> [bs, 2, n_points]
-            points = points.permute(0, 2, 1)
-            assert points.size()[1] == 2
+            # points = points.permute(0, 2, 1)
+            # assert points.size()[1] == 2
 
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
@@ -196,13 +187,14 @@ def main(args):
             all_labels = []
             # all_indexes = []
 
-            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
+            dataset.set_mode('test')
+            for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, target = data[0].float().cuda(), data[1].long().cuda()
                 # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
                 # assert stk_coor.size(1) == global_defs.n_stk
 
-                points = points.permute(0, 2, 1)
-                assert points.size()[1] == 2
+                # points = points.permute(0, 2, 1)
+                # assert points.size()[1] == 2
 
                 pred = classifier(points)
 
