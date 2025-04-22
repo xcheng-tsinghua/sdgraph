@@ -211,16 +211,9 @@ def main(args):
             # all_indexes = []
 
             for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                # points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
-                points, target = data[0].float().cuda(), data[1].long().cuda()
-                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-                # assert stk_coor.size(1) == global_defs.n_stk
+                points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
-                # points = points.permute(0, 2, 1)
-                # assert points.size()[1] == 2
-
-                # pred = classifier(points, mask)
-                pred = classifier(points)
+                pred = classifier(points, mask)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
