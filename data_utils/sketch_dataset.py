@@ -23,6 +23,8 @@ import os
 from tqdm import tqdm
 import re
 import shutil
+from PIL import Image
+from torchvision import transforms
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
@@ -173,12 +175,22 @@ class SketchDataset2(Dataset):
                  root=r'D:\document\DeepLearning\DataSet\unified_sketch',
                  is_train=True,
                  data_argumentation=False,
-                 is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
+                 back_mode='STK',
+                 n_max_len=200
                  ):
+        """
+
+        :param root:
+        :param is_train:
+        :param data_argumentation:
+        :param back_mode: ['STK', 'S5']. 'STK': [n_stk, n_stk_pnt, 2], 'S5': data: [n_max_len, 5], mask: [n_max_len, ]
+        :param n_max_len: S5 模式下的长度
+        """
 
         print('sketch dataset NEW, from:' + root)
         self.data_augmentation = data_argumentation
-        self.is_unify = is_unify
+        self.back_mode = back_mode
+        self.n_max_len = n_max_len
 
         if is_train:
             inner_root = os.path.join(root, 'train')
@@ -213,19 +225,15 @@ class SketchDataset2(Dataset):
         fn = self.datapath[index]  # (‘plane’, Path1)
         cls = self.classes[fn[0]]  # 表示类别的整形数字
 
-        # vis_sketch_orig(fn[1])
-        # sketch_data = short_straw_split_sketch(fn[1])
-        # sketch_data = pp.pre_process_equal_stkpnt(fn[1])
-        sketch_data = pp.preprocess(fn[1])
-
-        if all(np.all(arr == 0) for arr in sketch_data):
-            sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 3, dtype=torch.float)
-            cls = 0
-
+        if self.back_mode == 'STK':
+            sketch_cube = pp.preprocess_force_seg_merge(fn[1])
+            mask = cls
+        elif self.back_mode == 'S5':
+            sketch_cube, mask = du.txt_to_S5(fn[1], self.n_max_len)
         else:
-            sketch_cube = du.stroke_list_to_sketch_cube(sketch_data)
+            raise TypeError('error back mode')
 
-        return sketch_cube, cls, index
+        return sketch_cube, mask, cls, index
 
     def __len__(self):
         return len(self.datapath)
@@ -355,6 +363,53 @@ class DiffDataset2(Dataset):
     def vis_sketch(self, idx):
         c_sketch = self.__getitem__(idx)
         vis.vis_unified_sketch_data(c_sketch)
+
+
+class RetrievalDataset(Dataset):
+    def __init__(self, root, mode='train', max_seq_length=256, image_size=(224, 224), return_mode='S5'):
+        """
+
+        :param root:
+        :param mode: ['train', 'test']
+        :param max_seq_length:
+        :param return_mode:
+        """
+        self.max_seq_length = max_seq_length
+        self.return_mode = return_mode
+        self.image_size = image_size
+
+        png_root = os.path.join(root, 'sketch_png', mode)
+
+        # 获取全部样本
+        self.pngs_all = get_allfiles(png_root, 'png')
+
+    def __getitem__(self, index):
+        png_path = self.pngs_all[index]
+
+        txt_path = png_path.replace('sketch_png', 'sketch_txt')
+        txt_path = txt_path.replace('png', 'txt')
+
+        image = Image.open(png_path).convert("RGB")  # 确保是 RGB 模式
+        transform = transforms.Compose([
+            transforms.Resize(self.image_size),
+            transforms.ToTensor()  # 转换为 [C, H, W] 格式的 Tensor，值在 [0, 1] 之间
+        ])
+        tensor_image = transform(image)
+
+        if self.return_mode == 'S5':
+            txt_tensor, mask = du.txt_to_S5(txt_path, self.max_seq_length)
+
+        elif self.return_mode == 'STK':
+            sketch_data = pp.preprocess_just_pad(txt_path)
+            txt_tensor, mask = du.stroke_list_to_sketch_cube(sketch_data)
+
+        else:
+            raise ValueError('error return type')
+
+        return tensor_image, txt_tensor, mask
+
+    def __len__(self):
+        return len(self.pngs_all)
 
 
 class QuickdrawDataset(Dataset):

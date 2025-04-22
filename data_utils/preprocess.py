@@ -458,7 +458,7 @@ def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=g
 #     return sketch_data
 
 
-def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
+def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
     """
     每个笔划的点数不同
     因此不同笔划的点密度可能不同
@@ -563,6 +563,8 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
+    sketch_data = du.stroke_list_to_sketch_cube(sketch_data)
+
     return sketch_data
 
 
@@ -603,6 +605,182 @@ def preprocess_just_pad(sketch_root: str, pen_up=global_defs.pen_up, pen_down=gl
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
+    return sketch_data
+
+
+def preprocess_outlier_resamp_seg(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False) -> list:
+    """
+    每个笔划的点数不同
+    因此不同笔划的点密度可能不同
+    :param sketch_root:
+    :param resp_dist:
+    :param pen_up:
+    :param pen_down:
+    :param is_show_status:
+    :return:
+    """
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心与大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉outlier
+    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier')
+
+    # 归一化
+    sketch_data = du.sketch_std(sketch_data)
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify')
+
+    # 去掉相邻过近的点，需要先归一化才可使用，不然单位不统一
+    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.005)
+
+    # vis.vis_sketch_list(sketch_data)
+
+    # 合并过近的笔划
+    sketch_data = du.stroke_merge_until(sketch_data, 0.1)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge')
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+
+    sketch_data = du.sketch_std(sketch_data)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+
+    # 重采样
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample')
+
+    # 角点分割
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, thres=0.95, split_length=1.2, is_print_split_status=False, is_resample=False)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after split')
+
+    # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
+    sketch_data = du.short_stk_merge(sketch_data, 0.8)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short')
+
+    # 长笔划分割
+    sketch_data = ft.stk_len_maximum_filter(sketch_data, 1.3)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after seg too long stroke')
+
+    # 去掉无效笔划，包含点数小于等于1的时无效笔划
+    sketch_data = ft.valid_stk_filter(sketch_data)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.1)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too short')
+
+    # 将笔划点数采样至指定值
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample speci dist')
+
+    # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在，如果低于指定数值，将草图全部数值置为零，且label也需要置为零
+
+    # if len(sketch_data) < 4:
+    #     warnings.warn(f'occurred n_stk lower than 4, is {sketch_root}')
+
+    sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
+
+    # 有效笔划数大于上限时，仅保留长度最长的前 global_def.n_stk 个笔划
+    sketch_data = ft.top_stk_len_filter(sketch_data, global_defs.n_stk)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove more stroke')
+
+    # tmp_vis_sketch_list(sketch_data)
+    # vis.vis_sketch_list(sketch_data, True, sketch_root)
+
+    return sketch_data
+
+
+def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
+    """
+    指定笔划数，如果笔划数较少，强制分割
+    如果笔划数过多，强制合并，不管距离远近
+    :param sketch_root:
+    :param resp_dist:
+    :param pen_up:
+    :param pen_down:
+    :param is_show_status:
+    :return:
+    """
+    # 读取草图数据
+    sketch_data = np.loadtxt(sketch_root, delimiter=',')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点章台标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉outlier
+    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier')
+
+    # 归一化
+    sketch_data = du.sketch_std(sketch_data)
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify')
+
+    # 合并过近的笔划
+    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.05)
+
+    sketch_data = du.sketch_std(sketch_data)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke')
+
+    # 重采样
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample')
+
+    # 角点分割
+    sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, thres=0.95, split_length=1.2, is_print_split_status=False, is_resample=False)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after corner split')
+
+    # 角点分割分割可能产生非常短的笔划，当存在小于指定长度的短笔画时，尝试合并
+    sketch_data = du.short_stk_merge(sketch_data, 0.2, 0.2)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after merge short')
+
+    # 去掉无效笔划，包含点数小于等于1的时无效笔划
+    sketch_data = ft.valid_stk_filter(sketch_data)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.03)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after remove too short')
+
+    # 若笔划数小于指定值，返回False
+    if len(sketch_data) < 3:
+        return False
+
+    # 若笔划数大于指定值，强制合并到指定数值
+    sketch_data = du.stroke_merge_number_until(sketch_data, global_defs.n_stk)
+
+    # 若笔划数小于指定数值，不断分割较长的笔划
+    sketch_data = du.stroke_split_number_until(sketch_data, global_defs.n_stk)
+
+    # 将笔划点数采样至指定值
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+
+    sketch_data = np.array(sketch_data)
     return sketch_data
 
 

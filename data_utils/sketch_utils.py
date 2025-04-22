@@ -664,7 +664,7 @@ def stroke_length_var(stroke_list):
 
 def single_split_(stroke_list: list):
     """
-    将草图中最长的笔画对半分割成两个
+    将草图中最长的笔画对半分割成两个，这里的笔划长度等于点数，请注意
     :param stroke_list:
     :return:
     """
@@ -920,17 +920,85 @@ def stroke_merge_until(stroke_list, min_dist):
             return new_list
 
 
-def short_stk_merge(stroke_list: list, max_stk_len: float) -> list:
+def stroke_merge_number_until(stroke_list, max_n_stk):
+    """
+    反复将 stroke_list 中的笔划合并，直到笔划数等于 max_n_stk 为止
+    如果 stroke_list 中笔划数小于等于 max_n_stk，直接返回原数组
+    这里笔划间的距离定义为笔划端点之间距离的最小值
+    :param stroke_list:
+    :param max_n_stk:
+    :return:
+    """
+
+    def vis_sketch_list(strokes, show_dot=False, title=None):
+        for s in strokes:
+            plt.plot(s[:, 0], -s[:, 1])
+
+            if show_dot:
+                plt.scatter(s[:, 0], -s[:, 1])
+
+        plt.axis('off')
+        plt.axis("equal")
+        plt.title(title)
+        plt.show()
+
+    if len(stroke_list) <= max_n_stk:
+        return stroke_list
+
+    else:
+        new_list = stroke_list.copy()
+        while True:
+            single_merge_(new_list, 100)
+
+            if len(new_list) <= max_n_stk:
+                return new_list
+
+
+def stroke_split_number_until(stroke_list, min_n_stk):
+    """
+    反复将 stroke_list 中最长笔划分割，直到笔划数等于 max_n_stk 为止，注意这里的笔划长度等于点数，请注意采样密度
+    如果 stroke_list 中笔划数大于等于 min_n_stk，直接返回原数组
+    :param stroke_list:
+    :param min_n_stk:
+    :return:
+    """
+
+    def vis_sketch_list(strokes, show_dot=False, title=None):
+        for s in strokes:
+            plt.plot(s[:, 0], -s[:, 1])
+
+            if show_dot:
+                plt.scatter(s[:, 0], -s[:, 1])
+
+        plt.axis('off')
+        plt.axis("equal")
+        plt.title(title)
+        plt.show()
+
+    if len(stroke_list) >= min_n_stk:
+        return stroke_list
+
+    else:
+        new_list = stroke_list.copy()
+        while True:
+            single_split_(new_list)
+
+            if len(new_list) >= min_n_stk:
+                return new_list
+
+
+def short_stk_merge(stroke_list: list, max_stk_len: float, max_dist=0.2) -> list:
     """
     当草图中存在长度小于max_stk_len的笔划时，尝试将其合并
     :param stroke_list:
     :param max_stk_len:
+    :param max_dist: 如果笔划端点之间的距离大于该值时，不考虑合并
     :return:
     """
     new_sketch = stroke_list.copy()
 
     while True:
-        is_success = single_merge_(new_sketch, dist_gap=0.01, max_merge_stk_len=max_stk_len)
+        is_success = single_merge_(new_sketch, dist_gap=max_dist, max_merge_stk_len=max_stk_len)
 
         if not is_success:
             return new_sketch
@@ -1040,6 +1108,33 @@ def is_sketch_unified(stroke_list, thres=1e-5):
         pass
     else:
         print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
+
+
+def txt_to_S5(root_txt, max_length):
+    data_raw = np.loadtxt(root_txt, delimiter=',')
+
+    # 多于指定点数则进行采样
+    n_point_raw = len(data_raw)
+    if n_point_raw > max_length:
+        choice = np.random.choice(n_point_raw, max_length, replace=True)
+        data_raw = data_raw[choice, :]
+
+    data_raw = sketch_std(data_raw)
+
+    c_sketch_len = len(data_raw)
+    data_raw = torch.from_numpy(data_raw)
+
+    data_cube = torch.zeros(max_length, 5, dtype=torch.float)
+    mask = torch.zeros(max_length, dtype=torch.float)
+
+    data_cube[:c_sketch_len, :2] = data_raw[:, :2]
+    data_cube[:c_sketch_len, 2] = data_raw[:, 2]
+    data_cube[:c_sketch_len, 3] = 1 - data_raw[:, 2]
+    data_cube[-1, 4] = 1
+
+    mask[:c_sketch_len] = 1
+
+    return data_cube, mask
 
 
 if __name__ == '__main__':

@@ -366,7 +366,8 @@ if __name__ == '__main__':
 
     # show_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk4_stkpnt32_no_mix_proc\110.txt', show_dot=True)
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
+    # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\toothbrush\18246.txt')
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls\train\alarm clock\85.txt', show_dot=True)
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\apple_stk16_stkpnt32\16.txt')
 
     # ahead, ext = os.path.splitext(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\train\apple\177.txt')

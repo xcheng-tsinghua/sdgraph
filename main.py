@@ -1,3 +1,4 @@
+import numpy
 import torch
 import torch.nn as nn
 import svgpathtools
@@ -421,18 +422,26 @@ if __name__ == '__main__':
     # print(atensor)
     # print(atensor.max(1)[1])
 
-    arr = np.array([
-        [1.0, 2.0, 3.0],
-        [4.0, 5.0, -1.0],
-        [7.0, 8.0, 0.5],
-        [9.0, 0.0, -2.0]
-    ])
+    # arr = np.array([
+    #     [1.0, 2.0, 3.0],
+    #     [4.0, 5.0, -1.0],
+    #     [7.0, 8.0, 0.5],
+    #     [9.0, 0.0, -2.0]
+    # ])
+    #
+    # # 使用布尔索引过滤掉 z < 0 的点
+    # filter_idx = arr[:, 2] >= 0
+    # filtered_arr = arr[filter_idx]
+    #
+    # print(filtered_arr)
 
-    # 使用布尔索引过滤掉 z < 0 的点
-    filter_idx = arr[:, 2] >= 0
-    filtered_arr = arr[filter_idx]
+    alist = []
 
-    print(filtered_arr)
+    for i in range(10):
+        alist.append(numpy.zeros([13, 2]))
+
+    print(alist)
+    print(np.array(alist).shape)
 
 
     pass
