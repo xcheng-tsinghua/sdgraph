@@ -115,6 +115,7 @@ def main(args):
         data_root = args.root_sever
 
     dataset = SketchDatasetTotal(data_root)
+    dataset.set_mode('train')
     num_class = len(dataset.classes)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
