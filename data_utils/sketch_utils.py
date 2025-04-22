@@ -203,7 +203,12 @@ def sketch_std(sketch):
 
 
 def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
-    paths, attributes, svg_attributes = svg2paths2(svg_path)
+    try:
+        paths, attributes, svg_attributes = svg2paths2(svg_path)
+    except:
+        print('error read file ------', svg_path)
+        exit(0)
+
     strokes = []
 
     for path, attr in zip(paths, attributes):

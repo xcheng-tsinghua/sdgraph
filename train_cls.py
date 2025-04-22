@@ -100,13 +100,6 @@ def main(args):
 
     '''日志记录'''
     logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
-    # logger = logging.getLogger("Model")
-    # logger.setLevel(logging.INFO)
-    # file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
-    # file_handler.setLevel(logging.INFO)
-    # formatter = logging.Formatter('%(message)s')
-    # file_handler.setFormatter(formatter)
-    # logger.addHandler(file_handler)
 
     '''定义数据集'''
     if args.local == 'True':
@@ -154,10 +147,6 @@ def main(args):
         for batch_id, data in tqdm(enumerate(dataloader, 0), total=len(dataloader)):
             points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
-            # -> [bs, 2, n_points]
-            # points = points.permute(0, 2, 1)
-            # assert points.size()[1] == 2
-
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
@@ -190,12 +179,7 @@ def main(args):
 
             dataset.set_mode('test')
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
-                points, target = data[0].float().cuda(), data[1].long().cuda()
-                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-                # assert stk_coor.size(1) == global_defs.n_stk
-
-                # points = points.permute(0, 2, 1)
-                # assert points.size()[1] == 2
+                points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
                 pred = classifier(points)
 
