@@ -81,8 +81,8 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        # train_dataset = QuickDrawDiff(root=data_root)
-        train_dataset = DiffDataset(root=data_root)
+        train_dataset = QuickDrawDiff(root=data_root)
+        # train_dataset = DiffDataset(root=data_root)
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
         '''优化器'''
