@@ -186,7 +186,7 @@ def vis_sketch_list(strokes, show_dot=False, title=None):
 def save_format_sketch(sketch_points, file_path, is_smooth=False):
     """
     保存设定格式的草图
-    :param sketch_points: [2, n_stk * n_stk_pnt]
+    :param sketch_points: [n_stk, n_stk_pnt, 2]
     :param file_path:
     :param is_smooth: 是否保存光顺后的草图
     :return:
@@ -197,14 +197,12 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         new_x, new_y = splev(new_u, tck)
         return new_x, new_y
 
-    n_stk = global_defs.n_stk
-    n_stk_pnt = global_defs.n_stk_pnt
-
-    sketch_points = sketch_points.view(2, n_stk, n_stk_pnt).detach().cpu().numpy()
+    n_stk, n_stk_pnt, channel = sketch_points.size()
+    sketch_points = sketch_points.detach().cpu().numpy()
 
     plt.clf()
     for stk_idx in range(n_stk):
-        plt.plot(sketch_points[0, stk_idx, :], -sketch_points[1, stk_idx, :])
+        plt.plot(sketch_points[stk_idx, :, 0], -sketch_points[stk_idx, :, 1])
         # plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
@@ -213,8 +211,8 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
     if is_smooth:
         plt.clf()
         for stk_idx in range(n_stk):
-            c_stk = sketch_points[:, stk_idx, :]
-            fit_x, fit_y = curve_smooth(c_stk[0, :], c_stk[1, :])
+            c_stk = sketch_points[stk_idx, :, :]
+            fit_x, fit_y = curve_smooth(c_stk[:, 0], c_stk[:, 1])
             plt.plot(fit_x, -fit_y)
             # plt.scatter(s[:, 0], -s[:, 1])
 

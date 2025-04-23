@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw')
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/apple.full.npz')
     parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
 
     '''
@@ -129,7 +129,7 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch(sampled_images[batch_fig_idx, :, :], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 gen_idx += 1
 
 
