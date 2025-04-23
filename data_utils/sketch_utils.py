@@ -1269,6 +1269,10 @@ def sketch_file_to_s5(root, max_length, coor_mode='ABS'):
 def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
     """
     从草图文件中获取草图数据
+    注意这里是直接读取文件存储的数据
+    文件中存储的是绝对坐标，读取的就是绝对坐标。文件中存储的是相对坐标，读取的就是相对坐标。
+    TU_Berlin 的 svg 文件中存储的是绝对坐标
+
     :param skh_file:
     :param pen_down:
     :param pen_up:
@@ -1290,6 +1294,9 @@ def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs
 def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
     """
     读取 npz 文件中的草图，读取后的草图已归一化
+    这里默认将 npz 文件中存储的数据视为相对坐标，因为 QuickDraw 数据集中的 npz 文件中存储的是相对坐标
+    如果您的 npz 文件中存储绝对坐标，请修改
+
     :param npz_root:
     :param data_mode: ['train', 'test', 'valid']
     :param back_mode: ['STD', 'S5']
@@ -1303,6 +1310,7 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
     :param pen_up: quickdraw 中为 1
     :return:
     """
+
     data_all = np.load(str(npz_root), encoding='latin1', allow_pickle=True)
     dataset = data_all[data_mode]
 

@@ -62,9 +62,10 @@ class SDGraphCls(nn.Module):
 
         self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
 
-    def forward(self, xy):
+    def forward(self, xy, mask):
         """
         :param xy: [bs, n_stk, n_stk_pnt, 2]
+        :param mask: 占位用
         :return: [bs, n_classes]
         """
         bs, n_stk, n_stk_pnt, channel = xy.size()

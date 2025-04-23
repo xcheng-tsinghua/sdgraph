@@ -1,21 +1,12 @@
 """
 草图数据集加载及转化相关
 
-std 草图：
-保存为 .txt 文件，每行记录一个点，数据之间以英文逗号分隔。std草图中不同草图的笔划数及笔划上的点数可能不同。草图质心在(0, 0)，范围在[-1, 1]^2
-x, y, s
-x, y, s
-...
-x, y, s
-
-s: 该点的下一个点是否属于当前笔划
-s = 1: 该点的下一个点属于当前笔划
-s = 0: 该点的下一个点不属于当前笔划
-
-unified_std 草图：
-保存方式与 std 草图类似，不同点在于 unified_std 草图中不同草图的笔划数及笔划上的点数相同
+建议读取的 npz 文件中存储相对坐标，txt 和 svg 文件存储绝对坐标
+因为 QuickDraw 数据集的 npz 文件存储相对坐标
+TU_Berlin 数据集中的 svg 文件中存储绝对坐标
 
 """
+
 import random
 import math
 import numpy as np
@@ -23,7 +14,6 @@ from torch.utils.data import Dataset
 import torch
 import os
 from tqdm import tqdm
-import re
 import shutil
 from PIL import Image
 from torchvision import transforms
@@ -37,244 +27,11 @@ from data_utils import preprocess as pp
 from data_utils import sketch_utils as du
 
 
-class SketchDataset(Dataset):
-    """
-    定位文件的路径如下：
-    root
-    ├─ train
-    │   ├─ Bushes
-    │   │   ├─0.obj
-    │   │   ├─1.obj
-    │   │   ...
-    │   │
-    │   ├─ Clamps
-    │   │   ├─0.obj
-    │   │   ├─1.obj
-    │   │   ...
-    │   │
-    │   ...
-    │
-    ├─ test
-    │   ├─ Bushes
-    │   │   ├─0.obj
-    │   │   ├─1.obj
-    │   │   ...
-    │   │
-    │   ├─ Clamps
-    │   │   ├─0.obj
-    │   │   ├─1.obj
-    │   │   ...
-    │   │
-    │   ...
-    │
-
-    """
-    def __init__(self,
-                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
-                 is_train=True,
-                 data_argumentation=False,
-                 is_back_idx=False,
-                 is_unify=False  # 是否进行归一化（质心移动到原点，xy缩放到[-1, 1]
-                 ):
-
-        print('sketch dataset, from:' + root)
-        self.data_augmentation = data_argumentation
-        self.is_back_idx = is_back_idx
-        self.is_unify = is_unify
-
-        if is_train:
-            inner_root = os.path.join(root, 'train')
-        else:
-            inner_root = os.path.join(root, 'test')
-
-        # 获取全部类别列表，即 inner_root 内的全部文件夹名
-        category_all = get_subdirs(inner_root)
-        category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
-
-        for c_class in category_all:
-            class_root = os.path.join(inner_root, c_class)
-            file_path_all = get_allfiles(class_root)
-
-            category_path[c_class] = file_path_all
-
-        self.datapath = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
-        for item in category_path:  # item 为字典的键，即类型‘plane','car'
-            for fn in category_path[item]:  # fn 为每类点云对应的文件路径
-                self.datapath.append((item, fn))  # item：类型（‘plane','car'）
-
-        self.classes = dict(zip(sorted(category_path), range(len(category_path))))  # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0,1
-        print(self.classes)
-        print('number of instance all:', len(self.datapath))
-        print('number of classes all:', len(self.classes))
-
-    def __getitem__(self, index):
-        """
-        :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_skh_point, 2] (numpy.ndarray)
-        """
-        fn = self.datapath[index]  # (‘plane’, Path1)
-        cls = self.classes[fn[0]]  # 表示类别的整形数字
-
-        # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-        sketch_data = np.loadtxt(fn[1], delimiter=',')
-
-        # 2D coordinates
-        coordinates = sketch_data[:, :2]
-
-        if self.is_unify:
-            # sketch mass move to (0, 0), x y scale to [-1, 1]
-            coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0) # 实测是否加expand_dims效果一样
-            dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-            coordinates = coordinates / dist
-
-        # rotate and move
-        if self.data_augmentation:
-            theta = np.random.uniform(0, np.pi * 2)
-            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-            coordinates = coordinates @ rotation_matrix
-            coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
-
-        if self.is_back_idx:
-            return coordinates, cls, index
-        else:
-            return coordinates, cls
-
-    def __len__(self):
-        return len(self.datapath)
-
-    def n_classes(self):
-        return len(self.classes)
-
-    @staticmethod
-    def check_format(dir_path, n_points_all):
-        sci_float_pattern = re.compile(r'^-?\d+(\.\d+)?([eE][-+]?\d+)?,-?\d+(\.\d+)?([eE][-+]?\d+)?$')
-        format_fit = True
-
-        files_all = get_allfiles(dir_path, 'txt')
-
-        for c_file in tqdm(files_all, total=len(files_all)):
-            data_read = np.loadtxt(c_file, delimiter=',')
-            if data_read.shape[0] != n_points_all:
-                print(f'file {c_file} not fir line count')
-                format_fit = False
-                break
-
-            with open(c_file, 'r') as f:
-                for c_line in f.readlines():
-                    c_line = c_line.strip()
-
-                    if not sci_float_pattern.match(c_line):
-                        print(c_line, '不符合点云文件格式')
-                        print('not fit line: ', c_line.strip())
-
-                        format_fit = False
-                        break
-
-        return format_fit
-
-
-class SketchDataset2(Dataset):
-    def __init__(self,
-                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
-                 is_train=True,
-                 data_argumentation=False,
-                 back_mode='STK',
-                 n_max_len=200
-                 ):
-        """
-
-        :param root:
-        :param is_train:
-        :param data_argumentation:
-        :param back_mode: ['STK', 'S5']. 'STK': [n_stk, n_stk_pnt, 2], 'S5': data: [n_max_len, 5], mask: [n_max_len, ]
-        :param n_max_len: S5 模式下的长度
-        """
-
-        print('sketch dataset NEW, from:' + root)
-        self.data_augmentation = data_argumentation
-        self.back_mode = back_mode
-        self.n_max_len = n_max_len
-
-        if is_train:
-            inner_root = os.path.join(root, 'train')
-        else:
-            inner_root = os.path.join(root, 'test')
-
-        # 获取全部类别列表，即 inner_root 内的全部文件夹名
-        category_all = get_subdirs(inner_root)
-        category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
-
-        for c_class in category_all:
-            class_root = os.path.join(inner_root, c_class)
-            file_path_all = get_allfiles(class_root)
-
-            category_path[c_class] = file_path_all
-
-        self.datapath = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
-        for item in category_path:  # item 为字典的键，即类型‘plane','car'
-            for fn in category_path[item]:  # fn 为每类点云对应的文件路径
-                self.datapath.append((item, fn))  # item：类型（‘plane','car'）
-
-        self.classes = dict(zip(sorted(category_path), range(len(category_path))))  # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0,1
-        print(self.classes)
-        print('number of instance all:', len(self.datapath))
-        print('number of classes all:', len(self.classes))
-
-    def __getitem__(self, index):
-        """
-        :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_stk, n_stk_pnt, 3] (torch.Tensor)
-        """
-        fn = self.datapath[index]  # (‘plane’, Path1)
-        cls = self.classes[fn[0]]  # 表示类别的整形数字
-
-        if self.back_mode == 'STK':
-            sketch_cube = pp.preprocess_force_seg_merge(fn[1])
-            mask = cls
-        elif self.back_mode == 'S5':
-            sketch_cube, mask = du.sketch_file_to_s5(fn[1], self.n_max_len)
-        else:
-            raise TypeError('error back mode')
-
-        return sketch_cube, mask, cls, index
-
-    def __len__(self):
-        return len(self.datapath)
-
-    def n_classes(self):
-        return len(self.classes)
-
-    @staticmethod
-    def check_format(dir_path, n_points_all):
-        sci_float_pattern = re.compile(r'^-?\d+(\.\d+)?([eE][-+]?\d+)?,-?\d+(\.\d+)?([eE][-+]?\d+)?$')
-        format_fit = True
-
-        files_all = get_allfiles(dir_path, 'txt')
-
-        for c_file in tqdm(files_all, total=len(files_all)):
-            data_read = np.loadtxt(c_file, delimiter=',')
-            if data_read.shape[0] != n_points_all:
-                print(f'file {c_file} not fir line count')
-                format_fit = False
-                break
-
-            with open(c_file, 'r') as f:
-                for c_line in f.readlines():
-                    c_line = c_line.strip()
-
-                    if not sci_float_pattern.match(c_line):
-                        print(c_line, '不符合点云文件格式')
-                        print('not fit line: ', c_line.strip())
-
-                        format_fit = False
-                        break
-
-        return format_fit
-
-
-class SketchDatasetTotal(Dataset):
+class SketchDatasetCls(Dataset):
     """
     无需分割训练集、测试集，将数据放在一起即可自动按比例划分
+    支持 svg 和 txt 和 png 格式的草图读取
+    测试是使用 TU-Berlin 数据集，其中的 svg 为绝对坐标，如果你的 svg 文件存储的是相对坐标，请注意修改
     定位文件的路径如下：
     root
     ├─ Bushes
@@ -359,7 +116,8 @@ class SketchDatasetTotal(Dataset):
                 else:
                     self.datapath_train.append((item, c_class_path_list[i]))
 
-        # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的值没有用到，self.classes的键为‘plane'或'car'，值为0, 1
+        # 用整形 0,1,2,3 等代表具体类型‘plane','car'等，
+        # 此时字典 category_path 中的值没有用到，self.classes的键为 ‘plane' 或 'car' ，值为0, 1, 2, ...
         self.classes = dict(zip(sorted(category_path), range(len(category_path))))
         print(self.classes, '\n')
 
@@ -501,8 +259,11 @@ class QuickDrawDiff(Dataset):
 class QuickDrawCls(Dataset):
     """
     读取 quickdraw 数据集，用于分类
-    文件夹结构组织如下：
+    npz文件单个文件包含了一个类中所有数据，且训练集测试集已划分好
+    原本包含 'train', 'test', 'valid' 三个分集
+    这里将 'train' 和 'valid' 合并为训练集，'test' 为测试集
 
+    文件夹结构组织如下：
     root
     ├─ Bushes.npz
     ├─ Clamps.npz
@@ -513,68 +274,107 @@ class QuickDrawCls(Dataset):
     ...
 
     """
-    def __init__(self, root_npz, back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down,
-                 pen_up=global_defs.pen_up):
+    def __init__(self,
+                 root_npz,
+                 data_mode='train',
+                 back_mode='STK',
+                 coor_mode='ABS',
+                 max_len=200,
+                 pen_down=global_defs.pen_down,
+                 pen_up=global_defs.pen_up
+                 ):
         """
         将草图数据读取到该类的数组中
         :param root_npz:
+        :param data_mode: ['train', 'test']
         :param back_mode: ['STK', 'STD', 'S5']
             'STK': [n_stk, n_stk_pnt, 2]
-            'STD': [n, 3] (x, y, s)
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawCls Dataset, from:', root_npz)
-        self.sketch_all = []
-        self.mask_all = []
+        print('QuickDrawCls Dataset, from:', root_npz, '\n')
+        assert data_mode == 'train' or data_mode == 'test'
 
+        self.data_mode = data_mode
+        self.data_train = []
+        self.data_test = []
+        category_all = []
+        npz_all = get_allfiles(root_npz, 'npz')
 
-        # npz文件单个文件包含了一个类中所有数据
-        # npz 文件中训练集测试集已划分好
-        if self.suffix == 'npz':
-            npz_all = get_allfiles(root, suffix)
+        for c_pnz in npz_all:
+            c_class = os.path.basename(c_pnz).split('.')[0]
+            category_all.append(c_class)
 
-            self.npz_idx_root = dict(enumerate(npz_all))
+            if back_mode == 'S5':
+                back_mode_alt = 'S5'
+            elif back_mode == 'STK':
+                back_mode_alt = 'STD'
+            else:
+                raise TypeError('error back mode')
 
-            c_begin_train = 0
-            c_begin_test = 0
+            sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
 
-            category_path = []
-            self.datapath_train = [c_begin_train]
-            self.datapath_test = [c_begin_test]
+            sk_train.extend(sk_valid)
+            mk_train.extend(mk_valid)
 
-            for idx, c_pnz in enumerate(npz_all):
-                c_class = os.path.basename(c_pnz).split('.')[0]
-                category_path.append(c_class)
+            if back_mode == 'S5':
 
-                n_train_files = len(np.load(str(c_pnz), encoding='latin1', allow_pickle=True)['train'])
-                n_test_files = len(np.load(str(c_pnz), encoding='latin1', allow_pickle=True)['test'])
+                c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
+                c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
-                c_begin_train = c_begin_train + n_train_files
-                c_begin_test = c_begin_test + n_test_files
+                self.data_train.extend(c_train)
+                self.data_test.extend(c_test)
 
-                self.datapath_train.append(c_begin_train)
-                self.datapath_test.append(c_begin_test)
+            elif back_mode == 'STK':
 
-            print('number of training instance all:', self.datapath_train[-1])
-            print('number of testing instance all:', self.datapath_test[-1])
+                c_train = []
+                c_test = []
+
+                for c_instance in sk_train:
+                    c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+                    c_train.append((c_class, c_skh_stk, 0))
+
+                for c_instance in sk_test:
+                    c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+                    c_test.append((c_class, c_skh_stk, 0))
+
+                self.data_train.extend(c_train)
+                self.data_test.extend(c_test)
+
+            else:
+                raise TypeError('error back mode')
+
+        self.classes = dict(zip(sorted(category_all), range(len(category_all))))
+        print(self.classes, '\n')
+
+        print('number of training instance all:', len(self.data_train))
+        print('number of testing instance all:', len(self.data_test))
 
     def __getitem__(self, index):
+        if self.data_mode == 'train':
+            datapath = self.data_train
+        elif self.data_mode == 'test':
+            datapath = self.data_test
+        else:
+            raise TypeError('error dataset mode')
 
-        if self.suffix == 'npz':
-            # 找到索引位置
-            i = bisect.bisect_right(datapath, index) - 1
+        cls, data, mask = datapath[index]
+        cls = self.classes[cls]
 
-            # 找到类型
-            # TODO: 考虑直接为npz单独设置一个数据集
-
-        return 0, 0
+        return data, mask, cls
 
     def __len__(self):
-        return len(self.sketch_all)
+        if self.data_mode == 'train':
+            return len(self.data_train)
+        elif self.data_mode == 'test':
+            return len(self.data_test)
+        else:
+            raise TypeError('error dataset mode')
 
 
 class DiffDataset(Dataset):

@@ -8,7 +8,7 @@ from colorama import Fore, Back, init
 import os
 
 # 自建模块
-from data_utils.sketch_dataset import SketchDatasetTotal
+from data_utils.sketch_dataset import SketchDatasetCls, QuickDrawCls
 from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
@@ -24,8 +24,8 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
 
     parser.add_argument('--save_str', type=str, default='sdgraph')
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/raw/svg')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw_raw')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\raw')
 
     r'''
     cad sketch
@@ -38,6 +38,10 @@ def parse_args():
     TuBerlin_raw
     D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg
     /opt/data/private/data_set/TU_Berlin/raw/svg
+    
+    QuickDraw:
+    D:\document\DeepLearning\DataSet\quickdraw\raw
+    /opt/data/private/data_set/quickdraw_raw
     
     '''
     return parser.parse_args()
@@ -64,7 +68,7 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    dataset = SketchDatasetTotal(data_root)
+    dataset = QuickDrawCls(data_root)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
@@ -104,7 +108,7 @@ def main(args):
             optimizer.zero_grad()
 
             # 模型传入数据，获取输出，并计算loss
-            pred = classifier(points)
+            pred = classifier(points, mask)
             loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数
@@ -134,7 +138,7 @@ def main(args):
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
-                pred = classifier(points)
+                pred = classifier(points, mask)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())

@@ -13,7 +13,7 @@ import numpy as np
 
 # 自建模块
 import global_defs
-from data_utils.sketch_dataset import SketchDataset2, SketchDatasetTotal
+from data_utils.sketch_dataset import SketchDataset2, SketchDatasetCls
 from encoders.SketchTransformer import SketchTransformerCls
 from encoders.SketchRNN import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
@@ -125,7 +125,7 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    dataset = SketchDatasetTotal(data_root, back_mode='S5', coor_mode='REL')
+    dataset = SketchDatasetCls(data_root, back_mode='S5', coor_mode='REL')
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
     num_class = dataset.n_classes()
 

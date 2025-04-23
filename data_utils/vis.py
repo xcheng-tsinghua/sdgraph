@@ -392,8 +392,9 @@ if __name__ == '__main__':
 
     # du.svg_to_txt(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg', r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
 
-    # svg_fig = du.svg_read(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg')
-    # vis_sketch_data(svg_fig)
+    a_svg_file = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
+    svg_fig = du.svg_read(a_svg_file)
+    vis_sketch_data(svg_fig)
 
     # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
 
