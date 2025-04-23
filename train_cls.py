@@ -25,7 +25,7 @@ def parse_args():
 
     parser.add_argument('--save_str', type=str, default='sdgraph')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw_raw')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\raw')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\small')
 
     r'''
     cad sketch

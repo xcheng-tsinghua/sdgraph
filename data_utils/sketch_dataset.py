@@ -376,6 +376,12 @@ class QuickDrawCls(Dataset):
         else:
             raise TypeError('error dataset mode')
 
+    def train(self):
+        self.data_mode = 'train'
+
+    def eval(self):
+        self.data_mode = 'test'
+
 
 class DiffDataset(Dataset):
     """
