@@ -1382,6 +1382,42 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
     return data, mask
 
 
+def npz_to_txt(root_npz, root_target):
+    """
+    该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
+    1. 存储相对坐标
+    2. 加载的字典包含三个键，分别是 'train', 'test', 'valid'
+    如果你的 npz 文件不符合以上要求，请修改
+
+    将创建如下文件夹：
+    root_target
+    ├─ npz_name
+    │   ├─ train
+    │   │   ├─ 1.txt
+    │   │   ├─ 2.txt
+    │   │   ├─ 3.txt
+    │   │   ...
+    │   │
+    │   ├─ test
+    │   │   ├─ 4.txt
+    │   │   ├─ 5.txt
+    │   │   ├─ 6.txt
+    │   │   ...
+    │   │
+    │   └─ valid
+    │       ├─ 7.txt
+    │       ├─ 8.txt
+    │       ├─ 9.txt
+    │       ...
+    │
+    ...
+
+    :param root_npz:
+    :param root_target:
+    :return:
+    """
+
+
 def img_read(img_root, img_size=(224, 224)):
     """
     从图片读取数据，返回包含数据的 tensor
