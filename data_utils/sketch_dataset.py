@@ -279,6 +279,7 @@ class QuickDrawCls(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
+                 is_process_in_init=False,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up
                  ):
@@ -291,6 +292,9 @@ class QuickDrawCls(Dataset):
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
+        :param is_process_in_init: 是否在 __init__ 方法中将 'STD' 转化为 'STK'
+            False: 可提升加载速度，但训练时进行转化，降低训练速度，整体看降低训练速度
+            True: 需要极长加载速度，训练时无需转化，整体看提升训练速度
         :param pen_down:
         :param pen_up:
         """
@@ -299,6 +303,7 @@ class QuickDrawCls(Dataset):
 
         self.data_mode = data_mode
         self.back_mode = back_mode
+        self.is_process_in_init = is_process_in_init
         self.data_train = []
         self.data_test = []
         category_all = []
@@ -329,41 +334,27 @@ class QuickDrawCls(Dataset):
                 c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
             elif back_mode == 'STK':
-                c_train = [(c_class, sk, 0) for sk in sk_train]
-                c_test = [(c_class, sk, 0) for sk in sk_test]
+                if self.is_process_in_init:
+                    c_train = []
+                    c_test = []
+
+                    for c_instance in sk_train:
+                        c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+                        c_train.append((c_class, c_skh_stk, 0))
+
+                    for c_instance in sk_test:
+                        c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+                        c_test.append((c_class, c_skh_stk, 0))
+
+                else:
+                    c_train = [(c_class, sk, 0) for sk in sk_train]
+                    c_test = [(c_class, sk, 0) for sk in sk_test]
 
             else:
                 raise TypeError('error back mode')
 
             self.data_train.extend(c_train)
             self.data_test.extend(c_test)
-
-            # if back_mode == 'S5':
-            #
-            #     c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
-            #     c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
-            #
-            #     self.data_train.extend(c_train)
-            #     self.data_test.extend(c_test)
-            #
-            # elif back_mode == 'STK':
-            #
-            #     c_train = []
-            #     c_test = []
-            #
-            #     for c_instance in sk_train:
-            #         c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-            #         c_train.append((c_class, c_skh_stk, 0))
-            #
-            #     for c_instance in sk_test:
-            #         c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-            #         c_test.append((c_class, c_skh_stk, 0))
-            #
-            #     self.data_train.extend(c_train)
-            #     self.data_test.extend(c_test)
-            #
-            # else:
-            #     raise TypeError('error back mode')
 
         self.classes = dict(zip(sorted(category_all), range(len(category_all))))
         print(self.classes, '\n')
@@ -383,7 +374,7 @@ class QuickDrawCls(Dataset):
         cls = self.classes[cls]
 
         # 需要将 'STD' 转化为 'STK'
-        if self.back_mode == 'STK':
+        if self.back_mode == 'STK' and not self.is_process_in_init:
             data = pp.preprocess_force_seg_merge(data)
 
         return data, mask, cls
@@ -406,20 +397,31 @@ class QuickDrawCls(Dataset):
 class DiffDataset(Dataset):
     """
     diffusion 数据集加载
-    读取 root 文件夹下的全部 txt 文件
+    读取 root 文件夹下的全部 txt 或者 svg 文件
+    文件需记录绝对坐标
     """
     def __init__(self,
-                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
-                 shuffle_stk=False,  # 是否随机变换笔划顺序
-                 data_aug=False  # 是否进行数据增强
+                 root,
+                 suffix='svg',
+                 back_mode='STK',
+                 coor_mode='ABS',
+                 n_max_len=200
                  ):
-
-        self.data_aug = data_aug
-        self.shuffle_stk = shuffle_stk
-        self.datapath = get_allfiles(root)
-
+        """
+        :param root:
+        :param suffix:
+        :param back_mode: ['STK', 'S5']
+        :param coor_mode: ['ABS', 'REL']
+        :param n_max_len:
+        """
         print(f'diffusion dataset, from: {root}')
-        print(f'shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
+
+        self.back_mode = back_mode
+        self.coor_mode = coor_mode
+        self.n_max_len = n_max_len
+
+        self.datapath = get_allfiles(root, suffix)
+
         print(f'number of instance all: {len(self.datapath)}')
 
     def __getitem__(self, index):
@@ -428,75 +430,19 @@ class DiffDataset(Dataset):
         stroke = [n_stroke_point, 2] (numpy.ndarray)
         """
         fn = self.datapath[index]
-        sketch_data = np.loadtxt(fn, delimiter=',')
 
-        # 2D coordinates
-        coordinates = sketch_data[:, :2]
+        if self.back_mode == 'STK':
+            sketch_cube = pp.preprocess_force_seg_merge(fn)
+            mask = 0
+        elif self.back_mode == 'S5':
+            sketch_cube, mask = du.sketch_file_to_s5(fn, self.n_max_len, self.coor_mode)
+        else:
+            raise TypeError('error back mode')
 
-        # sketch mass move to (0, 0), x y scale to [-1, 1]
-        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)
-        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-        coordinates = coordinates / dist
-
-        # rotate and move
-        if self.data_aug:
-            theta = np.random.uniform(-0.5 * np.pi, 0.5 * np.pi)
-            rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-            coordinates = coordinates @ rotation_matrix
-            coordinates += np.random.normal(0, 0.02, size=coordinates.shape)
-
-        # 随机变换笔划顺序
-        if self.shuffle_stk:
-            coordinates = coordinates.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
-            np.random.shuffle(coordinates)
-            coordinates = coordinates.reshape([global_defs.n_skh_pnt, 2])
-
-        return coordinates
+        return sketch_cube, mask
 
     def __len__(self):
         return len(self.datapath)
-
-    def vis_sketch(self, idx):
-        c_sketch = self.__getitem__(idx)
-        vis.vis_unified_sketch_data(c_sketch)
-
-
-class DiffDataset2(Dataset):
-    """
-    diffusion 数据集加载
-    读取 root 文件夹下的全部 txt 文件
-    """
-    def __init__(self,
-                 root=r'D:\document\DeepLearning\DataSet\unified_sketch',
-                 shuffle_stk=False,  # 是否随机变换笔划顺序
-                 data_aug=False  # 是否进行数据增强
-                 ):
-
-        self.data_aug = data_aug
-        self.shuffle_stk = shuffle_stk
-        self.datapath = get_allfiles(root)
-
-        print(f'diffusion dataset, from: {root}')
-        print(f'shuffle stroke: {self.shuffle_stk}, data argumentation: {self.data_aug}')
-        print(f'number of instance all: {len(self.datapath)}')
-
-    def __getitem__(self, index):
-        """
-        :return: [stroke1, stroke2, ..., stroke_n] (list)
-        stroke = [n_stk, n_stk_pnt, 3] (numpy.ndarray)
-        """
-        fn = self.datapath[index]
-        sketch_data = pp.preprocess_just_pad(fn)
-        sketch_cube = du.stroke_list_to_sketch_cube(sketch_data)
-
-        return sketch_cube
-
-    def __len__(self):
-        return len(self.datapath)
-
-    def vis_sketch(self, idx):
-        c_sketch = self.__getitem__(idx)
-        vis.vis_unified_sketch_data(c_sketch)
 
 
 class RetrievalDataset(Dataset):

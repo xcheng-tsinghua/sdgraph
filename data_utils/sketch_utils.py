@@ -1450,6 +1450,13 @@ def npz_to_txt(root_npz, root_target):
         np.savetxt(c_valid_filename, c_valid)
 
 
+def npz_to_txt_batched(root_npz, root_target):
+    npz_all = get_allfiles(root_npz, 'npz')
+
+    for c_npz in npz_all:
+        npz_to_txt(c_npz, root_target)
+
+
 def img_read(img_root, img_size=(224, 224)):
     """
     从图片读取数据，返回包含数据的 tensor
