@@ -17,7 +17,6 @@ from tqdm import tqdm
 import shutil
 from PIL import Image
 from torchvision import transforms
-import bisect
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
@@ -295,7 +294,7 @@ class QuickDrawCls(Dataset):
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawCls Dataset, from:', root_npz, '\n')
+        print('QuickDrawCls Dataset, from:', root_npz)
         assert data_mode == 'train' or data_mode == 'test'
 
         self.data_mode = data_mode
@@ -304,7 +303,8 @@ class QuickDrawCls(Dataset):
         category_all = []
         npz_all = get_allfiles(root_npz, 'npz')
 
-        for c_pnz in npz_all:
+        for c_pnz in tqdm(npz_all):
+
             c_class = os.path.basename(c_pnz).split('.')[0]
             category_all.append(c_class)
 
