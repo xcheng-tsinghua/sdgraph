@@ -13,7 +13,7 @@ import numpy as np
 
 # 自建模块
 import global_defs
-from data_utils.sketch_dataset import SketchDataset2
+from data_utils.sketch_dataset import SketchDataset2, SketchDatasetTotal
 from encoders.SketchTransformer import SketchTransformerCls
 from encoders.SketchRNN import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
@@ -38,12 +38,12 @@ def parse_args():
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--save_str', type=str, default='sketch_rnn')
-    parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer'])
+    parser.add_argument('--save_str', type=str, default='SketchTransformer')
+    parser.add_argument('--model', type=str, default='SketchTransformer', choices=['SketchRNN', 'SketchTransformer'])
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls')
-    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/TU_Berlin/raw/svg')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
 
     r'''
     cad sketch
@@ -54,8 +54,12 @@ def parse_args():
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
 
     TuBerlin
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls')  # 分好训练集测试的文件夹
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls')
+    
+    parser.add_argument('--root_sever', type=str, default=r'/opt/data/private/data_set/TU_Berlin/raw/svg')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
+    
     '''
 
     return parser.parse_args()
@@ -121,17 +125,9 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = SketchDataset2(root=data_root, is_train=True, back_mode='S5')
-    test_dataset = SketchDataset2(root=data_root, is_train=False, back_mode='S5')
-    num_class = len(train_dataset.classes)
-
-    # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
-    # train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
-    # sampler = torch.utils.data.RandomSampler(test_dataset, num_samples=64, replacement=False)
-    # test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
-
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
+    dataset = SketchDatasetTotal(data_root, back_mode='S5', coor_mode='REL')
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+    num_class = dataset.n_classes()
 
     '''加载模型及权重'''
     if args.model == 'SketchRNN':
@@ -171,7 +167,8 @@ def main(args):
         all_preds = []
         all_labels = []
 
-        for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
+        dataset.train()
+        for batch_id, data in tqdm(enumerate(dataloader, 0), total=len(dataloader)):
             points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
             # 梯度置为零，否则梯度会累加
@@ -209,7 +206,8 @@ def main(args):
             all_labels = []
             # all_indexes = []
 
-            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
+            dataset.eval()
+            for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
                 pred = classifier(points, mask)

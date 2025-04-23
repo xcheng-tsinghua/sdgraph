@@ -91,13 +91,12 @@ def main(args):
     '''训练'''
     best_instance_accu = -1.0
     for epoch in range(args.epoch):
-        classifier = classifier.train()
-
         logstr_epoch = f'Epoch({epoch}/{args.epoch}):'
         all_preds = []
         all_labels = []
 
-        dataset.set_mode('train')
+        classifier = classifier.train()
+        dataset.train()
         for batch_id, data in tqdm(enumerate(dataloader, 0), total=len(dataloader)):
             points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
@@ -126,13 +125,12 @@ def main(args):
 
         '''测试'''
         with torch.no_grad():
-            classifier = classifier.eval()
-
             all_preds = []
             all_labels = []
             # all_indexes = []
 
-            dataset.set_mode('test')
+            classifier = classifier.eval()
+            dataset.eval()
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 

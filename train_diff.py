@@ -8,7 +8,7 @@ from datetime import datetime
 
 # 自建模块
 import global_defs
-from data_utils.sketch_dataset import DiffDataset
+from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
 from data_utils.vis import save_format_sketch
 from encoders.sdgraph import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion

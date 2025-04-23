@@ -27,6 +27,7 @@ import re
 import shutil
 from PIL import Image
 from torchvision import transforms
+import bisect
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
@@ -231,7 +232,7 @@ class SketchDataset2(Dataset):
             sketch_cube = pp.preprocess_force_seg_merge(fn[1])
             mask = cls
         elif self.back_mode == 'S5':
-            sketch_cube, mask = du.txt_to_S5(fn[1], self.n_max_len)
+            sketch_cube, mask = du.sketch_file_to_s5(fn[1], self.n_max_len)
         else:
             raise TypeError('error back mode')
 
@@ -299,21 +300,37 @@ class SketchDatasetTotal(Dataset):
                  test_ratio=0.2,
                  suffix='svg',
                  is_random_divide=False,
+                 data_mode='train',
                  back_mode='STK',
+                 coor_mode='ABS',
                  n_max_len=200,
+                 img_size=(224, 224)
                  ):
         """
         :param root:
         :param test_ratio: 测试集占总数据比例
-        :param suffix: 数据文件后缀
+        :param suffix: 数据文件后缀 ['svg', 'txt']
         :param is_random_divide: 分割训练集测试集时是否随机
-        :param back_mode: ['STK', 'S5']. 'STK': [n_stk, n_stk_pnt, 2], 'S5': data: [n_max_len, 5], mask: [n_max_len, ]
+        :param data_mode: ['train', 'test'], 区分训练集和测试集
+        :param back_mode: ['STK', 'S5', 'IMG'].
+            'STK': [n_stk, n_stk_pnt, 2],
+            'S5': data: [n_max_len, 5], mask: [n_max_len, ]
+            'IMG': [3, width, height]
+        :param coor_mode: ['ABS', 'REL']
+            'ABS': 绝对坐标
+            'REL': 相对坐标
         :param n_max_len:
+        :param img_size: 图片大小
         """
-        print('sketch dataset total, from:' + root)
-        self.mode = 'train'
+        print('sketch dataset total, from:' + root, '\n')
+        assert data_mode == 'train' or data_mode == 'test'
+
+        self.data_mode = data_mode
         self.back_mode = back_mode
+        self.coor_mode = coor_mode
         self.n_max_len = n_max_len
+        self.img_size = img_size
+        self.suffix = suffix
 
         # 获取全部类别列表，即 root 内的全部文件夹名
         category_all = get_subdirs(root)
@@ -342,13 +359,13 @@ class SketchDatasetTotal(Dataset):
                 else:
                     self.datapath_train.append((item, c_class_path_list[i]))
 
-        # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的键值没有用到，self.classes的键为‘plane'或'car'，值为0, 1
+        # 用整形0,1,2,3等代表具体类型‘plane','car'等，此时字典category_path中的值没有用到，self.classes的键为‘plane'或'car'，值为0, 1
         self.classes = dict(zip(sorted(category_path), range(len(category_path))))
+        print(self.classes, '\n')
 
-        print(self.classes)
         print('number of training instance all:', len(self.datapath_train))
         print('number of testing instance all:', len(self.datapath_test))
-        print('number of classes all:', len(self.classes))
+        print('number of classes all:', len(self.classes), '\n')
 
     def __getitem__(self, index):
         """
@@ -365,21 +382,25 @@ class SketchDatasetTotal(Dataset):
                 index = self.next_index(index)
 
     def get_data(self, index):
-        if self.mode == 'train':
+        if self.data_mode == 'train':
             datapath = self.datapath_train
-        elif self.mode == 'test':
+        elif self.data_mode == 'test':
             datapath = self.datapath_test
         else:
             raise TypeError('error dataset mode')
 
-        fn = datapath[index]  # (‘plane’, Path1)
-        cls = self.classes[fn[0]]  # 表示类别的整形数字
+        class_key, file_root = datapath[index]  # (‘plane’, Path1)
+        cls = self.classes[class_key]  # 表示类别的整形数字
 
         if self.back_mode == 'STK':
-            sketch_cube = pp.preprocess_force_seg_merge(fn[1])
+            sketch_cube = pp.preprocess_force_seg_merge(file_root)
             mask = cls
         elif self.back_mode == 'S5':
-            sketch_cube, mask = du.txt_to_S5(fn[1], self.n_max_len)
+            sketch_cube, mask = du.sketch_file_to_s5(file_root, self.n_max_len, self.coor_mode)
+
+        elif self.back_mode == 'IMG':
+            sketch_cube = du.img_read(file_root, self.img_size)
+            mask = cls
         else:
             raise TypeError('error back mode')
 
@@ -394,9 +415,9 @@ class SketchDatasetTotal(Dataset):
             return 0
 
     def __len__(self):
-        if self.mode == 'train':
+        if self.data_mode == 'train':
             return len(self.datapath_train)
-        elif self.mode == 'test':
+        elif self.data_mode == 'test':
             return len(self.datapath_test)
         else:
             raise TypeError('error dataset mode')
@@ -404,13 +425,156 @@ class SketchDatasetTotal(Dataset):
     def n_classes(self):
         return len(self.classes)
 
-    def set_mode(self, mode):
+    def train(self):
+        self.data_mode = 'train'
+
+    def eval(self):
+        self.data_mode = 'test'
+
+
+class QuickDrawDiff(Dataset):
+    """
+    读取 quickdraw 数据集，不区分类别，用于训练 diffusion
+    单次读取一个 npz 文件，即一个类别
+    """
+    def __init__(self, root_npz, back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
         """
-        设置数据集模式，即训练集还是测试集
-        :param mode: ['train', 'test']
-        :return:
+        将草图数据读取到该类的数组中
+        :param root_npz:
+        :param back_mode: ['STK', 'STD', 'S5']
+            'STK': [n_stk, n_stk_pnt, 2]
+            'STD': [n, 3] (x, y, s)
+            'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
+        :param coor_mode:
+        :param max_len:
+        :param pen_down:
+        :param pen_up:
         """
-        self.mode = mode
+        print('QuickDrawDiff Dataset, from:', root_npz)
+        self.sketch_all = []
+        self.mask_all = []
+
+        if back_mode == 'S5':
+            sketch_train, mask_train = du.npz_read(root_npz, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_test, mask_test = du.npz_read(root_npz, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_valid, mask_valid = du.npz_read(root_npz, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
+
+            self.sketch_all.extend(sketch_train)
+            self.sketch_all.extend(sketch_test)
+            self.sketch_all.extend(sketch_valid)
+
+            self.mask_all.extend(mask_train)
+            self.mask_all.extend(mask_test)
+            self.mask_all.extend(mask_valid)
+
+        elif back_mode == 'STK' or back_mode == 'STD':
+            sketch_train = du.npz_read(root_npz, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_test = du.npz_read(root_npz, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_valid = du.npz_read(root_npz, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+
+            self.sketch_all.extend(sketch_train)
+            self.sketch_all.extend(sketch_test)
+            self.sketch_all.extend(sketch_valid)
+
+            tmp_sketch_list = []
+            if back_mode == 'STK':
+                for c_sketch in self.sketch_all:
+                    tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
+
+                self.sketch_all = tmp_sketch_list
+
+        else:
+            raise TypeError('error back mode')
+
+        print('instance all: ', len(self.sketch_all))
+
+    def __getitem__(self, index):
+        sketch = self.sketch_all[index]
+        mask = self.mask_all[index] if len(self.mask_all) > 0 else 0
+
+        return sketch, mask
+
+    def __len__(self):
+        return len(self.sketch_all)
+
+
+class QuickDrawCls(Dataset):
+    """
+    读取 quickdraw 数据集，用于分类
+    文件夹结构组织如下：
+
+    root
+    ├─ Bushes.npz
+    ├─ Clamps.npz
+    ├─ Bearing.npz
+    ├─ Gear.npz
+    ├─ ...
+    │
+    ...
+
+    """
+    def __init__(self, root_npz, back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down,
+                 pen_up=global_defs.pen_up):
+        """
+        将草图数据读取到该类的数组中
+        :param root_npz:
+        :param back_mode: ['STK', 'STD', 'S5']
+            'STK': [n_stk, n_stk_pnt, 2]
+            'STD': [n, 3] (x, y, s)
+            'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
+        :param coor_mode:
+        :param max_len:
+        :param pen_down:
+        :param pen_up:
+        """
+        print('QuickDrawCls Dataset, from:', root_npz)
+        self.sketch_all = []
+        self.mask_all = []
+
+
+        # npz文件单个文件包含了一个类中所有数据
+        # npz 文件中训练集测试集已划分好
+        if self.suffix == 'npz':
+            npz_all = get_allfiles(root, suffix)
+
+            self.npz_idx_root = dict(enumerate(npz_all))
+
+            c_begin_train = 0
+            c_begin_test = 0
+
+            category_path = []
+            self.datapath_train = [c_begin_train]
+            self.datapath_test = [c_begin_test]
+
+            for idx, c_pnz in enumerate(npz_all):
+                c_class = os.path.basename(c_pnz).split('.')[0]
+                category_path.append(c_class)
+
+                n_train_files = len(np.load(str(c_pnz), encoding='latin1', allow_pickle=True)['train'])
+                n_test_files = len(np.load(str(c_pnz), encoding='latin1', allow_pickle=True)['test'])
+
+                c_begin_train = c_begin_train + n_train_files
+                c_begin_test = c_begin_test + n_test_files
+
+                self.datapath_train.append(c_begin_train)
+                self.datapath_test.append(c_begin_test)
+
+            print('number of training instance all:', self.datapath_train[-1])
+            print('number of testing instance all:', self.datapath_test[-1])
+
+    def __getitem__(self, index):
+
+        if self.suffix == 'npz':
+            # 找到索引位置
+            i = bisect.bisect_right(datapath, index) - 1
+
+            # 找到类型
+            # TODO: 考虑直接为npz单独设置一个数据集
+
+        return 0, 0
+
+    def __len__(self):
+        return len(self.sketch_all)
 
 
 class DiffDataset(Dataset):
@@ -541,7 +705,7 @@ class RetrievalDataset(Dataset):
         tensor_image = transform(image)
 
         if self.return_mode == 'S5':
-            txt_tensor, mask = du.txt_to_S5(txt_path, self.max_seq_length)
+            txt_tensor, mask = du.sketch_file_to_s5(txt_path, self.max_seq_length)
 
         elif self.return_mode == 'STK':
             sketch_data = pp.preprocess_just_pad(txt_path)

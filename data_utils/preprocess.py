@@ -705,7 +705,7 @@ def preprocess_outlier_resamp_seg(sketch_root: str, resp_dist: float = 0.01, pen
     return sketch_data
 
 
-def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
+def preprocess_force_seg_merge(sketch_root, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
     """
     指定笔划数，如果笔划数较少，强制分割
     如果笔划数过多，强制合并，不管距离远近
@@ -716,8 +716,15 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
     :param is_show_status:
     :return:
     """
-    # 读取草图数据
-    sketch_data = du.load_sketch_file(sketch_root)
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = du.load_sketch_file(sketch_root)
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
 
     # 移动草图质心并缩放大小
     sketch_data = du.sketch_std(sketch_data)
@@ -780,6 +787,8 @@ def preprocess_force_seg_merge(sketch_root: str, resp_dist: float = 0.01, pen_up
 
     # 将笔划点数采样至指定值
     sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+
+    # vis.vis_sketch_list(sketch_data, title='final', show_dot=True)
 
     sketch_data = np.array(sketch_data)
     return sketch_data

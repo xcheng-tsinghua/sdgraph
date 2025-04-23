@@ -10,9 +10,8 @@ from tqdm import tqdm
 import requests
 import torch
 from matplotlib.collections import LineCollection
-import re
-import xml.etree.ElementTree as ET
-from typing import List, Tuple, Union
+from torchvision import transforms
+from PIL import Image
 
 import global_defs
 import encoders.spline as sp
@@ -1220,15 +1219,15 @@ def is_sketch_unified(stroke_list, thres=1e-5):
         print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
 
 
-def txt_to_S5(root_txt, max_length, coor_mode='ABS'):
+def sketch_file_to_s5(root, max_length, coor_mode='ABS'):
     """
     将草图转换为 S5 格式，(x, y, s1, s2, s3)
-    :param root_txt:
+    :param root:
     :param max_length:
     :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
     :return:
     """
-    data_raw = load_sketch_file(root_txt)
+    data_raw = load_sketch_file(root)
 
     # 多于指定点数则进行采样
     n_point_raw = len(data_raw)
@@ -1288,6 +1287,111 @@ def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs
     return sketch_data
 
 
+def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
+    """
+    读取 npz 文件中的草图，读取后的草图已归一化
+    :param npz_root:
+    :param data_mode: ['train', 'test', 'valid']
+    :param back_mode: ['STD', 'S5']
+        'STD': [n, 3] (x, y, s)
+        'S5': data: [N, 5], mask: [N, ], N = max_len + 2, 因为首尾要加两个标志位
+    :param coor_mode: ['ABS', 'REL']
+        'ABS': 绝对坐标
+        'REL': 相对坐标
+    :param max_len: S5 模式下的最长长度
+    :param pen_down: quickdraw 中为 0
+    :param pen_up: quickdraw 中为 1
+    :return:
+    """
+    data_all = np.load(str(npz_root), encoding='latin1', allow_pickle=True)
+    dataset = data_all[data_mode]
+
+    data = []
+    mask = []
+    for raw_data in dataset:
+
+        # 获得绝对坐标
+        xy_data = raw_data[:, :2]
+        xy_data = np.cumsum(xy_data, axis=0)
+        raw_data[:, :2] = xy_data
+
+        if back_mode == 'S5':
+            if len(raw_data) > max_len:
+                # 大于最大长度则从末尾截断
+                raw_data = raw_data[:max_len, :]
+
+            # 归一化到 [-1, 1]
+            raw_data = sketch_std(raw_data.astype(np.float32))
+
+            # 转换为相对坐标
+            if coor_mode == 'REL':
+                xy_data = raw_data[:, :2]
+                xy_data[1:] = xy_data[1:] - xy_data[:-1]
+                raw_data[:, :2] = xy_data
+
+            # 提取到 data_cube 和 mask
+            c_data = torch.zeros(max_len + 2, 5)
+            c_mask = torch.zeros(max_len + 2)
+
+            raw_data = torch.from_numpy(raw_data)
+            len_raw_data = len(raw_data)
+
+            # xy
+            c_data[1:len_raw_data + 1, :2] = raw_data[:, :2]
+            # $p_1$
+            c_data[1:len_raw_data + 1, 2] = 1 - raw_data[:, 2]
+            # $p_2$
+            c_data[1:len_raw_data + 1, 3] = raw_data[:, 2]
+            # $p_3$
+            c_data[len_raw_data + 1:, 4] = 1
+
+            # Mask is on until end of sequence
+            c_mask[:len_raw_data + 1] = 1
+
+            data.append(c_data)
+            mask.append(c_mask)
+
+        elif back_mode == 'STD':
+            # 归一化到 [-1, 1]
+            raw_data = sketch_std(raw_data.astype(np.float32))
+
+            # 替换抬笔落笔标志位
+            state = raw_data[:, 2]
+            state = np.where(state == 0, pen_down, pen_up)
+            raw_data[:, 2] = state
+
+            # 转换为相对坐标
+            if coor_mode == 'REL':
+                xy_data = raw_data[:, :2]
+                xy_data[1:] = xy_data[1:] - xy_data[:-1]
+                raw_data[:, :2] = xy_data
+
+            data.append(raw_data)
+
+        else:
+            raise TypeError('error back mode')
+
+    return data, mask
+
+
+def img_read(img_root, img_size=(224, 224)):
+    """
+    从图片读取数据，返回包含数据的 tensor
+    :param img_root:
+    :param img_size:
+    :return: [channel, width, height]
+    """
+    image = Image.open(img_root).convert("RGB")  # 确保是 RGB 模式
+
+    transform = transforms.Compose([
+        transforms.Resize(img_size),
+        transforms.ToTensor()
+    ])
+    tensor_image = transform(image)
+
+    return tensor_image
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -1335,8 +1439,31 @@ if __name__ == '__main__':
     #     asketch = pre_process_seg_only(c_skh)
     #     tmp_vis_sketch_list(asketch, True)
 
-    svg_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg'
-    svg_to_txt(svg_root, '')
+    # svg_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg'
+    # svg_to_txt(svg_root, '')
+
+
+    # test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz'
+    #
+    # npz_read(test_npz, 'train', 'S5')
+
+    atestfile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
+    sk_data, asmdk = sketch_file_to_s5(atestfile, 200, coor_mode='REL')
+
+    x_adta = []
+    y_adta = []
+    c_coora = np.array([0., 0.])
+
+    for i in range(len(sk_data)):
+        dir_asd = sk_data[i].numpy()[:2]
+        c_coora = c_coora + dir_asd
+
+        x_adta.append(c_coora[0])
+        y_adta.append(-c_coora[1])
+
+    plt.axis('equal')
+    plt.plot(x_adta, y_adta)
+    plt.show()
 
     pass
 

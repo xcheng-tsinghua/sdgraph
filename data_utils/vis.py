@@ -390,12 +390,18 @@ if __name__ == '__main__':
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Bearing\f973078416a6819866b86970c22ae8f9_4.txt', show_dot=True)
 
-    du.svg_to_txt(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg', r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
+    # du.svg_to_txt(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg', r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
 
     # svg_fig = du.svg_read(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg')
     # vis_sketch_data(svg_fig)
 
-    vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
+    # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
+
+    test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz'
+    sketch_all = du.npz_read(test_npz)[0]
+
+    for c_sketch in sketch_all:
+        vis_sketch_data(c_sketch)
 
     pass
 
