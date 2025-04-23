@@ -303,6 +303,7 @@ class QuickDrawCls(Dataset):
         category_all = []
         npz_all = get_allfiles(root_npz, 'npz')
 
+        print('loading npz file ...')
         for c_pnz in tqdm(npz_all):
 
             c_class = os.path.basename(c_pnz).split('.')[0]
