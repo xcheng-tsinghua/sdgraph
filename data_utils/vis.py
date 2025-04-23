@@ -191,7 +191,6 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
     :param is_smooth: 是否保存光顺后的草图
     :return:
     """
-
     def curve_smooth(x, y):
         tck, u = splprep([x, y], s=0.5)  # s 控制平滑程度
         new_u = np.linspace(0, 1, 100)

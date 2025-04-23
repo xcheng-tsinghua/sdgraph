@@ -194,10 +194,10 @@ class QuickDrawDiff(Dataset):
     读取 quickdraw 数据集，不区分类别，用于训练 diffusion
     单次读取一个 npz 文件，即一个类别
     """
-    def __init__(self, root_npz, back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
+    def __init__(self, root, back_mode='STK', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
         """
         将草图数据读取到该类的数组中
-        :param root_npz:
+        :param root: npz 文件路径
         :param back_mode: ['STK', 'STD', 'S5']
             'STK': [n_stk, n_stk_pnt, 2]
             'STD': [n, 3] (x, y, s)
@@ -207,14 +207,15 @@ class QuickDrawDiff(Dataset):
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawDiff Dataset, from:', root_npz)
+        print('QuickDrawDiff Dataset, from:', root)
         self.sketch_all = []
         self.mask_all = []
 
         if back_mode == 'S5':
-            sketch_train, mask_train = du.npz_read(root_npz, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
-            sketch_test, mask_test = du.npz_read(root_npz, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
-            sketch_valid, mask_valid = du.npz_read(root_npz, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
+            print('loading npz files')
+            sketch_train, mask_train = du.npz_read(root, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_test, mask_test = du.npz_read(root, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_valid, mask_valid = du.npz_read(root, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
 
             self.sketch_all.extend(sketch_train)
             self.sketch_all.extend(sketch_test)
@@ -225,9 +226,10 @@ class QuickDrawDiff(Dataset):
             self.mask_all.extend(mask_valid)
 
         elif back_mode == 'STK' or back_mode == 'STD':
-            sketch_train = du.npz_read(root_npz, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_test = du.npz_read(root_npz, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_valid = du.npz_read(root_npz, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            print('loading npz files')
+            sketch_train = du.npz_read(root, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_test = du.npz_read(root, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_valid = du.npz_read(root, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
 
             self.sketch_all.extend(sketch_train)
             self.sketch_all.extend(sketch_test)
@@ -235,7 +237,9 @@ class QuickDrawDiff(Dataset):
 
             tmp_sketch_list = []
             if back_mode == 'STK':
-                for c_sketch in self.sketch_all:
+                print('converting STD to STK')
+
+                for c_sketch in tqdm(self.sketch_all):
                     tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
@@ -402,7 +406,7 @@ class DiffDataset(Dataset):
     """
     def __init__(self,
                  root,
-                 suffix='svg',
+                 suffix='txt',
                  back_mode='STK',
                  coor_mode='ABS',
                  n_max_len=200

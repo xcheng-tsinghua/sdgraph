@@ -19,7 +19,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
 
-    parser.add_argument('--bs', type=int, default=200, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
     parser.add_argument('--epoch', default=50, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
@@ -27,11 +27,8 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    # parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
-    parser.add_argument('--root_sever', type=str,
-                        default=f'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk30_stkpnt32/train/Bearing',
-                        help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -74,7 +71,7 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.channels(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model, model.img_size(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
     if args.epoch > 0:
@@ -84,7 +81,8 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        train_dataset = DiffDataset(root=data_root, shuffle_stk=True)
+        # train_dataset = QuickDrawDiff(root=data_root)
+        train_dataset = DiffDataset(root=data_root)
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
         '''优化器'''
@@ -104,7 +102,7 @@ def main(args):
             print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
             for batch_idx, data in enumerate(train_dataloader, 0):
-                points = data.float().cuda().permute(0, 2, 1)  # -> [bs, 2, n_points]
+                points, masks = data[0].float().cuda(), data[1].float().cuda()
 
                 optimizer.zero_grad()
                 loss = diffusion(points)

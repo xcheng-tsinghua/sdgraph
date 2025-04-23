@@ -1382,7 +1382,7 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
     return data, mask
 
 
-def npz_to_txt(root_npz, root_target):
+def npz_to_txt(root_npz, root_target, delimiter=','):
     """
     该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
     1. 存储相对坐标
@@ -1414,6 +1414,7 @@ def npz_to_txt(root_npz, root_target):
 
     :param root_npz:
     :param root_target:
+    :param delimiter: 保存 txt 文件时的分隔符
     :return:
     """
     # 先读取数据
@@ -1439,15 +1440,15 @@ def npz_to_txt(root_npz, root_target):
     print('save data')
     for idx, c_train in tqdm(enumerate(std_train), total=len(std_train)):
         c_train_filename = os.path.join(train_dir, f'{idx}.txt')
-        np.savetxt(c_train_filename, c_train)
+        np.savetxt(c_train_filename, c_train, delimiter=delimiter)
 
     for idx, c_test in tqdm(enumerate(std_test), total=len(std_test)):
         c_test_filename = os.path.join(test_dir, f'{idx}.txt')
-        np.savetxt(c_test_filename, c_test)
+        np.savetxt(c_test_filename, c_test, delimiter=delimiter)
 
     for idx, c_valid in tqdm(enumerate(std_valid), total=len(std_valid)):
         c_valid_filename = os.path.join(valid_dir, f'{idx}.txt')
-        np.savetxt(c_valid_filename, c_valid)
+        np.savetxt(c_valid_filename, c_valid, delimiter=delimiter)
 
 
 def npz_to_txt_batched(root_npz, root_target):
