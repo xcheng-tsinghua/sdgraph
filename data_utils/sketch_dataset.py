@@ -298,6 +298,7 @@ class QuickDrawCls(Dataset):
         assert data_mode == 'train' or data_mode == 'test'
 
         self.data_mode = data_mode
+        self.back_mode = back_mode
         self.data_train = []
         self.data_test = []
         category_all = []
@@ -324,31 +325,45 @@ class QuickDrawCls(Dataset):
             mk_train.extend(mk_valid)
 
             if back_mode == 'S5':
-
                 c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
                 c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
-                self.data_train.extend(c_train)
-                self.data_test.extend(c_test)
-
             elif back_mode == 'STK':
-
-                c_train = []
-                c_test = []
-
-                for c_instance in sk_train:
-                    c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-                    c_train.append((c_class, c_skh_stk, 0))
-
-                for c_instance in sk_test:
-                    c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-                    c_test.append((c_class, c_skh_stk, 0))
-
-                self.data_train.extend(c_train)
-                self.data_test.extend(c_test)
+                c_train = [(c_class, sk, 0) for sk in sk_train]
+                c_test = [(c_class, sk, 0) for sk in sk_test]
 
             else:
                 raise TypeError('error back mode')
+
+            self.data_train.extend(c_train)
+            self.data_test.extend(c_test)
+
+            # if back_mode == 'S5':
+            #
+            #     c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
+            #     c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
+            #
+            #     self.data_train.extend(c_train)
+            #     self.data_test.extend(c_test)
+            #
+            # elif back_mode == 'STK':
+            #
+            #     c_train = []
+            #     c_test = []
+            #
+            #     for c_instance in sk_train:
+            #         c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+            #         c_train.append((c_class, c_skh_stk, 0))
+            #
+            #     for c_instance in sk_test:
+            #         c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
+            #         c_test.append((c_class, c_skh_stk, 0))
+            #
+            #     self.data_train.extend(c_train)
+            #     self.data_test.extend(c_test)
+            #
+            # else:
+            #     raise TypeError('error back mode')
 
         self.classes = dict(zip(sorted(category_all), range(len(category_all))))
         print(self.classes, '\n')
@@ -366,6 +381,10 @@ class QuickDrawCls(Dataset):
 
         cls, data, mask = datapath[index]
         cls = self.classes[cls]
+
+        # 需要将 'STD' 转化为 'STK'
+        if self.back_mode == 'STK':
+            data = pp.preprocess_force_seg_merge(data)
 
         return data, mask, cls
 

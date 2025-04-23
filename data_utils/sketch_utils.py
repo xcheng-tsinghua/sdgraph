@@ -1416,6 +1416,38 @@ def npz_to_txt(root_npz, root_target):
     :param root_target:
     :return:
     """
+    # 先读取数据
+    print('load data')
+    std_train = npz_read(root_npz, 'train')[0]
+    std_test = npz_read(root_npz, 'test')[0]
+    std_valid = npz_read(root_npz, 'valid')[0]
+
+    # 创建文件夹
+    print('create dirs')
+    file_name = os.path.splitext(os.path.basename(root_npz))[0].replace('.', '_')
+
+    train_dir = os.path.join(root_target, file_name, 'train')
+    os.makedirs(train_dir)
+
+    test_dir = os.path.join(root_target, file_name, 'test')
+    os.makedirs(test_dir)
+
+    valid_dir = os.path.join(root_target, file_name, 'valid')
+    os.makedirs(valid_dir)
+
+    # 保存数据
+    print('save data')
+    for idx, c_train in tqdm(enumerate(std_train), total=len(std_train)):
+        c_train_filename = os.path.join(train_dir, f'{idx}.txt')
+        np.savetxt(c_train_filename, c_train)
+
+    for idx, c_test in tqdm(enumerate(std_test), total=len(std_test)):
+        c_test_filename = os.path.join(test_dir, f'{idx}.txt')
+        np.savetxt(c_test_filename, c_test)
+
+    for idx, c_valid in tqdm(enumerate(std_valid), total=len(std_valid)):
+        c_valid_filename = os.path.join(valid_dir, f'{idx}.txt')
+        np.savetxt(c_valid_filename, c_valid)
 
 
 def img_read(img_root, img_size=(224, 224)):
@@ -1491,23 +1523,27 @@ if __name__ == '__main__':
     #
     # npz_read(test_npz, 'train', 'S5')
 
-    atestfile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
-    sk_data, asmdk = sketch_file_to_s5(atestfile, 200, coor_mode='REL')
+    # atestfile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
+    # sk_data, asmdk = sketch_file_to_s5(atestfile, 200, coor_mode='REL')
+    #
+    # x_adta = []
+    # y_adta = []
+    # c_coora = np.array([0., 0.])
+    #
+    # for i in range(len(sk_data)):
+    #     dir_asd = sk_data[i].numpy()[:2]
+    #     c_coora = c_coora + dir_asd
+    #
+    #     x_adta.append(c_coora[0])
+    #     y_adta.append(-c_coora[1])
+    #
+    # plt.axis('equal')
+    # plt.plot(x_adta, y_adta)
+    # plt.show()
 
-    x_adta = []
-    y_adta = []
-    c_coora = np.array([0., 0.])
+    npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
 
-    for i in range(len(sk_data)):
-        dir_asd = sk_data[i].numpy()[:2]
-        c_coora = c_coora + dir_asd
 
-        x_adta.append(c_coora[0])
-        y_adta.append(-c_coora[1])
-
-    plt.axis('equal')
-    plt.plot(x_adta, y_adta)
-    plt.show()
 
     pass
 
