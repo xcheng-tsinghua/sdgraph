@@ -361,7 +361,7 @@ class QuickDrawCls(Dataset):
             category_all.append(c_class)
 
         for c_res in results:
-            if c_res[0] is not None:
+            if c_res is not None:
                 self.data_train.extend(c_res[0])
                 self.data_test.extend(c_res[1])
 
@@ -385,6 +385,11 @@ class QuickDrawCls(Dataset):
                         desc='converting testing set'
                     )
                 )
+
+        # 删除异常值
+        print('删除异常值')
+        self.data_train = list(filter(lambda x: x is not None, self.data_train))
+        self.data_test = list(filter(lambda x: x is not None, self.data_test))
 
         self.classes = dict(zip(sorted(category_all), range(len(category_all))))
         print('class_name, index map: ', self.classes, '\n')
@@ -438,7 +443,7 @@ class QuickDrawCls(Dataset):
             return c_train, c_test
 
         except:
-            return None, None
+            return None
 
     @staticmethod
     def std_to_stk(data_tup):
@@ -446,7 +451,7 @@ class QuickDrawCls(Dataset):
             res = prep(data_tup[1])
             return data_tup[0], res, 0
         except:
-            pass
+            return None
 
     def __getitem__(self, index):
         if self.data_mode == 'train':
