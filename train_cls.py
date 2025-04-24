@@ -10,6 +10,8 @@ import os
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls
 from encoders.sdgraph import SDGraphCls
+from encoders.SketchTransformer import SketchTransformerCls
+from encoders.SketchRNN import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 import global_defs
 
@@ -23,6 +25,7 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
+    parser.add_argument('--model', type=str, default='SketchTransformer', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
@@ -69,11 +72,27 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    dataset = QuickDrawCls(data_root)
+    if args.model == 'SDGraph':
+        back_mode = 'S5'
+    else:
+        back_mode = 'STK'
+
+    dataset = QuickDrawCls(data_root, back_mode=back_mode)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
-    classifier = SDGraphCls(len(dataset.classes)).cuda()
+    if args.model == 'SketchRNN':
+        classifier = SketchRNN_Cls(dataset.n_classes()).cuda()
+
+    elif args.model == 'SketchTransformer':
+        classifier = SketchTransformerCls(dataset.n_classes()).cuda()
+
+    elif args.model == 'SDGraph':
+        classifier = SDGraphCls(dataset.n_classes()).cuda()
+
+    else:
+        raise TypeError('error model type')
+
     if args.is_load_weight == 'True':
         try:
             classifier.load_state_dict(torch.load(model_savepth))

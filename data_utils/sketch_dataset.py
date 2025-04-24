@@ -492,6 +492,9 @@ class QuickDrawCls(Dataset):
     def eval(self):
         self.data_mode = 'test'
 
+    def n_classes(self):
+        return len(self.classes)
+
 
 class DiffDataset(Dataset):
     """

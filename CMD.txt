@@ -27,6 +27,13 @@ git reset --hard
 git pull origin main
 
 
+# 删除已同步的文件
+# 对于目录
+git rm --cached -r ${directory}
+
+# 对于文件
+git rm --cached ${file}
+
 
 
 ## 查看 nohup 的进程输出
