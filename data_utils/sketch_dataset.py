@@ -341,8 +341,7 @@ class QuickDrawCls(Dataset):
         category_all = []
         npz_all = get_allfiles(root_npz, 'npz')
 
-        print('loading npz file ...')
-        for idx, c_pnz in enumerate(npz_all):
+        for c_pnz in tqdm(npz_all, total=len(npz_all), desc='loading npz file ...'):
             # print(f'current class / all class: {idx} / {len(npz_all)}')
 
             c_class = os.path.basename(c_pnz).split('.')[0]
