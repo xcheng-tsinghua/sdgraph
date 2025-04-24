@@ -5,6 +5,14 @@
 因为 QuickDraw 数据集的 npz 文件存储相对坐标
 TU_Berlin 数据集中的 svg 文件中存储绝对坐标
 
+定义：
+S5 草图格式: [n, 5] 每行为：(x, y, s1, s2, s3)
+STD 草图格式: [n, 3] 每行为：(x, y, s)
+STK 草图格式: [n_stk, n_stk_pnt, 2], n_stk: 草图笔划数，n_stk_pnt: 每个笔划点数
+
+ABS 坐标格式: 绝对坐标
+REL 坐标格式: 相对坐标，除第一个点外，其它坐标均为相对前一个点的坐标偏移量
+
 """
 
 import random
@@ -399,54 +407,54 @@ class QuickDrawCls(Dataset):
 
     @staticmethod
     def load_npz(c_npz, back_mode, coor_mode, max_len, pen_down, pen_up, select, is_random_select):
-        try:
-            c_class = os.path.basename(c_npz).split('.')[0]
-            # category_all.append(c_class)
+        c_class = os.path.basename(c_npz).split('.')[0]
 
-            if back_mode == 'S5':
-                back_mode_alt = 'S5'
-            elif back_mode == 'STK':
-                back_mode_alt = 'STD'
-            else:
-                raise TypeError('error back mode')
+        if back_mode == 'S5':
+            back_mode_alt = 'S5'
+        elif back_mode == 'STK':
+            back_mode_alt = 'STD'
+        else:
+            raise TypeError('error back mode')
 
-            sk_train, mk_train = du.npz_read(c_npz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-            sk_test, mk_test = du.npz_read(c_npz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+        sk_train, mk_train = du.npz_read(c_npz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+        sk_test, mk_test = du.npz_read(c_npz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
 
-            # sk_valid, mk_valid = du.npz_read(c_npz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-            # sk_train.extend(sk_valid)
-            # mk_train.extend(mk_valid)
+        # sk_valid, mk_valid = du.npz_read(c_npz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+        # sk_train.extend(sk_valid)
+        # mk_train.extend(mk_valid)
 
-            if back_mode == 'S5':
-                c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
-                c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
+        if back_mode == 'S5':
+            c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
+            c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
-                if select is not None:
-                    if is_random_select:
-                        random.shuffle(c_train)
-                        random.shuffle(c_test)
+            if select is not None:
+                if is_random_select:
+                    random.shuffle(c_train)
+                    random.shuffle(c_test)
 
-                    c_train = c_train[:select[0]]
-                    c_test = c_test[:select[2]]
+                c_train = c_train[:select[0]]
+                c_test = c_test[:select[2]]
 
-            elif back_mode == 'STK' or back_mode == 'STD':
-                if select is not None:
-                    sk_train = sk_train[:select[0]]
-                    sk_test = sk_test[:select[2]]
+        elif back_mode == 'STK' or back_mode == 'STD':
+            if select is not None:
+                sk_train = sk_train[:select[0]]
+                sk_test = sk_test[:select[2]]
 
-                c_train = [(c_class, sk, 0) for sk in sk_train]
-                c_test = [(c_class, sk, 0) for sk in sk_test]
+            c_train = [(c_class, sk, 0) for sk in sk_train]
+            c_test = [(c_class, sk, 0) for sk in sk_test]
 
-            else:
-                raise TypeError('error back mode')
+        else:
+            raise TypeError('error back mode')
 
-            return c_train, c_test
-
-        except:
-            return None
+        return c_train, c_test
 
     @staticmethod
     def std_to_stk(data_tup):
+        """
+        将单个 STD 草图转化成 STK 草图
+        :param data_tup:
+        :return:
+        """
         try:
             res = prep(data_tup[1])
             return data_tup[0], res, 0

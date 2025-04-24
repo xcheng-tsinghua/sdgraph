@@ -1323,67 +1323,70 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
     data = []
     mask = []
     for raw_data in dataset:
+        try:
+            # 获得绝对坐标
+            xy_data = raw_data[:, :2]
+            xy_data = np.cumsum(xy_data, axis=0)
+            raw_data[:, :2] = xy_data
 
-        # 获得绝对坐标
-        xy_data = raw_data[:, :2]
-        xy_data = np.cumsum(xy_data, axis=0)
-        raw_data[:, :2] = xy_data
+            if back_mode == 'S5':
+                if len(raw_data) > max_len:
+                    # 大于最大长度则从末尾截断
+                    raw_data = raw_data[:max_len, :]
 
-        if back_mode == 'S5':
-            if len(raw_data) > max_len:
-                # 大于最大长度则从末尾截断
-                raw_data = raw_data[:max_len, :]
+                # 归一化到 [-1, 1]
+                raw_data = sketch_std(raw_data.astype(np.float32))
 
-            # 归一化到 [-1, 1]
-            raw_data = sketch_std(raw_data.astype(np.float32))
+                # 转换为相对坐标
+                if coor_mode == 'REL':
+                    xy_data = raw_data[:, :2]
+                    xy_data[1:] = xy_data[1:] - xy_data[:-1]
+                    raw_data[:, :2] = xy_data
 
-            # 转换为相对坐标
-            if coor_mode == 'REL':
-                xy_data = raw_data[:, :2]
-                xy_data[1:] = xy_data[1:] - xy_data[:-1]
-                raw_data[:, :2] = xy_data
+                # 提取到 data_cube 和 mask
+                c_data = torch.zeros(max_len + 2, 5)
+                c_mask = torch.zeros(max_len + 2)
 
-            # 提取到 data_cube 和 mask
-            c_data = torch.zeros(max_len + 2, 5)
-            c_mask = torch.zeros(max_len + 2)
+                raw_data = torch.from_numpy(raw_data)
+                len_raw_data = len(raw_data)
 
-            raw_data = torch.from_numpy(raw_data)
-            len_raw_data = len(raw_data)
+                # xy
+                c_data[1:len_raw_data + 1, :2] = raw_data[:, :2]
+                # $p_1$
+                c_data[1:len_raw_data + 1, 2] = 1 - raw_data[:, 2]
+                # $p_2$
+                c_data[1:len_raw_data + 1, 3] = raw_data[:, 2]
+                # $p_3$
+                c_data[len_raw_data + 1:, 4] = 1
 
-            # xy
-            c_data[1:len_raw_data + 1, :2] = raw_data[:, :2]
-            # $p_1$
-            c_data[1:len_raw_data + 1, 2] = 1 - raw_data[:, 2]
-            # $p_2$
-            c_data[1:len_raw_data + 1, 3] = raw_data[:, 2]
-            # $p_3$
-            c_data[len_raw_data + 1:, 4] = 1
+                # Mask is on until end of sequence
+                c_mask[:len_raw_data + 1] = 1
 
-            # Mask is on until end of sequence
-            c_mask[:len_raw_data + 1] = 1
+                data.append(c_data)
+                mask.append(c_mask)
 
-            data.append(c_data)
-            mask.append(c_mask)
+            elif back_mode == 'STD':
+                # 归一化到 [-1, 1]
+                raw_data = sketch_std(raw_data.astype(np.float32))
 
-        elif back_mode == 'STD':
-            # 归一化到 [-1, 1]
-            raw_data = sketch_std(raw_data.astype(np.float32))
+                # 替换抬笔落笔标志位
+                state = raw_data[:, 2]
+                state = np.where(state == 0, pen_down, pen_up)
+                raw_data[:, 2] = state
 
-            # 替换抬笔落笔标志位
-            state = raw_data[:, 2]
-            state = np.where(state == 0, pen_down, pen_up)
-            raw_data[:, 2] = state
+                # 转换为相对坐标
+                if coor_mode == 'REL':
+                    xy_data = raw_data[:, :2]
+                    xy_data[1:] = xy_data[1:] - xy_data[:-1]
+                    raw_data[:, :2] = xy_data
 
-            # 转换为相对坐标
-            if coor_mode == 'REL':
-                xy_data = raw_data[:, :2]
-                xy_data[1:] = xy_data[1:] - xy_data[:-1]
-                raw_data[:, :2] = xy_data
+                data.append(raw_data)
 
-            data.append(raw_data)
+            else:
+                raise TypeError('error back mode')
 
-        else:
-            raise TypeError('error back mode')
+        except:
+            continue
 
     return data, mask
 
