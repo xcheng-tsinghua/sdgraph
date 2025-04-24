@@ -168,6 +168,9 @@ def sketch_std(sketch):
         _coordinates = _sketch_np - _mean_coor  # 实测是否加expand_dims效果一样
         _dist = np.max(np.sqrt(np.sum(_coordinates ** 2, axis=1)), 0)
 
+        if _dist < 1e-5:
+            raise ValueError('too small sketch scale')
+
         return _mean_coor, _dist
 
     def _move_scale_proc(_sketch_np, _mean_coor, _dist):
@@ -175,6 +178,9 @@ def sketch_std(sketch):
         _sketch_np = _sketch_np / _dist
 
         return _sketch_np
+
+    if len(sketch) == 0:
+        raise ValueError('invalid stroke occurred, which contained zero points')
 
     if isinstance(sketch, np.ndarray):
         coordinates = sketch[:, :2]

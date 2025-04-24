@@ -343,7 +343,7 @@ class QuickDrawCls(Dataset):
 
         print('loading npz file ...')
         for idx, c_pnz in enumerate(npz_all):
-            print(f'current class / all class: {idx} / {len(npz_all)}')
+            # print(f'current class / all class: {idx} / {len(npz_all)}')
 
             c_class = os.path.basename(c_pnz).split('.')[0]
             category_all.append(c_class)
@@ -374,55 +374,59 @@ class QuickDrawCls(Dataset):
                     c_train = c_train[:select[0]]
                     c_test = c_test[:select[2]]
 
-            elif back_mode == 'STK':
-                if self.is_process_in_init:
-                    c_train = []
-                    c_test = []
+            elif back_mode == 'STK' or back_mode == 'STD':
+                if select is not None:
+                    sk_train = sk_train[:select[0]]
+                    sk_test = sk_test[:select[2]]
 
-                    if select is not None:
-                        if is_random_select:
-                            random.shuffle(sk_train)
-                            random.shuffle(sk_test)
+                c_train = [(c_class, sk, 0) for sk in sk_train]
+                c_test = [(c_class, sk, 0) for sk in sk_test]
 
-                        sk_train = sk_train[:select[0]]
-                        sk_test = sk_test[:select[2]]
 
-                    # 使用多进程处理数据
-                    if workers >= 2:
-                        with Pool(processes=workers) as pool:
-                            converted_training = list(
-                                tqdm(
-                                    pool.imap(prep, sk_train),
-                                    total=len(sk_train),
-                                    desc='converting training set'
-                                )
-                            )
-
-                        c_train = [(c_class, sk, 0) for sk in converted_training]
-
-                        with Pool(processes=workers) as pool:
-                            converted_testing = list(
-                                tqdm(
-                                    pool.imap(prep, sk_test),
-                                    total=len(sk_test),
-                                    desc='converting testing set'
-                                )
-                            )
-
-                        c_test = [(c_class, sk, 0) for sk in converted_testing]
-
-                    else:
-                        for c_instance in sk_train:
-                            c_skh_stk = prep(c_instance)
-                            c_train.append((c_class, c_skh_stk, 0))
-
-                        for c_instance in sk_test:
-                            c_skh_stk = prep(c_instance)
-                            c_test.append((c_class, c_skh_stk, 0))
-
-                else:
-                    c_train = [(c_class, sk, 0) for sk in sk_train]
-                    c_test = [(c_class, sk, 0) for sk in sk_test]
+                # if self.is_process_in_init:
+                #     c_train = []
+                #     c_test = []
+                #
+                #     if select is not None:
+                #         if is_random_select:
+                #             random.shuffle(sk_train)
+                #             random.shuffle(sk_test)
+                #
+                #         sk_train = sk_train[:select[0]]
+                #         sk_test = sk_test[:select[2]]
+                #
+                #     # 使用多进程处理数据
+                #     if workers >= 2:
+                #         with Pool(processes=workers) as pool:
+                #             converted_training = list(
+                #                 tqdm(
+                #                     pool.imap(prep, sk_train),
+                #                     total=len(sk_train),
+                #                     desc='converting training set'
+                #                 )
+                #             )
+                #
+                #         c_train = [(c_class, sk, 0) for sk in converted_training]
+                #
+                #         with Pool(processes=workers) as pool:
+                #             converted_testing = list(
+                #                 tqdm(
+                #                     pool.imap(prep, sk_test),
+                #                     total=len(sk_test),
+                #                     desc='converting testing set'
+                #                 )
+                #             )
+                #
+                #         c_test = [(c_class, sk, 0) for sk in converted_testing]
+                #
+                #     else:
+                #         for c_instance in sk_train:
+                #             c_skh_stk = prep(c_instance)
+                #             c_train.append((c_class, c_skh_stk, 0))
+                #
+                #         for c_instance in sk_test:
+                #             c_skh_stk = prep(c_instance)
+                #             c_test.append((c_class, c_skh_stk, 0))
 
             else:
                 raise TypeError('error back mode')
@@ -430,11 +434,52 @@ class QuickDrawCls(Dataset):
             self.data_train.extend(c_train)
             self.data_test.extend(c_test)
 
+        # 是否在init函数里进行转化
+        if back_mode == 'STD' and self.is_process_in_init:
+            # 使用多进程处理数据
+            if workers >= 2:
+                with Pool(processes=workers) as pool:
+                    self.data_train = list(
+                        tqdm(
+                            pool.imap(self.std_to_stk, self.data_train),
+                            total=len(self.data_train),
+                            desc='converting training set'
+                        )
+                    )
+
+                with Pool(processes=workers) as pool:
+                    self.data_test = list(
+                        tqdm(
+                            pool.imap(self.std_to_stk, self.data_test),
+                            total=len(self.data_test),
+                            desc='converting testing set'
+                        )
+                    )
+
+            else:
+                tmp_train = []
+                for c_instance in self.data_train:
+                    tmp_train.append(self.std_to_stk(c_instance))
+                self.data_train = tmp_train
+
+                tmp_test = []
+                for c_instance in self.data_test:
+                    tmp_test.append(self.std_to_stk(c_instance))
+                self.data_test = tmp_test
+
         self.classes = dict(zip(sorted(category_all), range(len(category_all))))
         print(self.classes, '\n')
 
         print('number of training instance all:', len(self.data_train))
         print('number of testing instance all:', len(self.data_test))
+
+    @staticmethod
+    def std_to_stk(data_tup):
+        try:
+            res = prep(data_tup[1])
+            return data_tup[0], res, 0
+        except:
+            pass
 
     def __getitem__(self, index):
         if self.data_mode == 'train':
@@ -745,34 +790,6 @@ def sig_process(data_set, point_bert):
             c_stk_root = c_data_root.replace('.txt', '.stkcoor')
 
             np.savetxt(c_stk_root, c_stk_coor.cpu().numpy(), delimiter=',')
-
-
-def add_stk_coor(dir_path):
-    """
-    为unified_std_sketch添加笔划特征，使用point_bert_ulip2
-    :param dir_path: 分类数据集根目录
-    :param bs: 分类数据集根目录
-    :return:
-    """
-
-    train_dataset = SketchDataset(root=dir_path, is_train=True, is_back_idx=True)
-    test_dataset = SketchDataset(root=dir_path, is_train=False, is_back_idx=True)
-
-    point_bert = create_pretrained_pointbert(r'E:\document\DeepLearning\SDGraph\model_trained\pointbert_ulip2.pth').cuda()
-
-    sig_process(train_dataset, point_bert)
-    sig_process(test_dataset, point_bert)
-
-
-
-
-
-
-
-
-
-
-
 
 
 if __name__ == '__main__':
