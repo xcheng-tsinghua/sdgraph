@@ -346,8 +346,8 @@ class QuickDrawCls(Dataset):
         self.data_train = []
         self.data_test = []
         self.category_all = []
-        npz_all = get_allfiles(root_npz, 'npz')
 
+        npz_all = get_allfiles(root_npz, 'npz')
         with Pool(processes=workers) as pool:
             tqdm(
                 pool.imap(self.load_npz, npz_all),
@@ -487,48 +487,52 @@ class QuickDrawCls(Dataset):
         print('number of testing instance all:', len(self.data_test))
 
     def load_npz(self, c_pnz):
-        c_class = os.path.basename(c_pnz).split('.')[0]
-        self.category_all.append(c_class)
+        try:
+            c_class = os.path.basename(c_pnz).split('.')[0]
+            self.category_all.append(c_class)
 
-        if self.back_mode == 'S5':
-            back_mode_alt = 'S5'
-        elif self.back_mode == 'STK':
-            back_mode_alt = 'STD'
-        else:
-            raise TypeError('error back mode')
+            if self.back_mode == 'S5':
+                back_mode_alt = 'S5'
+            elif self.back_mode == 'STK':
+                back_mode_alt = 'STD'
+            else:
+                raise TypeError('error back mode')
 
-        sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
-        sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
+            sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
+            sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
 
-        # sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-        # sk_train.extend(sk_valid)
-        # mk_train.extend(mk_valid)
+            # sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            # sk_train.extend(sk_valid)
+            # mk_train.extend(mk_valid)
 
-        if self.back_mode == 'S5':
-            c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
-            c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
+            if self.back_mode == 'S5':
+                c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
+                c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
-            if self.select is not None:
-                if self.is_random_select:
-                    random.shuffle(c_train)
-                    random.shuffle(c_test)
+                if self.select is not None:
+                    if self.is_random_select:
+                        random.shuffle(c_train)
+                        random.shuffle(c_test)
 
-                c_train = c_train[:self.select[0]]
-                c_test = c_test[:self.select[2]]
+                    c_train = c_train[:self.select[0]]
+                    c_test = c_test[:self.select[2]]
 
-        elif self.back_mode == 'STK' or self.back_mode == 'STD':
-            if self.select is not None:
-                sk_train = sk_train[:self.select[0]]
-                sk_test = sk_test[:self.select[2]]
+            elif self.back_mode == 'STK' or self.back_mode == 'STD':
+                if self.select is not None:
+                    sk_train = sk_train[:self.select[0]]
+                    sk_test = sk_test[:self.select[2]]
 
-            c_train = [(c_class, sk, 0) for sk in sk_train]
-            c_test = [(c_class, sk, 0) for sk in sk_test]
+                c_train = [(c_class, sk, 0) for sk in sk_train]
+                c_test = [(c_class, sk, 0) for sk in sk_test]
 
-        else:
-            raise TypeError('error back mode')
+            else:
+                raise TypeError('error back mode')
 
-        self.data_train.extend(c_train)
-        self.data_test.extend(c_test)
+            self.data_train.extend(c_train)
+            self.data_test.extend(c_test)
+
+        except:
+            pass
 
     @staticmethod
     def std_to_stk(data_tup):
