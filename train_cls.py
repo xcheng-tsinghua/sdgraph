@@ -11,6 +11,7 @@ import os
 from data_utils.sketch_dataset import QuickDrawCls
 from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
+import global_defs
 
 
 def parse_args():
@@ -23,7 +24,7 @@ def parse_args():
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
 
-    parser.add_argument('--save_str', type=str, default='sdgraph')
+    parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\small')
 
