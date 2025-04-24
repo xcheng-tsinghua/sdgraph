@@ -18,11 +18,12 @@ import shutil
 from PIL import Image
 from torchvision import transforms
 from multiprocessing import Pool
+from functools import partial
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
 import data_utils.vis as vis
-from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
+# from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 from data_utils import preprocess as pp
 from data_utils.preprocess import preprocess_force_seg_merge as prep
 from data_utils import sketch_utils as du
@@ -335,192 +336,103 @@ class QuickDrawCls(Dataset):
 
         self.data_mode = data_mode
         self.back_mode = back_mode
-        self.coor_mode = coor_mode
-        self.max_len = max_len
-        self.pen_down = pen_down
-        self.pen_up = pen_up
         self.is_process_in_init = is_process_in_init
-        self.select = select
-        self.is_random_select = is_random_select
 
         self.data_train = []
         self.data_test = []
-        self.category_all = []
+        category_all = []
+
+        # 固定其它参数
+        worker_func = partial(self.load_npz,
+                              back_mode=back_mode,
+                              coor_mode=coor_mode,
+                              max_len=max_len,
+                              pen_down=pen_down,
+                              pen_up=pen_up,
+                              select=select,
+                              is_random_select=is_random_select
+                              )
 
         npz_all = get_allfiles(root_npz, 'npz')
         with Pool(processes=workers) as pool:
-            tqdm(
-                pool.imap(self.load_npz, npz_all),
+            # -> [(c_train, c_test)]
+            results = list(tqdm(
+                pool.imap(worker_func, npz_all),
                 total=len(npz_all),
-                desc='loading npz files'
+                desc='loading npz files')
             )
 
-        # for c_pnz in tqdm(npz_all, total=len(npz_all), desc='loading npz file'):
-        #     # print(f'current class / all class: {idx} / {len(npz_all)}')
-        #
-        #     c_class = os.path.basename(c_pnz).split('.')[0]
-        #     category_all.append(c_class)
-        #
-        #     if back_mode == 'S5':
-        #         back_mode_alt = 'S5'
-        #     elif back_mode == 'STK':
-        #         back_mode_alt = 'STD'
-        #     else:
-        #         raise TypeError('error back mode')
-        #
-        #     sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-        #     sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-        #
-        #     # sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-        #     # sk_train.extend(sk_valid)
-        #     # mk_train.extend(mk_valid)
-        #
-        #     if back_mode == 'S5':
-        #         c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
-        #         c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
-        #
-        #         if select is not None:
-        #             if is_random_select:
-        #                 random.shuffle(c_train)
-        #                 random.shuffle(c_test)
-        #
-        #             c_train = c_train[:select[0]]
-        #             c_test = c_test[:select[2]]
-        #
-        #     elif back_mode == 'STK' or back_mode == 'STD':
-        #         if select is not None:
-        #             sk_train = sk_train[:select[0]]
-        #             sk_test = sk_test[:select[2]]
-        #
-        #         c_train = [(c_class, sk, 0) for sk in sk_train]
-        #         c_test = [(c_class, sk, 0) for sk in sk_test]
-        #
-        #
-        #         # if self.is_process_in_init:
-        #         #     c_train = []
-        #         #     c_test = []
-        #         #
-        #         #     if select is not None:
-        #         #         if is_random_select:
-        #         #             random.shuffle(sk_train)
-        #         #             random.shuffle(sk_test)
-        #         #
-        #         #         sk_train = sk_train[:select[0]]
-        #         #         sk_test = sk_test[:select[2]]
-        #         #
-        #         #     # 使用多进程处理数据
-        #         #     if workers >= 2:
-        #         #         with Pool(processes=workers) as pool:
-        #         #             converted_training = list(
-        #         #                 tqdm(
-        #         #                     pool.imap(prep, sk_train),
-        #         #                     total=len(sk_train),
-        #         #                     desc='converting training set'
-        #         #                 )
-        #         #             )
-        #         #
-        #         #         c_train = [(c_class, sk, 0) for sk in converted_training]
-        #         #
-        #         #         with Pool(processes=workers) as pool:
-        #         #             converted_testing = list(
-        #         #                 tqdm(
-        #         #                     pool.imap(prep, sk_test),
-        #         #                     total=len(sk_test),
-        #         #                     desc='converting testing set'
-        #         #                 )
-        #         #             )
-        #         #
-        #         #         c_test = [(c_class, sk, 0) for sk in converted_testing]
-        #         #
-        #         #     else:
-        #         #         for c_instance in sk_train:
-        #         #             c_skh_stk = prep(c_instance)
-        #         #             c_train.append((c_class, c_skh_stk, 0))
-        #         #
-        #         #         for c_instance in sk_test:
-        #         #             c_skh_stk = prep(c_instance)
-        #         #             c_test.append((c_class, c_skh_stk, 0))
-        #
-        #     else:
-        #         raise TypeError('error back mode')
-        #
-        #     self.data_train.extend(c_train)
-        #     self.data_test.extend(c_test)
+        for c_npz in npz_all:
+            c_class = os.path.basename(c_npz).split('.')[0]
+            category_all.append(c_class)
+
+        for c_res in results:
+            self.data_train.extend(c_res[0])
+            self.data_test.extend(c_res[1])
 
         # 是否在init函数里进行转化
-        if back_mode == 'STD' and self.is_process_in_init:
+        if self.back_mode == 'STK' and self.is_process_in_init:
             # 使用多进程处理数据
-            if workers >= 2:
-                with Pool(processes=workers) as pool:
-                    self.data_train = list(
-                        tqdm(
-                            pool.imap(self.std_to_stk, self.data_train),
-                            total=len(self.data_train),
-                            desc='converting training set'
-                        )
+            with Pool(processes=workers) as pool:
+                self.data_train = list(
+                    tqdm(
+                        pool.imap(self.std_to_stk, self.data_train),
+                        total=len(self.data_train),
+                        desc='converting training set'
                     )
+                )
 
-                with Pool(processes=workers) as pool:
-                    self.data_test = list(
-                        tqdm(
-                            pool.imap(self.std_to_stk, self.data_test),
-                            total=len(self.data_test),
-                            desc='converting testing set'
-                        )
+            with Pool(processes=workers) as pool:
+                self.data_test = list(
+                    tqdm(
+                        pool.imap(self.std_to_stk, self.data_test),
+                        total=len(self.data_test),
+                        desc='converting testing set'
                     )
+                )
 
-            else:
-                tmp_train = []
-                for c_instance in self.data_train:
-                    tmp_train.append(self.std_to_stk(c_instance))
-                self.data_train = tmp_train
-
-                tmp_test = []
-                for c_instance in self.data_test:
-                    tmp_test.append(self.std_to_stk(c_instance))
-                self.data_test = tmp_test
-
-        self.classes = dict(zip(sorted(self.category_all), range(len(self.category_all))))
-        print(self.classes, '\n')
+        self.classes = dict(zip(sorted(category_all), range(len(category_all))))
+        print('class_name, index map: ', self.classes, '\n')
 
         print('number of training instance all:', len(self.data_train))
         print('number of testing instance all:', len(self.data_test))
 
-    def load_npz(self, c_pnz):
+    @staticmethod
+    def load_npz(c_npz, back_mode, coor_mode, max_len, pen_down, pen_up, select, is_random_select):
         try:
-            c_class = os.path.basename(c_pnz).split('.')[0]
-            self.category_all.append(c_class)
+            c_class = os.path.basename(c_npz).split('.')[0]
+            # category_all.append(c_class)
 
-            if self.back_mode == 'S5':
+            if back_mode == 'S5':
                 back_mode_alt = 'S5'
-            elif self.back_mode == 'STK':
+            elif back_mode == 'STK':
                 back_mode_alt = 'STD'
             else:
                 raise TypeError('error back mode')
 
-            sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
-            sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, self.coor_mode, self.max_len, self.pen_down, self.pen_up)
+            sk_train, mk_train = du.npz_read(c_npz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            sk_test, mk_test = du.npz_read(c_npz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
 
-            # sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            # sk_valid, mk_valid = du.npz_read(c_npz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
             # sk_train.extend(sk_valid)
             # mk_train.extend(mk_valid)
 
-            if self.back_mode == 'S5':
+            if back_mode == 'S5':
                 c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
                 c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
-                if self.select is not None:
-                    if self.is_random_select:
+                if select is not None:
+                    if is_random_select:
                         random.shuffle(c_train)
                         random.shuffle(c_test)
 
-                    c_train = c_train[:self.select[0]]
-                    c_test = c_test[:self.select[2]]
+                    c_train = c_train[:select[0]]
+                    c_test = c_test[:select[2]]
 
-            elif self.back_mode == 'STK' or self.back_mode == 'STD':
-                if self.select is not None:
-                    sk_train = sk_train[:self.select[0]]
-                    sk_test = sk_test[:self.select[2]]
+            elif back_mode == 'STK' or back_mode == 'STD':
+                if select is not None:
+                    sk_train = sk_train[:select[0]]
+                    sk_test = sk_test[:select[2]]
 
                 c_train = [(c_class, sk, 0) for sk in sk_train]
                 c_test = [(c_class, sk, 0) for sk in sk_test]
@@ -528,8 +440,7 @@ class QuickDrawCls(Dataset):
             else:
                 raise TypeError('error back mode')
 
-            self.data_train.extend(c_train)
-            self.data_test.extend(c_test)
+            return c_train, c_test
 
         except:
             pass
