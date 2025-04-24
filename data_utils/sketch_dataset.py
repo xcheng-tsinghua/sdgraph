@@ -200,7 +200,7 @@ class QuickDrawDiff(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
-                 workers=4,
+                 workers=7,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up):
         """
@@ -246,18 +246,16 @@ class QuickDrawDiff(Dataset):
 
             tmp_sketch_list = []
             if back_mode == 'STK':
-                print('converting STD to STK')
-
+                # 使用多进程处理数据
                 if workers >= 2:
                     with Pool(processes=workers) as pool:
                         tmp_sketch_list = list(
                             tqdm(
                                 pool.imap(pp.preprocess_force_seg_merge, self.sketch_all),
                                 total=len(self.sketch_all),
-                                desc="Processing"
+                                desc='converting STD to STK'
                             )
                         )
-
                 else:
                     for c_sketch in tqdm(self.sketch_all):
                         tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
