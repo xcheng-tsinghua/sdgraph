@@ -330,7 +330,7 @@ class QuickDrawCls(Dataset):
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawCls Dataset, from:', root_npz)
+        print('QuickDrawCls Dataset, from:', root_npz, f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
 
         self.data_mode = data_mode
