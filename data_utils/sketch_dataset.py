@@ -24,6 +24,7 @@ from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
 import data_utils.vis as vis
 from encoders.PointBERT_ULIP2 import create_pretrained_pointbert
 from data_utils import preprocess as pp
+from data_utils.preprocess import preprocess_force_seg_merge as prep
 from data_utils import sketch_utils as du
 
 
@@ -151,7 +152,7 @@ class SketchDatasetCls(Dataset):
         cls = self.classes[class_key]  # 表示类别的整形数字
 
         if self.back_mode == 'STK':
-            sketch_cube = pp.preprocess_force_seg_merge(file_root)
+            sketch_cube = prep(file_root)
             mask = cls
         elif self.back_mode == 'S5':
             sketch_cube, mask = du.sketch_file_to_s5(file_root, self.n_max_len, self.coor_mode)
@@ -251,14 +252,14 @@ class QuickDrawDiff(Dataset):
                     with Pool(processes=workers) as pool:
                         tmp_sketch_list = list(
                             tqdm(
-                                pool.imap(pp.preprocess_force_seg_merge, self.sketch_all),
+                                pool.imap(prep, self.sketch_all),
                                 total=len(self.sketch_all),
                                 desc='converting STD to STK'
                             )
                         )
                 else:
                     for c_sketch in tqdm(self.sketch_all):
-                        tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
+                        tmp_sketch_list.append(prep(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
 
@@ -301,6 +302,7 @@ class QuickDrawCls(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
+                 workers=7,
                  is_process_in_init=False,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up
@@ -314,6 +316,7 @@ class QuickDrawCls(Dataset):
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
+        :param workers: 'STK' -> 'STD' 过程使用的线程数
         :param is_process_in_init: 是否在 __init__ 方法中将 'STD' 转化为 'STK'
             False: 可提升加载速度，但训练时进行转化，降低训练速度，整体看降低训练速度
             True: 需要极长加载速度，训练时无需转化，整体看提升训练速度
@@ -332,7 +335,8 @@ class QuickDrawCls(Dataset):
         npz_all = get_allfiles(root_npz, 'npz')
 
         print('loading npz file ...')
-        for c_pnz in tqdm(npz_all):
+        for idx, c_pnz in enumerate(npz_all):
+            print(f'current class / all class: {idx} / {len(npz_all)}')
 
             c_class = os.path.basename(c_pnz).split('.')[0]
             category_all.append(c_class)
@@ -360,13 +364,38 @@ class QuickDrawCls(Dataset):
                     c_train = []
                     c_test = []
 
-                    for c_instance in sk_train:
-                        c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-                        c_train.append((c_class, c_skh_stk, 0))
+                    # 使用多进程处理数据
+                    if workers >= 2:
+                        with Pool(processes=workers) as pool:
+                            converted_training = list(
+                                tqdm(
+                                    pool.imap(prep, sk_train),
+                                    total=len(sk_train),
+                                    desc='converting training set'
+                                )
+                            )
 
-                    for c_instance in sk_test:
-                        c_skh_stk = pp.preprocess_force_seg_merge(c_instance)
-                        c_test.append((c_class, c_skh_stk, 0))
+                        c_train = [(c_class, sk, 0) for sk in converted_training]
+
+                        with Pool(processes=workers) as pool:
+                            converted_testing = list(
+                                tqdm(
+                                    pool.imap(prep, sk_test),
+                                    total=len(sk_test),
+                                    desc='converting testing set'
+                                )
+                            )
+
+                        c_test = [(c_class, sk, 0) for sk in converted_testing]
+
+                    else:
+                        for c_instance in sk_train:
+                            c_skh_stk = prep(c_instance)
+                            c_train.append((c_class, c_skh_stk, 0))
+
+                        for c_instance in sk_test:
+                            c_skh_stk = prep(c_instance)
+                            c_test.append((c_class, c_skh_stk, 0))
 
                 else:
                     c_train = [(c_class, sk, 0) for sk in sk_train]
@@ -397,7 +426,7 @@ class QuickDrawCls(Dataset):
 
         # 需要将 'STD' 转化为 'STK'
         if self.back_mode == 'STK' and not self.is_process_in_init:
-            data = pp.preprocess_force_seg_merge(data)
+            data = prep(data)
 
         return data, mask, cls
 
@@ -454,7 +483,7 @@ class DiffDataset(Dataset):
         fn = self.datapath[index]
 
         if self.back_mode == 'STK':
-            sketch_cube = pp.preprocess_force_seg_merge(fn)
+            sketch_cube = prep(fn)
             mask = 0
         elif self.back_mode == 'S5':
             sketch_cube, mask = du.sketch_file_to_s5(fn, self.n_max_len, self.coor_mode)
