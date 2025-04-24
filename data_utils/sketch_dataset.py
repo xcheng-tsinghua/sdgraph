@@ -216,7 +216,7 @@ class QuickDrawDiff(Dataset):
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawDiff Dataset, from:', root)
+        print('QuickDrawDiff Dataset, from:', root, f'. using workers: {workers}')
         self.sketch_all = []
         self.mask_all = []
 
