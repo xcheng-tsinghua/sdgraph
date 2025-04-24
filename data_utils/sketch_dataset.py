@@ -303,7 +303,9 @@ class QuickDrawCls(Dataset):
                  coor_mode='ABS',
                  max_len=200,
                  workers=7,
-                 is_process_in_init=False,
+                 select=(1000, 100, 100),
+                 is_random_select=False,
+                 is_process_in_init=True,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up
                  ):
@@ -317,6 +319,11 @@ class QuickDrawCls(Dataset):
         :param coor_mode:
         :param max_len:
         :param workers: 'STK' -> 'STD' 过程使用的线程数
+        :param select: 从每类中选择的样本数。 = None: 不选取
+            select[0]: 从 train
+            select[1]: 从 valid
+            select[2]: 从 test
+        :param is_random_select: 选取样本时是否随机
         :param is_process_in_init: 是否在 __init__ 方法中将 'STD' 转化为 'STK'
             False: 可提升加载速度，但训练时进行转化，降低训练速度，整体看降低训练速度
             True: 需要极长加载速度，训练时无需转化，整体看提升训练速度
@@ -350,19 +357,35 @@ class QuickDrawCls(Dataset):
 
             sk_train, mk_train = du.npz_read(c_pnz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
             sk_test, mk_test = du.npz_read(c_pnz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-            sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
 
-            sk_train.extend(sk_valid)
-            mk_train.extend(mk_valid)
+            # sk_valid, mk_valid = du.npz_read(c_pnz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+            # sk_train.extend(sk_valid)
+            # mk_train.extend(mk_valid)
 
             if back_mode == 'S5':
                 c_train = [(c_class, sk, mk) for sk, mk in zip(sk_train, mk_train)]
                 c_test = [(c_class, sk, mk) for sk, mk in zip(sk_test, mk_test)]
 
+                if select is not None:
+                    if is_random_select:
+                        random.shuffle(c_train)
+                        random.shuffle(c_test)
+
+                    c_train = c_train[:select[0]]
+                    c_test = c_test[:select[2]]
+
             elif back_mode == 'STK':
                 if self.is_process_in_init:
                     c_train = []
                     c_test = []
+
+                    if select is not None:
+                        if is_random_select:
+                            random.shuffle(sk_train)
+                            random.shuffle(sk_test)
+
+                        sk_train = sk_train[:select[0]]
+                        sk_test = sk_test[:select[2]]
 
                     # 使用多进程处理数据
                     if workers >= 2:

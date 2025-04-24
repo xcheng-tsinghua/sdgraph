@@ -8,7 +8,7 @@ from colorama import Fore, Back, init
 import os
 
 # 自建模块
-from data_utils.sketch_dataset import SketchDatasetCls, QuickDrawCls
+from data_utils.sketch_dataset import QuickDrawCls
 from encoders.sdgraph import SDGraphCls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
