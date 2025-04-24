@@ -8,3 +8,24 @@ __pycache__/
 .idea/
 encoders/__pycache__/
 
+encoders/Attention.py
+encoders/Dgcnn.py
+encoders/dgcnn_orig.py
+encoders/LinearInterp.py
+encoders/PointBERT_ULIP2.py
+encoders/PointNet2.py
+encoders/pointnet2_cls_msg.py
+encoders/pointnet2_cls_ssg.py
+encoders/pointnet2_part_seg_msg.py
+encoders/pointnet2_part_seg_ssg.py
+encoders/pointnet2_sem_seg.py
+encoders/pointnet2_sem_seg_msg.py
+encoders/pointnet2_utils.py
+encoders/pointnet_cls.py
+encoders/pointnet_part_seg.py
+encoders/pointnet_sem_seg.py
+encoders/pointnet_utils.py
+encoders/sdgraph_valid.py
+encoders/sdgraph_valid_bk.py
+
+
