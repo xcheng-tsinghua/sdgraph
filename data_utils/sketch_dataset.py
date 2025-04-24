@@ -17,6 +17,7 @@ from tqdm import tqdm
 import shutil
 from PIL import Image
 from torchvision import transforms
+from multiprocessing import Pool
 
 import global_defs
 from data_utils.sketch_utils import get_subdirs, get_allfiles, sketch_std
@@ -194,7 +195,14 @@ class QuickDrawDiff(Dataset):
     读取 quickdraw 数据集，不区分类别，用于训练 diffusion
     单次读取一个 npz 文件，即一个类别
     """
-    def __init__(self, root, back_mode='STK', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
+    def __init__(self,
+                 root,
+                 back_mode='STK',
+                 coor_mode='ABS',
+                 max_len=200,
+                 workers=4,
+                 pen_down=global_defs.pen_down,
+                 pen_up=global_defs.pen_up):
         """
         将草图数据读取到该类的数组中
         :param root: npz 文件路径
@@ -204,6 +212,7 @@ class QuickDrawDiff(Dataset):
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
+        :param workers: 'STK' -> 'STD' 过程使用的线程数
         :param pen_down:
         :param pen_up:
         """
@@ -239,8 +248,19 @@ class QuickDrawDiff(Dataset):
             if back_mode == 'STK':
                 print('converting STD to STK')
 
-                for c_sketch in tqdm(self.sketch_all):
-                    tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
+                if workers >= 2:
+                    with Pool(processes=workers) as pool:
+                        tmp_sketch_list = list(
+                            tqdm(
+                                pool.imap(pp.preprocess_force_seg_merge, self.sketch_all),
+                                total=len(self.sketch_all),
+                                desc="Processing"
+                            )
+                        )
+
+                else:
+                    for c_sketch in tqdm(self.sketch_all):
+                        tmp_sketch_list.append(pp.preprocess_force_seg_merge(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
 
