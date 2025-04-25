@@ -348,7 +348,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('cls 双下采样, use stk coor')
+        print('sdgraph cls with stk sample')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
@@ -440,10 +440,11 @@ class SDGraphCls(nn.Module):
 class SDGraphUNet(nn.Module):
     def __init__(self, channel_in, channel_out, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
-        print('diff 笔划下采样')
+        print('sdgraph unet with stk sample')
 
         '''草图参数'''
         self.channel_in = channel_in
+        self.channel_out = channel_out
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
 
@@ -515,8 +516,8 @@ class SDGraphUNet(nn.Module):
                                    final_proc=False,
                                    dropout=dropout)
 
-    def channels(self):
-        return self.channel_in
+    def img_size(self):
+        return self.n_stk, self.n_stk_pnt, self.channel_out
 
     def forward(self, xy, time):
         """

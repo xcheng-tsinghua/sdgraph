@@ -59,7 +59,7 @@ class SketchDatasetCls(Dataset):
     def __init__(self,
                  root,
                  test_ratio=0.2,
-                 suffix='svg',
+                 # suffix='svg',
                  is_random_divide=False,
                  data_mode='train',
                  back_mode='STK',
@@ -70,7 +70,7 @@ class SketchDatasetCls(Dataset):
         """
         :param root:
         :param test_ratio: 测试集占总数据比例
-        :param suffix: 数据文件后缀 ['svg', 'txt']
+        # :param suffix: 数据文件后缀 ['svg', 'txt']
         :param is_random_divide: 分割训练集测试集时是否随机
         :param data_mode: ['train', 'test'], 区分训练集和测试集
         :param back_mode: ['STK', 'S5', 'IMG'].
@@ -91,7 +91,7 @@ class SketchDatasetCls(Dataset):
         self.coor_mode = coor_mode
         self.n_max_len = n_max_len
         self.img_size = img_size
-        self.suffix = suffix
+        # self.suffix = suffix
 
         # 获取全部类别列表，即 root 内的全部文件夹名
         category_all = du.get_subdirs(root)
@@ -99,7 +99,7 @@ class SketchDatasetCls(Dataset):
 
         for c_class in category_all:
             class_root = os.path.join(root, c_class)
-            file_path_all = du.get_allfiles(class_root, suffix)
+            file_path_all = du.get_allfiles(class_root, suffix=None)
 
             category_path[c_class] = file_path_all
 

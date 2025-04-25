@@ -8,8 +8,8 @@ from colorama import Fore, Back, init
 import os
 
 # 自建模块
-from data_utils.sketch_dataset import QuickDrawCls
-from encoders.sdgraph import SDGraphCls
+from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
+from encoders.sdgraph_stk_samp import SDGraphCls
 from encoders.SketchTransformer import SketchTransformerCls
 from encoders.SketchRNN import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -28,24 +28,21 @@ def parse_args():
     parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\small')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
 
     r'''
     cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    TuBerlin
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=rf'D:/document/DeepLearning/DataSet/TU_Berlin/TU_Berlin_cls_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
     
     TuBerlin_raw
-    D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg
-    /opt/data/private/data_set/TU_Berlin/raw/svg
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/raw/svg')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
     
     QuickDraw:
-    D:\document\DeepLearning\DataSet\quickdraw\raw
-    /opt/data/private/data_set/quickdraw_raw
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\raw')
     
     '''
     return parser.parse_args()
@@ -77,7 +74,7 @@ def main(args):
     else:
         back_mode = 'S5'
 
-    dataset = QuickDrawCls(data_root, back_mode=back_mode)
+    dataset = SketchDatasetCls(data_root, back_mode=back_mode)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
