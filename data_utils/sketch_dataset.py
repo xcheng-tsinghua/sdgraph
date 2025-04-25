@@ -59,18 +59,17 @@ class SketchDatasetCls(Dataset):
     def __init__(self,
                  root,
                  test_ratio=0.2,
-                 # suffix='svg',
                  is_random_divide=False,
                  data_mode='train',
                  back_mode='STK',
                  coor_mode='ABS',
-                 n_max_len=200,
-                 img_size=(224, 224)
+                 max_len=200,
+                 img_size=(224, 224),
+                 workers=8
                  ):
         """
         :param root:
         :param test_ratio: 测试集占总数据比例
-        # :param suffix: 数据文件后缀 ['svg', 'txt']
         :param is_random_divide: 分割训练集测试集时是否随机
         :param data_mode: ['train', 'test'], 区分训练集和测试集
         :param back_mode: ['STK', 'S5', 'IMG'].
@@ -80,18 +79,18 @@ class SketchDatasetCls(Dataset):
         :param coor_mode: ['ABS', 'REL']
             'ABS': 绝对坐标
             'REL': 相对坐标
-        :param n_max_len:
+        :param max_len:
         :param img_size: 图片大小
+        :param workers:
         """
-        print('sketch dataset total, from:' + root, '\n')
+        print('sketch dataset total, from:' + root + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
 
         self.data_mode = data_mode
         self.back_mode = back_mode
         self.coor_mode = coor_mode
-        self.n_max_len = n_max_len
+        self.max_len = max_len
         self.img_size = img_size
-        # self.suffix = suffix
 
         # 获取全部类别列表，即 root 内的全部文件夹名
         category_all = du.get_subdirs(root)
@@ -103,8 +102,8 @@ class SketchDatasetCls(Dataset):
 
             category_path[c_class] = file_path_all
 
-        self.datapath_train = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
-        self.datapath_test = []
+        datapath_train = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
+        datapath_test = []
         for item in category_path:  # item 为字典的键，即类型‘plane','car'
             c_class_path_list = category_path[item]
 
@@ -116,18 +115,74 @@ class SketchDatasetCls(Dataset):
 
             for i in range(n_instance):
                 if i < n_test:
-                    self.datapath_test.append((item, c_class_path_list[i]))
+                    datapath_test.append((item, c_class_path_list[i]))
                 else:
-                    self.datapath_train.append((item, c_class_path_list[i]))
+                    datapath_train.append((item, c_class_path_list[i]))
+
+        # 数据预处理，防止后续重复处理
+        worker_func = partial(self.load_data,
+                              back_mode=back_mode,
+                              coor_mode=coor_mode,
+                              max_len=max_len,
+                              img_size=img_size
+                              )
+
+        with Pool(processes=workers) as pool:
+            self.data_train = list(tqdm(
+                pool.imap(worker_func, datapath_train),
+                total=len(datapath_train),
+                desc='processing training files')
+            )
+
+        with Pool(processes=workers) as pool:
+            self.data_test = list(tqdm(
+                pool.imap(worker_func, datapath_test),
+                total=len(datapath_test),
+                desc='processing testing files')
+            )
+
+        # 删除异常值
+        print('删除异常值')
+        self.data_train = list(filter(lambda x: x is not None, self.data_train))
+        self.data_test = list(filter(lambda x: x is not None, self.data_test))
 
         # 用整形 0,1,2,3 等代表具体类型‘plane','car'等，
         # 此时字典 category_path 中的值没有用到，self.classes的键为 ‘plane' 或 'car' ，值为 0, 1, 2, ...
         self.classes = dict(zip(sorted(category_path), range(len(category_path))))
         print(self.classes, '\n')
 
-        print('number of training instance all:', len(self.datapath_train))
-        print('number of testing instance all:', len(self.datapath_test))
+        print('number of training instance all:', len(self.data_train))
+        print('number of testing instance all:', len(self.data_test))
         print('number of classes all:', len(self.classes), '\n')
+
+    @staticmethod
+    def load_data(cls_path, back_mode, coor_mode, max_len, img_size):
+        """
+        从文件里读取数据，并进行预处理
+        支持三种类型数据读取
+        :param cls_path: ('class', file_path)
+        :param back_mode:
+        :param coor_mode:
+        :param max_len:
+        :param img_size:
+        :return:
+        """
+        class_name, file_root = cls_path
+
+        try:
+            if back_mode == 'STK':
+                sketch_cube = prep(file_root)
+                return class_name, sketch_cube, 0
+            elif back_mode == 'S5':
+                sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
+                return class_name, sketch_cube, mask
+            elif back_mode == 'IMG':
+                sketch_cube = du.img_read(file_root, img_size)
+                return class_name, sketch_cube, 0
+            else:
+                raise TypeError('error back mode')
+        except:
+            return None
 
     def __getitem__(self, index):
         """
@@ -135,36 +190,15 @@ class SketchDatasetCls(Dataset):
         STK: [n_stk, n_stk_pnt, 2], Null
         S5: [n_max_len, 5], [n_max_len, ]
         """
-
-        while True:
-            try:
-                sketch_cube, mask, cls = self.get_data(index)
-                return sketch_cube, mask, cls
-            except:
-                index = self.next_index(index)
-
-    def get_data(self, index):
         if self.data_mode == 'train':
-            datapath = self.datapath_train
+            data = self.data_train
         elif self.data_mode == 'test':
-            datapath = self.datapath_test
+            data = self.data_test
         else:
             raise TypeError('error dataset mode')
 
-        class_key, file_root = datapath[index]  # (‘plane’, Path1)
+        class_key, sketch_cube, mask = data[index]
         cls = self.classes[class_key]  # 表示类别的整形数字
-
-        if self.back_mode == 'STK':
-            sketch_cube = prep(file_root)
-            mask = cls
-        elif self.back_mode == 'S5':
-            sketch_cube, mask = du.sketch_file_to_s5(file_root, self.n_max_len, self.coor_mode)
-
-        elif self.back_mode == 'IMG':
-            sketch_cube = du.img_read(file_root, self.img_size)
-            mask = cls
-        else:
-            raise TypeError('error back mode')
 
         return sketch_cube, mask, cls
 
@@ -178,9 +212,9 @@ class SketchDatasetCls(Dataset):
 
     def __len__(self):
         if self.data_mode == 'train':
-            return len(self.datapath_train)
+            return len(self.data_train)
         elif self.data_mode == 'test':
-            return len(self.datapath_test)
+            return len(self.data_test)
         else:
             raise TypeError('error dataset mode')
 
@@ -204,7 +238,7 @@ class QuickDrawDiff(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
-                 workers=7,
+                 workers=8,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up):
         """
@@ -305,7 +339,7 @@ class QuickDrawCls(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
-                 workers=7,
+                 workers=8,
                  select=(1000, 100, 100),
                  is_random_select=False,
                  is_process_in_init=True,
@@ -333,7 +367,7 @@ class QuickDrawCls(Dataset):
         :param pen_down:
         :param pen_up:
         """
-        print('QuickDrawCls Dataset, from:', root_npz, f'. using workers: {workers}')
+        print('QuickDrawCls Dataset, from:' + root_npz + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
 
         self.data_mode = data_mode
