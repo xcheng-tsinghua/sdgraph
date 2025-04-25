@@ -1,13 +1,19 @@
+import einops
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from encoders.utils import full_connected, full_connected_conv1d
 
 import global_defs
 from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode
+from encoders.utils import MLP
 
 
 class SDGraphCls(nn.Module):
+    """
+    对于每个子模块的输入和输出
+    sparse graph 统一使用 [bs, channel, n_stk]
+    dense graph 统一使用 [bs, channel, n_stk, n_stk_pnt]
+    """
     def __init__(self, n_class: int, dropout: float = 0.4):
         """
         :param n_class: 总类别数
@@ -41,12 +47,12 @@ class SDGraphCls(nn.Module):
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                  self.n_stk, self.n_stk_pnt,
+                                  # self.n_stk, self.n_stk_pnt,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  self.n_stk, self.n_stk_pnt // 2,
+                                  # self.n_stk, self.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
@@ -60,7 +66,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = full_connected(channels=[out_l0, out_l1, out_l2, out_l3], final_proc=False, drop_rate=dropout)
+        self.linear = MLP(0, (out_l0, out_l1, out_l2, out_l3), True, dropout, False)
 
     def forward(self, xy, mask=None):
         """
@@ -77,7 +83,7 @@ class SDGraphCls(nn.Module):
 
         # 生成初始 dense graph
         dense_graph0 = self.point_to_dense(xy)
-        assert dense_graph0.size()[2] == n_stk * n_stk_pnt
+        assert dense_graph0.size()[2] == n_stk and dense_graph0.size()[3] == n_stk_pnt
 
         # 交叉更新数据
         sparse_graph1, dense_graph1 = self.sd1(sparse_graph0, dense_graph0)
@@ -88,9 +94,9 @@ class SDGraphCls(nn.Module):
         sparse_glo1 = sparse_graph1.max(2)[0]
         sparse_glo2 = sparse_graph2.max(2)[0]
 
-        dense_glo0 = dense_graph0.max(2)[0]
-        dense_glo1 = dense_graph1.max(2)[0]
-        dense_glo2 = dense_graph2.max(2)[0]
+        dense_glo0 = dense_graph0.amax((2, 3))
+        dense_glo1 = dense_graph1.amax((2, 3))
+        dense_glo2 = dense_graph2.amax((2, 3))
 
         all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2, dense_glo0, dense_glo1, dense_glo2], dim=1)
 
@@ -133,14 +139,12 @@ class SDGraphUNet(nn.Module):
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                       self.n_stk, self.n_stk_pnt,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                       self.n_stk, self.n_stk_pnt // 2,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
@@ -148,14 +152,15 @@ class SDGraphUNet(nn.Module):
 
         '''全局特征生成层'''
         global_in = sparse_l2 + dense_l2
-        self.global_linear = full_connected(
-            channels=[global_in, int((global_in * global_dim) ** 0.5), global_dim],
-            final_proc=True, drop_rate=dropout)
+        self.global_linear = MLP(dimension=0,
+                                 channels=(global_in, int((global_in * global_dim) ** 0.5), global_dim),
+                                 final_proc=True,
+                                 dropout=dropout
+                                 )
 
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
                                      global_dim + dense_l2, dense_l2,
-                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 4,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
@@ -163,7 +168,6 @@ class SDGraphUNet(nn.Module):
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
-                                     n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt // 2,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
@@ -171,11 +175,10 @@ class SDGraphUNet(nn.Module):
 
         '''最终输出层'''
         final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
-        self.final_linear = full_connected_conv1d(
-            channels=[final_in, int((channel_out * final_in) ** 0.5), channel_out],
-            final_proc=False,
-            drop_rate=dropout
-        )
+        self.final_linear = MLP(dimension=1,
+                                channels=(final_in, int((channel_out * final_in) ** 0.5), channel_out),
+                                final_proc=False,
+                                dropout=dropout)
 
     def img_size(self):
         return self.n_stk, self.n_stk_pnt, self.channel_out
@@ -195,7 +198,7 @@ class SDGraphUNet(nn.Module):
         '''生成初始 sdgraph'''
         sparse_graph_up0 = self.point_to_sparse(xy, time_emb)  # -> [bs, emb, n_stk]
         dense_graph_up0 = self.point_to_dense(xy, time_emb)  # -> [bs, emb, n_point]
-        assert sparse_graph_up0.size()[2] == self.n_stk and dense_graph_up0.size()[2] == n_stk * n_stk_pnt
+        assert sparse_graph_up0.size()[2] == self.n_stk and dense_graph_up0.size()[2] == n_stk and dense_graph_up0.size()[3] == n_stk_pnt
 
         '''下采样'''
         sparse_graph_up1, dense_graph_up1 = self.sd_down1(sparse_graph_up0, dense_graph_up0, time_emb)
@@ -203,16 +206,16 @@ class SDGraphUNet(nn.Module):
 
         '''获取全局特征'''
         sp_up2_glo = sparse_graph_up2.max(2)[0]
-        dn_up2_glo = dense_graph_up2.max(2)[0]
+        dn_up2_glo = dense_graph_up2.amax((2, 3))
 
         fea_global = torch.cat([sp_up2_glo, dn_up2_glo], dim=1)
         fea_global = self.global_linear(fea_global)  # -> [bs, emb]
 
         '''将 sd_graph 融合全局特征 (直接拼接在后面)'''
-        sparse_fit = fea_global.unsqueeze(2).repeat(1, 1, self.n_stk)
+        sparse_fit = einops.repeat(fea_global, 'b c -> b c s', s=self.n_stk)
         sparse_graph_down2 = torch.cat([sparse_graph_up2, sparse_fit], dim=1)
 
-        dense_fit = fea_global.unsqueeze(2).repeat(1, 1, dense_graph_up2.size(2))
+        dense_fit = einops.repeat(fea_global, 'b c -> b c s sp', s=dense_graph_up2.size(2), sp=dense_graph_up2.size(3))
         dense_graph_down2 = torch.cat([dense_graph_up2, dense_fit], dim=1)
 
         '''上采样并融合UNet下采样阶段对应特征'''
@@ -227,16 +230,14 @@ class SDGraphUNet(nn.Module):
         dense_graph = torch.cat([dense_graph_down0, dense_graph_up0], dim=1)
 
         '''将sparse graph及xy转移到dense graph并输出'''
-        sparse_graph = sparse_graph.unsqueeze(3).repeat(1, 1, 1, self.n_stk_pnt)
-        dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk, self.n_stk_pnt)
-        xy = xy.view(bs, channel_in, self.n_stk, self.n_stk_pnt)
+        sparse_graph = einops.repeat(sparse_graph, 'b c s -> b c s sp', sp=self.n_stk_pnt)
+        xy = xy.permute(0, 3, 1, 2)  # -> [bs, channel, n_stk, n_stk_pnt]
 
         dense_graph = torch.cat([dense_graph, sparse_graph, xy], dim=1)
         dense_graph = dense_graph.view(bs, dense_graph.size(1), self.n_stk * self.n_stk_pnt)
 
         noise = self.final_linear(dense_graph)  # -> [bs, channel_out, n_stk * n_stk_pnt]
-        noise = noise.view(bs, self.channel_out, self.n_stk, self.n_stk_pnt)  # -> [bs, channel_out, n_stk, n_stk_pnt]
-        noise = noise.permute(0, 2, 3, 1)  # -> [bs, n_stk, n_stk_pnt, channel_out]
+        noise = einops.rearrange(noise, 'b c (s sp) -> b s sp c', s=self.n_stk, sp=self.n_stk_pnt)
 
         return noise
 
@@ -261,13 +262,13 @@ def test():
     atensor = torch.rand([bs, global_defs.n_stk, global_defs.n_stk_pnt, 2])
     t1 = torch.randint(0, 1000, (bs,)).long()
 
-    classifier = SDGraphUNet(2, 2)
-    cls11 = classifier(atensor, t1)
-
-    # classifier = SDGraphCls(10)
-    # cls11 = classifier(atensor, '')
-
+    classifier_unet = SDGraphUNet(2, 2)
+    cls11 = classifier_unet(atensor, t1)
     print(cls11.size())
+
+    classifier_cls = SDGraphCls(10)
+    cls12 = classifier_cls(atensor)
+    print(cls12.size())
 
     print('---------------')
 

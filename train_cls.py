@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--model', type=str, default='SketchTransformer', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
+    parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
@@ -73,9 +73,9 @@ def main(args):
         data_root = args.root_sever
 
     if args.model == 'SDGraph':
-        back_mode = 'S5'
-    else:
         back_mode = 'STK'
+    else:
+        back_mode = 'S5'
 
     dataset = QuickDrawCls(data_root, back_mode=back_mode)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)

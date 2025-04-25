@@ -8,235 +8,75 @@ import numpy as np
 import re
 import matplotlib.pyplot as plt
 import logging
+from functools import partial
 
 from data_utils.sketch_utils import save_confusion_mat, get_allfiles, get_subdirs
 
 
-class FullConnectedConvXd(nn.Module):
-    def __init__(self, dimension: int, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
-        '''
-        构建全连接层，输出层不接 BatchNormalization、ReLU、dropout、SoftMax、log_SoftMax
+class MLP(nn.Module):
+    def __init__(self, dimension: int, channels: tuple, bias: bool = True, dropout: float = 0.4, final_proc=False):
+        """
+        :param dimension: 输入维度数，[0, 1, 2, 3]
         :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
-        :param drop_rate: dropout 概率
-        '''
+        :param bias:
+        :param dropout: dropout 概率
+        :param final_proc:
+        """
         super().__init__()
 
         self.linear_layers = nn.ModuleList()
         self.batch_normals = nn.ModuleList()
         self.activates = nn.ModuleList()
         self.drop_outs = nn.ModuleList()
-        self.n_layers = len(channels)
 
+        self.n_layers = len(channels)
         self.final_proc = final_proc
-        if drop_rate == 0:
+        if dropout == 0:
             self.is_drop = False
         else:
             self.is_drop = True
 
-        for i in range(self.n_layers - 2):
-            self.linear_layers.append(eval(f'nn.Conv{dimension}d(channels[i], channels[i + 1], 1, bias=bias)'))
-            self.batch_normals.append(eval(f'nn.BatchNorm{dimension}d(channels[i + 1])'))
-            self.activates.append(activate_func())
-            self.drop_outs.append(eval(f'nn.Dropout{dimension}d(drop_rate)'))
+        if dimension == 0:
+            fc = nn.Linear
+            bn = nn.BatchNorm1d
+            dp = nn.Dropout
 
-        self.outlayer = eval(f'nn.Conv{dimension}d(channels[-2], channels[-1], 1, bias=bias)')
+        elif dimension == 1:
+            fc = partial(nn.Conv1d, kernel_size=1)
+            bn = nn.BatchNorm1d
+            dp = nn.Dropout1d
 
-        self.outbn = eval(f'nn.BatchNorm{dimension}d(channels[-1])')
-        self.outat = activate_func()
-        self.outdp = eval(f'nn.Dropout{dimension}d(drop_rate)')
+        elif dimension == 2:
+            fc = partial(nn.Conv2d, kernel_size=1)
+            bn = nn.BatchNorm2d
+            dp = nn.Dropout2d
 
-    def forward(self, embeddings):
-        '''
-        :param embeddings: [bs, fea_in, n_row, n_col]
-        :return: [bs, fea_out, n_row, n_col]
-        '''
-        fea = embeddings
-        for i in range(self.n_layers - 2):
-            fc = self.linear_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
+        elif dimension == 3:
+            fc = partial(nn.Conv3d, kernel_size=1)
+            bn = nn.BatchNorm3d
+            dp = nn.Dropout3d
 
-            if self.is_drop:
-                fea = dp(at(bn(fc(fea))))
-            else:
-                fea = at(bn(fc(fea)))
-
-        fea = self.outlayer(fea)
-
-        if self.final_proc:
-            fea = self.outbn(fea)
-            fea = self.outat(fea)
-
-            if self.is_drop:
-                fea = self.outdp(fea)
-
-        return fea
-
-
-class full_connected_conv2d(nn.Module):
-    def __init__(self, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
-        '''
-        构建全连接层，输出层不接 BatchNormalization、ReLU、dropout、SoftMax、log_SoftMax
-        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
-        :param drop_rate: dropout 概率
-        '''
-        super().__init__()
-
-        self.linear_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-        self.n_layers = len(channels)
-
-        self.final_proc = final_proc
-        if drop_rate == 0:
-            self.is_drop = False
         else:
-            self.is_drop = True
+            raise ValueError('error dimension value, [0, 1, 2, 3] is supported')
 
         for i in range(self.n_layers - 2):
-            self.linear_layers.append(nn.Conv2d(channels[i], channels[i + 1], 1, bias=bias))
-            self.batch_normals.append(nn.BatchNorm2d(channels[i + 1]))
+            self.linear_layers.append(fc(channels[i], channels[i + 1], bias=bias))
+            self.batch_normals.append(bn(channels[i + 1]))
             self.activates.append(activate_func())
-            self.drop_outs.append(nn.Dropout2d(drop_rate))
+            self.drop_outs.append(dp(dropout))
 
-        self.outlayer = nn.Conv2d(channels[-2], channels[-1], 1, bias=bias)
+        self.outlayer = fc(channels[-2], channels[-1], bias=bias)
 
-        self.outbn = nn.BatchNorm2d(channels[-1])
+        self.outbn = bn(channels[-1])
         self.outat = activate_func()
-        self.outdp = nn.Dropout2d(drop_rate)
+        self.outdp = dp(dropout)
 
-    def forward(self, embeddings):
-        '''
-        :param embeddings: [bs, fea_in, n_row, n_col]
-        :return: [bs, fea_out, n_row, n_col]
-        '''
-        fea = embeddings
-        for i in range(self.n_layers - 2):
-            fc = self.linear_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
+    def forward(self, fea):
+        """
+        :param fea:
+        :return:
+        """
 
-            if self.is_drop:
-                fea = dp(at(bn(fc(fea))))
-            else:
-                fea = at(bn(fc(fea)))
-
-        fea = self.outlayer(fea)
-
-        if self.final_proc:
-            fea = self.outbn(fea)
-            fea = self.outat(fea)
-
-            if self.is_drop:
-                fea = self.outdp(fea)
-
-        return fea
-
-
-class full_connected_conv1d(nn.Module):
-    def __init__(self, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
-        '''
-        构建全连接层，输出层不接 BatchNormalization、ReLU、dropout、SoftMax、log_SoftMax
-        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
-        :param drop_rate: dropout 概率
-        '''
-        super().__init__()
-
-        self.linear_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-        self.n_layers = len(channels)
-
-        self.final_proc = final_proc
-        if drop_rate == 0:
-            self.is_drop = False
-        else:
-            self.is_drop = True
-
-        for i in range(self.n_layers - 2):
-            self.linear_layers.append(nn.Conv1d(channels[i], channels[i + 1], 1, bias=bias))
-            self.batch_normals.append(nn.BatchNorm1d(channels[i + 1]))
-            self.activates.append(activate_func())
-            self.drop_outs.append(nn.Dropout1d(drop_rate))
-
-        self.outlayer = nn.Conv1d(channels[-2], channels[-1], 1, bias=bias)
-
-        self.outbn = nn.BatchNorm1d(channels[-1])
-        self.outat = activate_func()
-        self.outdp = nn.Dropout1d(drop_rate)
-
-    def forward(self, embeddings):
-        '''
-        :param embeddings: [bs, fea_in, n_points]
-        :return: [bs, fea_out, n_points]
-        '''
-        fea = embeddings
-        for i in range(self.n_layers - 2):
-            fc = self.linear_layers[i]
-            bn = self.batch_normals[i]
-            at = self.activates[i]
-            dp = self.drop_outs[i]
-
-            if self.is_drop:
-                fea = dp(at(bn(fc(fea))))
-            else:
-                fea = at(bn(fc(fea)))
-
-        fea = self.outlayer(fea)
-
-        if self.final_proc:
-            fea = self.outbn(fea)
-            fea = self.outat(fea)
-
-            if self.is_drop:
-                fea = self.outdp(fea)
-
-        return fea
-
-
-class full_connected(nn.Module):
-    def __init__(self, channels: list, bias: bool = True, drop_rate: float = 0.4, final_proc=False):
-        '''
-        构建全连接层，输出层不接 BatchNormalization、ReLU、dropout、SoftMax、log_SoftMax
-        :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
-        :param drop_rate: dropout 概率
-        '''
-        super().__init__()
-
-        self.linear_layers = nn.ModuleList()
-        self.batch_normals = nn.ModuleList()
-        self.activates = nn.ModuleList()
-        self.drop_outs = nn.ModuleList()
-        self.n_layers = len(channels)
-
-        self.final_proc = final_proc
-        if drop_rate == 0:
-            self.is_drop = False
-        else:
-            self.is_drop = True
-
-        for i in range(self.n_layers - 2):
-            self.linear_layers.append(nn.Linear(channels[i], channels[i + 1], bias=bias))
-            self.batch_normals.append(nn.BatchNorm1d(channels[i + 1]))
-            self.activates.append(activate_func())
-            self.drop_outs.append(nn.Dropout(drop_rate))
-
-        self.outlayer = nn.Linear(channels[-2], channels[-1], bias=bias)
-
-        self.outbn = nn.BatchNorm1d(channels[-1])
-        self.outat = activate_func()
-        self.outdp = nn.Dropout1d(drop_rate)
-
-    def forward(self, embeddings):
-        '''
-        :param embeddings: [bs, fea_in, n_points]
-        :return: [bs, fea_out, n_points]
-        '''
-        fea = embeddings
         for i in range(self.n_layers - 2):
             fc = self.linear_layers[i]
             bn = self.batch_normals[i]
@@ -271,8 +111,32 @@ def activate_func():
     # return nn.SiLU()
 
 
+def knn(vertices, neighbor_num):
+    """
+    找到最近的点的索引，不包含自身
+    :param vertices: [bs, n_point, 2]
+    :param neighbor_num:
+    :return: [bs, n_point, k]
+    """
+    bs, n_point, _ = vertices.size()
+
+    inner = torch.bmm(vertices, vertices.transpose(1, 2))  # (bs, v, v)
+    quadratic = torch.sum(vertices**2, dim=2)  # (bs, v)
+    distance = inner * (-2) + quadratic.unsqueeze(1) + quadratic.unsqueeze(2)
+
+    neighbor_index = torch.topk(distance, k=neighbor_num + 1, dim=-1, largest=False)[1]
+    neighbor_index = neighbor_index[:, :, 1:]
+
+    return neighbor_index
+
+
 def square_distance(src, dst):
     """
+    计算两个批量矩阵之间的平方距离
+    :param src: 矩阵1，[B, N, C]
+    :param dst: 矩阵2，[B, M, C]
+    :return: [B, N, M]
+
     Calculate Euclid distance between each two points.
 
     src^T * dst = xn * xm + yn * ym + zn * zm；
@@ -295,52 +159,12 @@ def square_distance(src, dst):
     return dist
 
 
-def fps_2d(xyz, n_samples):
-    """
-    最远采样法进行采样，返回采样点的索引
-    Input:
-        xyz: pointcloud data, [batch_size, n_points_all, 3]
-        n_samples: number of samples
-    Return:
-        centroids: sampled pointcloud index, [batch_size, n_samples]
-    """
-    device = xyz.device
-
-    # xyz: [24, 1024, 3], B: batch_size, N: number of points, C: channels
-    B, N, C = xyz.shape
-
-    # 生成 B 行，n_samples 列的全为零的矩阵
-    centroids = torch.zeros(B, n_samples, dtype=torch.long).to(device)
-
-    # 生成 B 行，N 列的矩阵，每个元素为 1e10
-    distance = torch.ones(B, N).to(device) * 1e10
-
-    # 生成随机整数tensor，整数范围在[0，N)之间，包含0不包含N，矩阵各维度长度必须用元组传入，因此写成(B,)
-    # 即生成初始点的随机索引
-    farthest = torch.randint(0, N, (B,), dtype=torch.long).to(device)
-
-    # 生成 [0, B) 整数序列
-    batch_indices = torch.arange(B, dtype=torch.long).to(device)
-
-    for i in range(n_samples):
-        centroids[:, i] = farthest
-        centroid = xyz[batch_indices, farthest, :].view(B, 1, 2)
-        dist = torch.sum((xyz - centroid) ** 2, -1)
-        mask = dist < distance
-        distance[mask] = dist[mask].float()
-        farthest = torch.max(distance, -1)[1]
-
-    return centroids
-
-
 def fps(xyz, n_samples):
     """
     最远采样法进行采样，返回采样点的索引
-    Input:
-        xyz: point cloud data, [batch_size, n_points_all, X]
-        n_samples: number of samples
-    Return:
-        centroids: sampled point cloud index, [batch_size, n_samples]
+    :param xyz: [bs, n_point, channel]
+    :param n_samples: 采样点数
+    :return : [bs, n_samples]
     """
     device = xyz.device
 
@@ -371,34 +195,17 @@ def fps(xyz, n_samples):
     return centroids
 
 
-def knn(vertices, k: int):
-    """
-    获取每个点最近的k个点的索引
-    不包含自身
-
-    vertices: [bs, npoint, 3]
-    Return: (bs, npoint, k)
-    """
-    device = vertices.device
-    bs, v, _ = vertices.size()
-    inner = torch.bmm(vertices, vertices.transpose(1, 2)) #(bs, v, v)
-    quadratic = torch.sum(vertices**2, dim=2) #(bs, v)
-    distance = inner * (-2) + quadratic.unsqueeze(1) + quadratic.unsqueeze(2)
-
-    neighbor_index = torch.topk(distance, k=k+1, dim=-1, largest=False)[1]
-
-    neighbor_index = neighbor_index[:, :, 1:].to(device)
-
-    return neighbor_index
-
-
-def index_points(points, idx):
+def index_points(points, idx, is_reverse_nc=False):
     """
     将索引值替换为对应的数值
-    :param points: [B, N, C] (维度数必须为3)
-    :param idx: [A, B, C, D, ..., X]
-    :return: [A, B, C, D, ..., X, C]
+    :param points: [B, N, C] (维度数必须为3，最后一个为特征维度)
+    :param idx: [B, D, E, F, ..., X]
+    :param is_reverse_nc: 是否将 points 表示为 [B, C, N]
+    :return: [B, D, E, F, ..., X, C], 如果 is_reverse_nc，[B, C, D, E, F, ..., X]
     """
+    if is_reverse_nc:
+        points = points.permute(0, 2, 1)
+
     device = points.device
     B = points.shape[0]
     view_shape = list(idx.shape)
@@ -408,6 +215,9 @@ def index_points(points, idx):
     batch_indices = torch.arange(B, dtype=torch.long).to(device).view(view_shape).repeat(repeat_shape)
 
     new_points = points[batch_indices, idx, :]
+
+    if is_reverse_nc:
+        new_points = new_points.movedim(-1, 1)
 
     return new_points
 
