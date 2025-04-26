@@ -820,7 +820,7 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
     # 去掉outlier
-    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+    sketch_data = ft.outlier_filter(sketch_data, 0.1, 0.3, 0.1)
 
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier', show_dot=True)
 
@@ -829,10 +829,10 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify', show_dot=True)
 
     # 合并过近的笔划
-    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+    sketch_data = du.stroke_merge_until(sketch_data, 0.1)
 
-    # 删除长度过短的笔划
-    sketch_data = ft.stroke_len_filter(sketch_data, 0.05)
+    # 删除点数过少的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.21)
 
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke', show_dot=True)
 
@@ -840,11 +840,6 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
 
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
-
-    # 邻近的笔划全部合并
-    while du.single_merge_(sketch_data, 0.1): continue
-
-    if is_show_status: vis.vis_sketch_list(sketch_data, title='after near stroke merge', show_dot=True)
 
     # 分割点数大于指定值的笔划
     while max(sketch_data, key=lambda a: a.shape[0]).shape[0] > global_defs.n_stk_pnt:

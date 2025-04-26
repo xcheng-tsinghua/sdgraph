@@ -259,8 +259,8 @@ class QuickDrawDiff(Dataset):
         self.sketch_all = []
         self.mask_all = []
 
+        print('loading npz files ...')
         if back_mode == 'S5':
-            print('loading npz files ...')
             sketch_train, mask_train = du.npz_read(root, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
             sketch_test, mask_test = du.npz_read(root, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
             sketch_valid, mask_valid = du.npz_read(root, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
@@ -274,7 +274,6 @@ class QuickDrawDiff(Dataset):
             self.mask_all.extend(mask_valid)
 
         elif back_mode == 'STK' or back_mode == 'STD':
-            print('loading npz files')
             sketch_train = du.npz_read(root, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
             sketch_test = du.npz_read(root, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
             sketch_valid = du.npz_read(root, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
