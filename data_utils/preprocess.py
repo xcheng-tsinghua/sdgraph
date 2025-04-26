@@ -792,6 +792,79 @@ def preprocess_force_seg_merge(sketch_root, resp_dist: float = 0.01, pen_up=glob
     return sketch_data
 
 
+def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
+    """
+    反复合并、拆分，直到不满足要求
+
+    :param sketch_root:
+    :param resp_dist:
+    :param pen_up:
+    :param pen_down:
+    :param is_show_status:
+    :return:
+    """
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = du.load_sketch_file(sketch_root)
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点章台标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 去掉outlier
+    sketch_data = ft.outlier_filter(sketch_data, 0.05, 0.3, 0.1)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after filter outlier', show_dot=True)
+
+    # 归一化
+    sketch_data = du.sketch_std(sketch_data)
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after unify', show_dot=True)
+
+    # 合并过近的笔划
+    sketch_data = du.stroke_merge_until(sketch_data, 0.05)
+
+    # 删除长度过短的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 0.05)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after delete too short stroke', show_dot=True)
+
+    # 重采样
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
+
+    # 邻近的笔划全部合并
+    while du.single_merge_(sketch_data, 0.1): continue
+
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after near stroke merge', show_dot=True)
+
+    # 分割点数大于指定值的笔划
+    while max(sketch_data, key=lambda a: a.shape[0]).shape[0] > global_defs.n_stk_pnt:
+        du.single_split_(sketch_data)
+
+    # 若笔划数大于指定值，去掉其中比较短的
+    sketch_data.sort(key=lambda a: a.shape[0], reverse=True)
+    sketch_data = sketch_data[:global_defs.n_stk]
+
+    # 如果笔划数小于指定值，不断分割长笔划
+    sketch_data = du.stroke_split_number_until(sketch_data, 3)
+    # vis.vis_sketch_list(sketch_data, title='final', show_dot=True)
+
+    # 转化为 N3 格式
+    sketch_data = du.sketch_list_to_n3(sketch_data)
+
+    # sketch_data = np.array(sketch_data)
+    return sketch_data
+
+
 def test_resample():
     sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_root = sketch_test
@@ -896,21 +969,30 @@ if __name__ == '__main__':
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Key\\8a072034d5e8756e48c48361660e5fde_4.txt'
 
     # thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\sword\16974.svg'
-    thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\cigarette\4262.svg'  # false read<path id="12" d="M447,253C447,253 NaN,NaN 447,256CNaN,NaN 446.9427050983125,253.05729490168753 447,253C447.0190983005625,252.98090169943748 449,254 449,254"/>
-
-    vis.vis_sketch_orig(thefile, title='sketch_orig')
-
-    asasasas = preprocess_force_seg_merge(thefile, is_show_status=True)
-    # asasasas = pre_process_equal_stkpnt(thefile)
-
-    vis.vis_sketch_list(asasasas, title='last', show_dot=True)
+    # thefile = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\cigarette\4262.svg'  # false read<path id="12" d="M447,253C447,253 NaN,NaN 447,256CNaN,NaN 446.9427050983125,253.05729490168753 447,253C447.0190983005625,252.98090169943748 449,254 449,254"/>
+    #
+    # vis.vis_sketch_orig(thefile, title='sketch_orig')
+    #
+    # asasasas = preprocess_force_seg_merge(thefile, is_show_status=True)
+    # # asasasas = pre_process_equal_stkpnt(thefile)
+    #
+    # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
 
     # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'
     # asketch = pre_process(thefile)
     # vis.vis_sketch_list(asketch, True)
 
+    sk_dir = r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple'
 
+    sk_all = du.get_allfiles(sk_dir, 'txt')
+
+    for c_file in sk_all:
+        vis.vis_sketch_orig(c_file, title='sketch_orig')
+
+        asasasas = preprocess_split_merge_until(c_file, is_show_status=False)
+
+        # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
     pass
 

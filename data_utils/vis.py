@@ -221,12 +221,12 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         plt.savefig(ahead + 'smooth' + ext)
 
 
-def save_format_sketch_test(sketch_points, file_path, z_thres=0.5):
+def save_format_sketch_test(sketch_points, file_path, z_thres=0.0):
     """
     保存设定格式的草图
-    :param sketch_points: [2, n_stk * n_stk_pnt]
+    :param sketch_points: [n_stk, n_stk_pnt, 3]
     :param file_path:
-    :param z_thres: z 位置大于该值才判定为有效笔划
+    :param z_thres: z 位置大于该值才判定为有效点
     :return:
     """
 

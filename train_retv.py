@@ -11,9 +11,9 @@ from torch.utils.data import random_split
 from torch.nn import Module
 import torch.nn.functional as F
 import argparse
-from encoders.VIT import create_pretrained_VIT
+from encoders.vit import create_pretrained_VIT
 from data_utils.sketch_dataset import RetrievalDataset
-from encoders.SketchRNN import SketchRNNEmbedding as SketchEncoder
+from encoders.sketch_rnn import SketchRNNEmbedding as SketchEncoder
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import numpy as np

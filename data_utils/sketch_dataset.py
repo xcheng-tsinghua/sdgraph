@@ -27,7 +27,8 @@ from functools import partial
 
 import global_defs
 from data_utils import preprocess as pp
-from data_utils.preprocess import preprocess_force_seg_merge as prep
+# from data_utils.preprocess import preprocess_force_seg_merge as prep
+from data_utils.preprocess import preprocess_split_merge_until as prep
 from data_utils import sketch_utils as du
 
 

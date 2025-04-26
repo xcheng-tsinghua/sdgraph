@@ -898,6 +898,7 @@ def search_nearest_stroke(stroke_list, end_point, given_idx):
 def single_merge_(stroke_list, dist_gap, n_max_ita=200, max_merge_stk_len=float('inf')) -> bool:
     """
     将草图中最短的一个笔划合并到其他笔划
+    注意：这里长度等于点数
     :param stroke_list:
     :param dist_gap: 若某个笔划距其它笔划的最近距离大于该值，不合并
     :param n_max_ita: 最大循环次数
@@ -1063,7 +1064,7 @@ def stroke_merge_number_until(stroke_list, max_n_stk):
     else:
         new_list = stroke_list.copy()
         while True:
-            single_merge_(new_list, 100)
+            single_merge_(new_list, 100)  # 有问题，远处的短笔画也会被合并
 
             if len(new_list) <= max_n_stk:
                 return new_list
@@ -1483,6 +1484,20 @@ def img_read(img_root, img_size=(224, 224)):
     tensor_image = transform(image)
 
     return tensor_image
+
+
+def sketch_list_to_n3(sketch_list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
+    n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
+
+    for idx, c_stk in enumerate(sketch_list):
+        c_len = len(c_stk)
+        n3_cube[idx, :c_len, :2] = torch.from_numpy(c_stk)
+        n3_cube[idx, :c_len, 2] = positive_val
+        n3_cube[idx, c_len:, 2] = negative_val
+
+    return n3_cube
+
+
 
 
 if __name__ == '__main__':

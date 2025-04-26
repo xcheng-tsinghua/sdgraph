@@ -116,7 +116,6 @@ class DownSample(nn.Module):
 class UpSample(nn.Module):
     def __init__(self, sp_in, sp_out, dn_in, dn_out, n_stk, n_stk_pnt, sp_near=2, dropout=0.4):
         """
-
         :param sp_in:
         :param sp_out:
         :param dn_in:
@@ -365,7 +364,7 @@ class SDGraphEncoder(nn.Module):
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
+    def __init__(self, n_class: int, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
         """
         :param n_class: 总类别数
         """
@@ -374,6 +373,7 @@ class SDGraphCls(nn.Module):
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
+        self.channel_in = channel_in
 
         # 各层特征维度
         sparse_l0 = 32 + 16
@@ -385,11 +385,11 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成笔划坐标
-        self.point_to_stk_coor = su.PointToSparse(2, sparse_l0)
+        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0)
 
         # 生成初始 sdgraph
-        self.point_to_sparse = su.PointToSparse(2, sparse_l0)
-        self.point_to_dense = su.PointToDense(2, dense_l0)
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
@@ -426,7 +426,7 @@ class SDGraphCls(nn.Module):
         :return: [bs, n_classes]
         """
         bs, n_stk, n_stk_pnt, channel = xy.size()
-        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == 2
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == self.channel_in
 
         # 生成笔划坐标
         stk_coor0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
@@ -557,7 +557,7 @@ class SDGraphUNet(nn.Module):
         time_emb = self.time_encode(time)
 
         bs, n_stk, n_stk_pnt, channel_in = xy.size()
-        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_in == 2
+        assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_in == self.channel_in
 
         # 获取笔划坐标，即初始节点坐标
         stk_coor_l0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
@@ -627,14 +627,14 @@ def test():
 
 
     bs = 3
-    atensor = torch.rand([bs, global_defs.n_stk, global_defs.n_stk_pnt, 2])
+    atensor = torch.rand([bs, global_defs.n_stk, global_defs.n_stk_pnt, 3])
     t1 = torch.randint(0, 1000, (bs,)).long()
 
-    classifier_unet = SDGraphUNet(2, 2)
+    classifier_unet = SDGraphUNet(3, 3)
     cls11 = classifier_unet(atensor, t1)
     print(cls11.size())
 
-    classifier_cls = SDGraphCls(10)
+    classifier_cls = SDGraphCls(10, 3)
     cls12 = classifier_cls(atensor)
     print(cls12.size())
 
