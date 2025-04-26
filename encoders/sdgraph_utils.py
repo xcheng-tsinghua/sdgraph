@@ -433,8 +433,17 @@ class DenseUpdate(nn.Module):
     将 dense graph 的数据转移到 sparse graph
     通过卷积然后最大池化到一个特征，然后拼接
     """
-    def __init__(self, dn_in, dn_out, n_near=10):
+    def __init__(self, dn_in, dn_out, n_near=10, dropout=0.0):
         super().__init__()
+        # 先利用时序进行更新
+        self.temporal_encoder = nn.Sequential(
+            nn.Conv2d(in_channels=dn_in, out_channels=dn_in, kernel_size=(1, 3), padding=(0, 1)),
+            nn.BatchNorm2d(dn_in),
+            eu.activate_func(),
+            nn.Dropout2d(dropout),
+        )
+
+        # 再利用GCN进行更新
         self.encoder = GCNEncoder(dn_in, dn_out, n_near)
 
     def forward(self, dense_fea):
@@ -444,6 +453,8 @@ class DenseUpdate(nn.Module):
         """
 
         bs, emb, n_stk, n_stk_pnt = dense_fea.size()
+
+        dense_fea = self.temporal_encoder(dense_fea)
 
         dense_fea = dense_fea.view(bs, emb, n_stk * n_stk_pnt)
 

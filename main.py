@@ -452,12 +452,18 @@ if __name__ == '__main__':
     # print(adad)
     # print(adad.shape)
 
-    test_list = list(range(10))
-    print(test_list)
-    random.shuffle(test_list)
-    print(test_list)
+    # test_list = list(range(10))
+    # print(test_list)
+    # random.shuffle(test_list)
+    # print(test_list)
+    #
+    # print(math.ceil(0.21 * 10))
 
-    print(math.ceil(0.21 * 10))
+    trst_tebser = torch.rand(3, 27, 8, 10)
+    conv_layer = nn.Conv2d(27, 27, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1))
+    print(conv_layer(trst_tebser).size())
+
+
 
     pass
 

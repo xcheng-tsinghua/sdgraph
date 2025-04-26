@@ -205,11 +205,15 @@ class SparseToDense(nn.Module):
     将sgraph转移到dgraph
     直接拼接到该笔划对应的点
     """
-    def __init__(self):
+    def __init__(self, sparse_in, dense_in, dropout):
         super().__init__()
 
-        # self.n_stk = n_stk
-        # self.n_stk_pnt = n_stk_pnt
+        self.encoder = eu.MLP(
+            dimension=2,
+            channels=(sparse_in + dense_in, dense_in),
+            dropout=dropout,
+            final_proc=True
+        )
 
     def forward(self, sparse_fea, dense_fea):
         """
@@ -219,6 +223,7 @@ class SparseToDense(nn.Module):
         """
         dense_feas_from_sparse = sparse_fea.unsqueeze(3).repeat(1, 1, 1, dense_fea.size(3))
         union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)  # -> [bs, emb, n_stk, n_stk_pnt]
+        union_dense = self.encoder(union_dense)
 
         return union_dense
 
@@ -228,8 +233,15 @@ class DenseToSparse(nn.Module):
     将 dense graph 的数据转移到 sparse graph
     通过卷积然后最大池化到一个特征，然后拼接
     """
-    def __init__(self):
+    def __init__(self, sparse_in, dense_in, dropout):
         super().__init__()
+
+        self.encoder = eu.MLP(
+            dimension=1,
+            channels=(sparse_in + dense_in, sparse_in),
+            dropout=dropout,
+            final_proc=True
+        )
 
         # self.n_stk = n_stk
         # self.n_stk_pnt = n_stk_pnt
@@ -261,6 +273,7 @@ class DenseToSparse(nn.Module):
 
         # -> [bs, emb, n_stk]
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
+        union_sparse = self.encoder(union_sparse)
 
         return union_sparse
 
@@ -300,11 +313,11 @@ class SDGraphEncoder(nn.Module):
         self.n_stk_center = n_stk_center
         self.with_time = with_time
 
-        self.dense_to_sparse = DenseToSparse()
-        self.sparse_to_dense = SparseToDense()
+        self.dense_to_sparse = DenseToSparse(sparse_in, dense_in, dropout)  # 此处dropout之前测试不能设为零
+        self.sparse_to_dense = SparseToDense(sparse_in, dense_in, dropout)  # 此处dropout之前测试不能设为零
 
-        self.sparse_update = su.SparseUpdate(sparse_in + dense_in, sparse_out, sp_near)
-        self.dense_update = su.DenseUpdate(dense_in + sparse_in, dense_out, dn_near)
+        self.sparse_update = su.SparseUpdate(sparse_in, sparse_out, sp_near)
+        self.dense_update = su.DenseUpdate(dense_in, dense_out, dn_near, dropout)  # 此处dropout效果未测试
 
         self.sample_type = sample_type
         if self.sample_type == 'down_sample':
@@ -371,13 +384,13 @@ class SDGraphCls(nn.Module):
         self.n_stk_pnt = n_stk_pnt
 
         # 各层特征维度
-        sparse_l0 = 32 + 16 + 8
-        sparse_l1 = 128 + 64 + 32
-        sparse_l2 = 512 + 256 + 128
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
 
-        dense_l0 = 32 + 16
-        dense_l1 = 128 + 64
-        dense_l2 = 512 + 256
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
 
         # 生成笔划坐标
         self.point_to_stk_coor = su.PointToSparse(2, sparse_l0)
@@ -389,13 +402,13 @@ class SDGraphCls(nn.Module):
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   self.n_stk, self.n_stk_pnt,
-                                  self.n_stk - 1, self.n_stk_pnt // 2,
+                                  self.n_stk // 2, self.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  self.n_stk - 1, self.n_stk_pnt // 2,
-                                  self.n_stk - 2, self.n_stk_pnt // 4,
+                                  self.n_stk // 2, self.n_stk_pnt // 2,
+                                  self.n_stk // 4, self.n_stk_pnt // 4,
                                   dropout=dropout
                                   )
 

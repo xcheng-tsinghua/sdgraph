@@ -12,7 +12,7 @@ from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
 from data_utils.vis import save_format_sketch
 from encoders.sdgraph_stk_samp import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
-from encoders.utils import clear_log
+from encoders.utils import clear_log, get_log
 
 
 def parse_args():
@@ -50,13 +50,7 @@ def main(args):
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
-    logger = logging.getLogger("Model")
-    logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
-    file_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter('%(message)s')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
 
     '''加载模型及权重'''
     model = SDGraphUNet(2, 2)
