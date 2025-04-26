@@ -51,12 +51,13 @@ class DownSample(nn.Module):
             nn.Dropout2d(dropout)
         )
 
-    def forward(self, sparse_fea, dense_fea, stk_coor, stk_fea_bef=None):
+    def forward(self, sparse_fea, dense_fea, stk_coor, stk_fea_bef=None, n_stk_center=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param stk_coor: [bs, n_stk, emb]
         :param stk_fea_bef: 占位，因为上采样时和在采样时的输入不同
+        :param n_stk_center: 笔划下采样过程中的笔划采样点数
         """
         bs, emb, n_stk, n_stk_pnt = dense_fea.size()
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt
@@ -66,11 +67,11 @@ class DownSample(nn.Module):
 
         # ------- 对sgraph进行下采样 -------
         # 使用FPS采样，获得获得中心点索引
-        fps_idx = eu.fps(stk_coor, self.n_stk // 2)  # -> [bs, n_stk // 2]
+        fps_idx = eu.fps(stk_coor, n_stk_center)  # -> [bs, n_stk_center]
 
         # 根据中心点索引，获取中心点特征
         sparse_center_fea = eu.index_points(sparse_fea, fps_idx, True)
-        assert sparse_center_fea.size(2) == self.n_stk // 2
+        assert sparse_center_fea.size(2) == n_stk_center
 
         # step1: --- 获得中心点附近的点的特征 ---
         # 获取全局knn索引
@@ -79,7 +80,7 @@ class DownSample(nn.Module):
 
         # 获取中心点的附近的点索引
         knn_idx_fps = eu.index_points(knn_idx_all, fps_idx)  # -> [bs, n_stk // 2, self.sp_near]
-        assert knn_idx_fps.size(1) == self.n_stk // 2
+        assert knn_idx_fps.size(1) == n_stk_center
 
         # 根据附近点索引获取附近点特征
         sparse_neighbor_fea = eu.index_points(sparse_fea, knn_idx_fps, True)  # -> [bs, emb, n_stk // 2, sp_near]
@@ -95,11 +96,11 @@ class DownSample(nn.Module):
         # step3: --- 更新特征 ---
         sparse_fea = self.sp_conv(sparse_fea)  # -> [bs, emb, n_stk // 2, sp_near]
         sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
-        assert sparse_fea.size(2) == self.n_stk // 2
+        assert sparse_fea.size(2) == n_stk_center
 
         # step4: --- 获取采样后的笔划坐标 ---
         stk_coor_sampled = eu.index_points(stk_coor, fps_idx)  # -> [bs, n_stk // 2, emb]
-        assert stk_coor_sampled.size(1) == self.n_stk // 2
+        assert stk_coor_sampled.size(1) == n_stk_center
 
         # ------- 对dense fea进行下采样 -------
         # 先找到对应的笔划
@@ -145,7 +146,7 @@ class UpSample(nn.Module):
             nn.Dropout2d(dropout)
         )
 
-    def forward(self, sparse_fea, dense_fea, stk_coor, stk_coor_bef):
+    def forward(self, sparse_fea, dense_fea, stk_coor, stk_coor_bef, n_stk_center=None):
         """
         对于 stk_coor_bef 中的某个点(center)，找到 stk_coor 中与之最近的 sp_near 个点(nears)，将nears的特征进行加权和，得到center的插值特征
         nears中第i个点(near_i)特征的权重为 [1/d(near_i)]/sum(k=1->n_sp_up_near)[1/d(near_k)]
@@ -156,6 +157,7 @@ class UpSample(nn.Module):
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param stk_coor: 采样后的笔划特征 [bs, n_stk, emb]
         :param stk_coor_bef: 采样前的笔划特征 [bs, n_stk * 2, emb]
+        :param n_stk_center: 占位用
         :return:
         """
         bs, _, n_stk, n_stk_pnt = dense_fea.size()
@@ -163,37 +165,37 @@ class UpSample(nn.Module):
 
         # ----- 对sgraph进行上采样 -----
         # 计算sparse_fea_bef中的每个点到sparse_fea中每个点的平方距离
-        # sparse_fea_bef:[bs, emb, n_stk * 2]
-        # sparse_fea:[bs, emb, n_stk]
-        # dists -> [bs, n_stk * 2, n_stk]
+        # sparse_fea_bef:[bs, n_stk_bef, emb]
+        # sparse_fea:[bs, n_stk, emb]
+        # dists -> [bs, n_stk_bef, n_stk]
         dists = eu.square_distance(stk_coor_bef, stk_coor)
-        assert dists.size(1) == self.n_stk * 2 and dists.size(2) == self.n_stk
+        assert dists.size(1) == stk_coor_bef.size(1) and dists.size(2) == self.n_stk
 
         # 计算每个初始点到采样点距离最近的3个点，sort 默认升序排列, 取三个
         dists, idx = dists.sort(dim=2)
-        dists, idx = dists[:, :, :self.sp_near], idx[:, :, :self.sp_near]  # [bs, n_stk * 2, sp_near]
+        dists, idx = dists[:, :, :self.sp_near], idx[:, :, :self.sp_near]  # [bs, n_stk_bef, sp_near]
 
         # 最近距离的每行求倒数，距离越近，数值越大
         dist_recip = 1.0 / (dists + 1e-8)
 
         # 求倒数后，每个中心点的附近点平方距离，除以属于该中心点的所有附近点平方距离之和
-        norm = torch.sum(dist_recip, dim=2, keepdim=True)  # ->[bs, n_stk * 2, 1]
+        norm = torch.sum(dist_recip, dim=2, keepdim=True)  # ->[bs, n_stk_bef, 1]
         weight = dist_recip / norm  # ->[bs, n_stk * 2, sp_near]
 
         # 找到中心点附近的 sp_near 个最近的邻近点特征
-        sparse_fea = eu.index_points(sparse_fea, idx, True)  # -> [bs, emb, n_stk * 2, sp_near]
+        sparse_fea = eu.index_points(sparse_fea, idx, True)  # -> [bs, emb, n_stk_bef, sp_near]
 
         # 将邻近点特征进行加权求和，之后使用 MLP 更新特征
-        sparse_fea = (sparse_fea * weight.unsqueeze(1)).sum(3)  # -> [bs, emb, n_stk * 2]
-        assert sparse_fea.size(2) == self.n_stk * 2
+        sparse_fea = (sparse_fea * weight.unsqueeze(1)).sum(3)  # -> [bs, emb, n_stk_bef]
+        assert sparse_fea.size(2) == stk_coor_bef.size(1)
         sparse_fea = self.sp_conv(sparse_fea)
 
         # ----- 为 dense graph 进行笔划层级上采样 -----
         dense_fea = einops.rearrange(dense_fea, 'b c s sp -> b s (sp c)')
-        dense_fea = eu.index_points(dense_fea, idx)  # -> [bs, n_stk * 2, sp_near, n_stk_pnt * emb]
-        dense_fea = torch.sum(dense_fea * weight.unsqueeze(3), dim=2)  # -> [bs, n_stk * 2, n_stk_pnt * emb]
+        dense_fea = eu.index_points(dense_fea, idx)  # -> [bs, n_stk_bef, sp_near, n_stk_pnt * emb]
+        dense_fea = torch.sum(dense_fea * weight.unsqueeze(3), dim=2)  # -> [bs, n_stk_bef, n_stk_pnt * emb]
         dense_fea = einops.rearrange(dense_fea, 'b s (sp c) -> b c s sp', sp=n_stk_pnt)
-        dense_fea = self.conv(dense_fea)  # -> [bs, emb, n_stk * 2, n_stk_pnt * 2]
+        dense_fea = self.conv(dense_fea)  # -> [bs, emb, n_stk_bef, n_stk_pnt * 2]
 
         return sparse_fea, dense_fea, None
 
@@ -268,19 +270,34 @@ class SDGraphEncoder(nn.Module):
     包含笔划及笔划中的点层级的下采样与上采样
     """
     def __init__(self,
-                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
-                 n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
-                 sp_near=2, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
-                 sample_type='down_sample',  # 采样类型
-                 with_time=False, time_emb_dim=0,  # 是否附加时间步
+                 sparse_in, sparse_out, dense_in, dense_out,
+                 n_stk, n_stk_pnt,
+                 n_stk_center, n_stk_pnt_center,
+                 sp_near=2, dn_near=10,
+                 sample_type='down_sample',
+                 with_time=False, time_emb_dim=0,
                  dropout=0.2
                  ):
         """
+        :param sparse_in: 输入维度
+        :param sparse_out: 输出维度
+        :param dense_in:
+        :param dense_out:
+        :param n_stk: 笔划数
+        :param n_stk_pnt: 每个笔划中的点数
+        :param n_stk_center: 笔划下采样过程中的笔划采样点数
+        :param n_stk_pnt_center: 仅用作占位, 笔划上的点下采样至原来的一半，上采样至原来的两倍
+        :param sp_near: 更新 sgraph 时个GCN中邻近点数目
+        :param dn_near: 更新 dgraph 时个GCN中邻近点数目
         :param sample_type: [down_sample, up_sample, none]
+        :param with_time: 是否附加时间步
+        :param time_emb_dim: 时间步特征维度
+        :param dropout:
         """
         super().__init__()
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
+        self.n_stk_center = n_stk_center
         self.with_time = with_time
 
         self.dense_to_sparse = DenseToSparse()
@@ -330,9 +347,9 @@ class SDGraphEncoder(nn.Module):
         union_dense = self.dense_update(union_dense)
 
         # 采样
-        union_sparse, union_dense, stk_coor_sampled = self.sample(union_sparse, union_dense, stk_coor, stk_coor_bef)
+        union_sparse, union_dense, stk_coor_sampled = self.sample(union_sparse, union_dense, stk_coor, stk_coor_bef, self.n_stk_center)
         if stk_coor_sampled is not None:
-            assert stk_coor_sampled.size(0) == bs and (stk_coor_sampled.size(1) == self.n_stk // 2 or stk_coor_sampled.size(1) == self.n_stk * 2)
+            assert stk_coor_sampled.size(0) == bs and (stk_coor_sampled.size(1) == self.n_stk_center or stk_coor_sampled.size(1) == self.n_stk * 2)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -371,12 +388,14 @@ class SDGraphCls(nn.Module):
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                  n_stk=self.n_stk, n_stk_pnt=self.n_stk_pnt,
+                                  self.n_stk, self.n_stk_pnt,
+                                  self.n_stk - 1, self.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2,
+                                  self.n_stk - 1, self.n_stk_pnt // 2,
+                                  self.n_stk - 2, self.n_stk_pnt // 4,
                                   dropout=dropout
                                   )
 
@@ -473,13 +492,15 @@ class SDGraphUNet(nn.Module):
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                        self.n_stk, self.n_stk_pnt,
+                                       self.n_stk - 1, self.n_stk_pnt // 2,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                       self.n_stk // 2, self.n_stk_pnt // 2,
+                                       self.n_stk - 1, self.n_stk_pnt // 2,
+                                       self.n_stk - 2, self.n_stk_pnt // 4,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
@@ -495,7 +516,8 @@ class SDGraphUNet(nn.Module):
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
                                      global_dim + dense_l2, dense_l2,
-                                     n_stk=self.n_stk // 4, n_stk_pnt=self.n_stk_pnt // 4,
+                                     self.n_stk - 2, self.n_stk_pnt // 4,
+                                     self.n_stk - 1, self.n_stk_pnt // 2,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
@@ -503,7 +525,8 @@ class SDGraphUNet(nn.Module):
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
-                                     n_stk=self.n_stk // 2, n_stk_pnt=self.n_stk_pnt // 2,
+                                     self.n_stk - 1, self.n_stk_pnt // 2,
+                                     self.n_stk, self.n_stk_pnt,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
