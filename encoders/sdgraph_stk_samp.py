@@ -236,6 +236,14 @@ class DenseToSparse(nn.Module):
     def __init__(self, sparse_in, dense_in, dropout):
         super().__init__()
 
+        # 先利用时序进行更新
+        self.temporal_encoder = nn.Sequential(
+            nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3), padding=(0, 1)),  # 输入 = 输出
+            nn.BatchNorm2d(dense_in),
+            eu.activate_func(),
+            nn.Dropout2d(dropout),
+        )
+
         self.encoder = eu.MLP(
             dimension=1,
             channels=(sparse_in + dense_in, sparse_in),
@@ -243,33 +251,17 @@ class DenseToSparse(nn.Module):
             final_proc=True
         )
 
-        # self.n_stk = n_stk
-        # self.n_stk_pnt = n_stk_pnt
-
-        # self.dense_to_sparse = nn.Sequential(
-        #     nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
-        #     nn.BatchNorm2d(dense_in),
-        #     eu.activate_func(),
-        #     nn.Dropout2d(dropout),
-        # )
-
     def forward(self, sparse_fea, dense_fea):
         """
         :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         :param sparse_fea: [bs, emb, n_stk]
         :return: [bs, emb, n_stk]
         """
-        # bs, emb, _ = dense_fea.size()
-        #
-        # # -> [bs, emb, n_stk, n_stk_pnt]
-        # dense_fea = dense_fea.view(bs, emb, self.n_stk, self.n_stk_pnt)
-
         # -> [bs, emb, n_stk, n_stk_pnt]
-        # sparse_feas_from_dense = self.dense_to_sparse(dense_fea)
+        dense_fea = self.temporal_encoder(dense_fea)
 
         # -> [bs, emb, n_stk]
         sparse_feas_from_dense = dense_fea.max(3)[0]
-        # assert sparse_feas_from_dense.size(2) == self.n_stk
 
         # -> [bs, emb, n_stk]
         union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
