@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--save_str', type=str, default=f'sdgraph_unet_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
     parser.add_argument('--bs', type=int, default=32, help='batch size in training')
-    parser.add_argument('--epoch', default=50, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=25, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
