@@ -239,7 +239,7 @@ class QuickDrawDiff(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
-                 workers=8,
+                 workers=4,
                  pen_down=global_defs.pen_down,
                  pen_up=global_defs.pen_up):
         """
@@ -339,7 +339,7 @@ class QuickDrawCls(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  max_len=200,
-                 workers=8,
+                 workers=4,
                  select=(1000, 100, 100),
                  is_random_select=False,
                  is_process_in_init=True,
