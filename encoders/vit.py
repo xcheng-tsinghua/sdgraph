@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch
 from collections import OrderedDict
 
+from encoders.utils import MLP
+
 
 class ImageEncoder_ULIP(nn.Module):
     def __init__(self):
@@ -10,12 +12,36 @@ class ImageEncoder_ULIP(nn.Module):
         self.vision_model = timm.create_model('vit_base_patch16_224', num_classes=0)
         self.image_projection = nn.Parameter(torch.empty(768, 512))
 
-    @torch.inference_mode()
+    # @torch.inference_mode()
     def forward(self, image):
         x = self.vision_model(image)
         x = x @ self.image_projection
 
         return x
+
+
+class VITFinetune(nn.Module):
+    def __init__(self, channel_out=512, root_ckpt='./model_trained/weight_image_encoder.pth'):
+        super().__init__()
+
+        self.image_encoder_pretrained = ImageEncoder_ULIP()
+
+        try:
+            self.image_encoder_pretrained.load_state_dict(torch.load(root_ckpt), strict=True)
+        except:
+            raise ValueError('can not load pretrained model weight: ', root_ckpt)
+
+        self.mlp = MLP(0, (512, int((512 * channel_out) ** 0.5), channel_out), final_proc=False)
+
+    # @torch.inference_mode()
+    def forward(self, image):
+
+        self.image_encoder_pretrained = self.image_encoder_pretrained.eval()
+        with torch.no_grad():
+            fea = self.image_encoder_pretrained(image)
+
+        fea = self.mlp(fea)
+        return fea
 
 
 def save_weights_from_all():
@@ -61,7 +87,13 @@ def test():
 if __name__ == '__main__':
     # test()
 
-    save_weights_from_all()
+    # save_weights_from_all()
+
+    atensor = torch.rand(5, 3, 512, 512)
+
+    amodel = VITFinetune(10)
+    print(amodel(atensor).size())
+
 
     pass
 

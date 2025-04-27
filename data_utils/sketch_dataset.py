@@ -592,7 +592,8 @@ class DiffDataset(Dataset):
 class RetrievalDataset(Dataset):
     def __init__(self, root, mode='train', max_seq_length=256, image_size=(224, 224), return_mode='S5'):
         """
-
+        图片通过将矢量图转化获得
+        读取的可以是 txt，svg
         :param root:
         :param mode: ['train', 'test']
         :param max_seq_length:

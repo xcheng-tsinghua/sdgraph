@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from scipy.interpolate import splprep, splev
+from encoders.vit import VITFinetune
 
 # import data_utils.sketch_vis as vis
 # from data_utils.sketch_utils import svg_to_txt
@@ -459,9 +460,16 @@ if __name__ == '__main__':
     #
     # print(math.ceil(0.21 * 10))
 
-    trst_tebser = torch.rand(3, 27, 8, 10)
-    conv_layer = nn.Conv2d(27, 27, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1))
-    print(conv_layer(trst_tebser).size())
+    # trst_tebser = torch.rand(3, 27, 8, 10)
+    # conv_layer = nn.Conv2d(27, 27, kernel_size=(1, 3), stride=(1, 1), padding=(0, 1))
+    # print(conv_layer(trst_tebser).size())
+
+
+
+    atensor = torch.rand(5, 3, 224, 224)
+
+    amodel = VITFinetune(10)
+    print(amodel(atensor).size())
 
 
 

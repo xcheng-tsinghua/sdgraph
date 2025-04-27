@@ -1,7 +1,7 @@
 """
 训练检索
 """
-
+import einops
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -11,12 +11,14 @@ from torch.utils.data import random_split
 from torch.nn import Module
 import torch.nn.functional as F
 import argparse
-from encoders.vit import create_pretrained_VIT
 from data_utils.sketch_dataset import RetrievalDataset
 from encoders.sketch_rnn import SketchRNNEmbedding as SketchEncoder
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import numpy as np
+from itertools import chain
+
+from encoders.vit import VITFinetune
 
 
 def parse_args():
@@ -42,7 +44,7 @@ def parse_args():
 
 class ContrastiveLoss(Module):
 
-    def __init__(self, margin):
+    def __init__(self, margin=2.0):
         super().__init__()
         self.margin = margin
 
@@ -58,6 +60,39 @@ class ContrastiveLoss(Module):
             return loss_contrastive
 
         raise ValueError('This is the Contrastive Loss but more (or less) than 2 tensors were unpacked')
+
+
+def constructive_loss(x, y, margin=1.0, lambda_=1.0):
+    """
+    对比损失
+    :param x: [bs ,emb]
+    :param y: [bs ,emb]
+    :param margin:
+    :param lambda_:
+    :return:
+    """
+    # x, y: tensors of shape (N, D)
+    N = x.size(0)
+
+    # 计算对应行之间的距离
+    pos_dist = F.pairwise_distance(x, y, p=2)
+    pos_loss = torch.mean(pos_dist ** 2)
+
+    # 计算 x 与 y 中所有不同行之间的距离
+    x_exp = x.unsqueeze(1)  # (N, 1, D)
+    y_exp = y.unsqueeze(0)  # (1, N, D)
+    dist_matrix = torch.norm(x_exp - y_exp, dim=2, p=2)  # (N, N)
+
+    # 创建掩码，排除对角线（即对应行）
+    mask = ~torch.eye(N, dtype=torch.bool, device=x.device)
+    neg_dist = dist_matrix[mask]
+
+    # 计算不同行之间的损失
+    neg_loss = torch.mean(F.relu(margin - neg_dist) ** 2)
+
+    # 总损失
+    loss = pos_loss + lambda_ * neg_loss
+    return loss
 
 
 class TripletLoss(Module):
@@ -76,6 +111,48 @@ class TripletLoss(Module):
         raise ValueError('This is the Triplet Loss but more (or less) than 3 tensors were unpacked')
 
 
+class EmbeddingSpace(object):
+    """
+    创建一个特征集合，包含测试集中全部数据
+    """
+    def __init__(self,
+                 img_encoder: Module,
+                 skh_encoder: Module,
+                 loader_images: DataLoader,
+                 device: torch.device):
+        self.device = device
+        self.img_encoder = img_encoder.eval().to(self.device)
+        self.skh_encoder = skh_encoder.eval().to(self.device)
+
+        self.embeddings = []
+
+        for idx_batch, (images, images_class) in enumerate(loader_images):
+            images, images_class = images.to(self.device), images_class.to(self.device)
+            with torch.no_grad():
+
+                # -> [bs, emb]
+                img_embedding = self.img_encoder(images)
+
+                # 获取测试集中全部的图片 embedding，这里embedding的索引即对应它的文件
+                self.embeddings.extend(img_embedding)
+
+        # -> [all, emb]
+        self.embeddings = torch.cat(self.embeddings, dim=0)
+
+    def top_k(self, sketches: torch.Tensor, k: int):
+        """
+
+        :param sketches: [bs, emb]
+        :param k:
+        :return:
+        """
+        # -> [bs, all]
+        distances = torch.cdist(sketches, self.embeddings)
+        topk_distances, topk_indices = torch.topk(distances, k, largest=False, dim=1)
+
+        return topk_distances, topk_indices
+
+
 def main(args):
 
     # 设置数据集
@@ -91,12 +168,12 @@ def main(args):
     test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
     '''加载模型及权重'''
-    image_encoder = create_pretrained_VIT().cuda()
-    sketch_encoder = SketchEncoder().cuda()
+    img_encoder = VITFinetune().cuda()
+    skh_encoder = SketchEncoder().cuda()
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        sketch_encoder.parameters(),
+        chain(img_encoder.parameters(), list(skh_encoder.parameters())),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -106,19 +183,20 @@ def main(args):
 
     '''训练'''
     for epoch in range(args.epoch):
-        sketch_encoder = sketch_encoder.train()
+        skh_encoder = skh_encoder.train()
+        img_encoder = img_encoder.train()
         loss_all = []
 
         for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            img, text, mask = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
+            img, skh, mask = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
 
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            sketch_emb = sketch_encoder(text, mask)
-            img_emb = image_encoder(img).detach().clone()
+            skh_emb = skh_encoder(skh, mask)
+            img_emb = img_encoder(img)
 
-            loss = F.mse_loss(sketch_emb, img_emb)
+            loss = constructive_loss(skh_emb, img_emb)
 
             # 利用loss更新参数
             loss.backward()
@@ -127,11 +205,11 @@ def main(args):
             loss_all.append(loss.item())
 
         scheduler.step()
-        torch.save(sketch_encoder.state_dict(), './model_trained/sketch_retrieval.pth')
+        torch.save(skh_encoder.state_dict(), './model_trained/sketch_retrieval_skh.pth')
+        torch.save(img_encoder.state_dict(), './model_trained/sketch_retrieval_img.pth')
         print(Back.BLUE + f'{epoch} / {args.epoch}: save sketch weights at: ./weights/sketch_encoder.pth, loss: {np.mean(loss_all)}')
 
 
 if __name__ == '__main__':
     main(parse_args())
-
 

@@ -512,8 +512,15 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
         print('save incorrect cls instance: ', save_path)
 
 
-def std_to_tensor_img(points_with_state, image_size=(512, 512), line_thickness=1, pen_up=global_defs.pen_up):
-
+def std_to_tensor_img(points_with_state, image_size=(224, 224), line_thickness=2, pen_up=global_defs.pen_up):
+    """
+    将 STD 草图转化为 Tensor 图片
+    :param points_with_state:
+    :param image_size:
+    :param line_thickness:
+    :param pen_up:
+    :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
+    """
     width, height = image_size
 
     # 1. 坐标归一化
