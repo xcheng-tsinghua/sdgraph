@@ -27,12 +27,17 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/apple.full.npz')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
-
-    '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
+
+    r'''
+    parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
+    
+    
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/apple.full.npz')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
+    
     '''
 
     return parser.parse_args()
@@ -53,7 +58,7 @@ def main(args):
     logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
 
     '''加载模型及权重'''
-    model = SDGraphUNet(3, 3)
+    model = SDGraphUNet(2, 2)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
@@ -75,8 +80,8 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        train_dataset = QuickDrawDiff(root=data_root, workers=0)
-        # train_dataset = DiffDataset(root=data_root)
+        # train_dataset = QuickDrawDiff(root=data_root, workers=0)
+        train_dataset = DiffDataset(root=data_root, is_stk_processed=True)
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
         '''优化器'''
@@ -123,7 +128,7 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch_test(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 gen_idx += 1
 
 

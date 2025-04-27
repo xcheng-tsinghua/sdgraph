@@ -24,6 +24,7 @@ from PIL import Image
 from torchvision import transforms
 from multiprocessing import Pool
 from functools import partial
+import numpy as np
 
 import global_defs
 from data_utils import preprocess as pp
@@ -541,7 +542,8 @@ class DiffDataset(Dataset):
                  suffix='txt',
                  back_mode='STK',
                  coor_mode='ABS',
-                 n_max_len=200
+                 n_max_len=200,
+                 is_stk_processed=False
                  ):
         """
         :param root:
@@ -549,12 +551,14 @@ class DiffDataset(Dataset):
         :param back_mode: ['STK', 'S5']
         :param coor_mode: ['ABS', 'REL']
         :param n_max_len:
+        :param is_stk_processed: 数据集是否已处理成 STK 格式
         """
         print(f'diffusion dataset, from: {root}')
 
         self.back_mode = back_mode
         self.coor_mode = coor_mode
         self.n_max_len = n_max_len
+        self.is_stk_processed = is_stk_processed
 
         self.datapath = du.get_allfiles(root, suffix)
 
@@ -568,7 +572,11 @@ class DiffDataset(Dataset):
         fn = self.datapath[index]
 
         if self.back_mode == 'STK':
-            sketch_cube = prep(fn)
+            if self.is_stk_processed:
+                sketch_cube = np.loadtxt(fn, delimiter=',')
+                sketch_cube = sketch_cube.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
+            else:
+                sketch_cube = prep(fn)
             mask = 0
         elif self.back_mode == 'S5':
             sketch_cube, mask = du.sketch_file_to_s5(fn, self.n_max_len, self.coor_mode)
