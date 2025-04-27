@@ -1486,14 +1486,23 @@ def img_read(img_root, img_size=(224, 224)):
     return tensor_image
 
 
-def sketch_list_to_n3(sketch_list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
+def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
     n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
+    n_valid_stk = len(sketch_list)
+    last_pnt = torch.from_numpy(sketch_list[-1][-1])
 
     for idx, c_stk in enumerate(sketch_list):
         c_len = len(c_stk)
-        n3_cube[idx, :c_len, :2] = torch.from_numpy(c_stk)
+        c_torch_stk = torch.from_numpy(c_stk)
+        n3_cube[idx, :c_len, :2] = c_torch_stk
         n3_cube[idx, :c_len, 2] = positive_val
+
+        n3_cube[idx, c_len:, :2] = c_torch_stk[-1]
         n3_cube[idx, c_len:, 2] = negative_val
+
+    for idx in range(n_valid_stk, n_stk):
+        n3_cube[idx, :, :2] = last_pnt
+        n3_cube[idx, :, 2] = negative_val
 
     return n3_cube
 
