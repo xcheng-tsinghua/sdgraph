@@ -108,7 +108,7 @@ class GaussianDiffusion(Module):
         img = torch.randn((batch_size, *self.img_size), device=self.device)
 
         # 倒着遍历所有时间步，从噪音还原图片
-        for t in tqdm(reversed(range(self.timesteps)), desc='sampling loop time step', total=self.timesteps):
+        for t in tqdm(reversed(range(self.timesteps)), total=self.timesteps, desc='sampling loop time step'):
             img = self.inference_x_t_minus1(img, t)
 
         return img

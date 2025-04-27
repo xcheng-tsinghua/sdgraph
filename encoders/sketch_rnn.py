@@ -36,9 +36,9 @@ def parse_args():
 
 
 def reconstruction_loss(mask: torch.Tensor,
-                target: torch.Tensor,
-                dist: 'BivariateGaussianMixture',
-                q_logits: torch.Tensor):
+                        target: torch.Tensor,
+                        dist: 'BivariateGaussianMixture',
+                        q_logits: torch.Tensor):
     # Get $\Pi$ and $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$
     pi, mix = dist.get_distribution()
     # `target` has shape `[seq_len, batch_size, 5]` where the last dimension is the features
