@@ -15,7 +15,7 @@ import os
 from data_utils.sketch_dataset import SketchDatasetSeg
 from encoders.sdgraph_stk_samp import SDGraphUNet
 from encoders.sketch_transformer import SketchTransformerCls
-from encoders.sketch_rnn import SketchRNN_Cls
+from encoders.sketch_rnn import SketchRNN_Seg
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 import global_defs
 
@@ -29,12 +29,12 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
+    parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
     parser.add_argument('--root_local', type=str,
-                        default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
+                        default=rf'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K')
 
     r'''
     cad sketch
@@ -79,18 +79,18 @@ def main(args):
     else:
         back_mode = 'S5'
 
-    dataset = SketchDatasetCls(data_root, back_mode=back_mode)
+    dataset = SketchDatasetSeg(data_root, 'plane')
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
     if args.model == 'SketchRNN':
-        classifier = SketchRNN_Cls(dataset.n_classes()).cuda()
+        classifier = SketchRNN_Seg(dataset.n_classes()).cuda()
 
     elif args.model == 'SketchTransformer':
         classifier = SketchTransformerCls(dataset.n_classes()).cuda()
 
     elif args.model == 'SDGraph':
-        classifier = SDGraphCls(dataset.n_classes(), 3).cuda()
+        classifier = SDGraphUNet(dataset.n_classes(), 3).cuda()
 
     else:
         raise TypeError('error model type')
@@ -133,7 +133,7 @@ def main(args):
             pred = classifier(points, mask)
 
             pred = einops.rearrange(pred, 'b p c -> (b p) c')
-            pred = pred.view(-1)
+            target = target.view(-1)
 
             loss = F.nll_loss(pred, target)
 
@@ -147,7 +147,7 @@ def main(args):
 
         # 计算分类指标
         # all_metric_train = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'train-{epoch}.png'))
-        logstr_trainaccu = f'\ttrain_instance_accu:\t{all_metric_train[0]}'
+        # logstr_trainaccu = f'\ttrain_instance_accu:\t{all_metric_train[0]}'
 
         # 调整学习率并保存权重
         scheduler.step()
@@ -173,18 +173,18 @@ def main(args):
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
             # all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
-            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
-            logger.info(logstr_epoch + logstr_trainaccu + accustr)
+            # accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
+            # logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
             # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
-            print(
-                f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
-
-            # 额外保存最好的模型
-            if best_instance_accu < all_metric_eval[0]:
-                best_instance_accu = all_metric_eval[0]
-                torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
+            # print(
+            #     f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
+            #
+            # # 额外保存最好的模型
+            # if best_instance_accu < all_metric_eval[0]:
+            #     best_instance_accu = all_metric_eval[0]
+            #     torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
 
 
 if __name__ == '__main__':

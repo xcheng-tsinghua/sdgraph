@@ -978,16 +978,16 @@ if __name__ == '__main__':
     # asketch = pre_process(thefile)
     # vis.vis_sketch_list(asketch, True)
 
-    sk_dir = r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple'
-
-    sk_all = du.get_allfiles(sk_dir, 'txt')
-
-    for c_file in sk_all:
-        vis.vis_sketch_orig(c_file, title='sketch_orig')
-
-        asasasas = preprocess_split_merge_until(c_file, is_show_status=False)
-
-        # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
+    # sk_dir = r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple'
+    #
+    # sk_all = du.get_allfiles(sk_dir, 'txt')
+    #
+    # for c_file in sk_all:
+    #     vis.vis_sketch_orig(c_file, title='sketch_orig')
+    #
+    #     asasasas = preprocess_split_merge_until(c_file, is_show_status=False)
+    #
+    #     # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
     pass
 

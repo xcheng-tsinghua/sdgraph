@@ -23,9 +23,9 @@ class ImageEncoder_ULIP(nn.Module):
 class VITFinetune(nn.Module):
     def __init__(self, channel_out=512, root_ckpt='./model_trained/weight_image_encoder.pth'):
         super().__init__()
+        print('create vit finetune')
 
         self.image_encoder_pretrained = ImageEncoder_ULIP()
-
         try:
             self.image_encoder_pretrained.load_state_dict(torch.load(root_ckpt), strict=True)
         except:

@@ -12,6 +12,7 @@ import torch
 from matplotlib.collections import LineCollection
 from torchvision import transforms
 from PIL import Image
+import cv2
 
 import global_defs
 import encoders.spline as sp
@@ -1298,7 +1299,7 @@ def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs
     return sketch_data
 
 
-def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
+def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, is_back_seg=False):
     """
     读取 npz 文件中的草图，读取后的草图已归一化
     这里默认将 npz 文件中存储的数据视为相对坐标，因为 QuickDraw 数据集中的 npz 文件中存储的是相对坐标
@@ -1315,6 +1316,7 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
     :param max_len: S5 模式下的最长长度
     :param pen_down: quickdraw 中为 0
     :param pen_up: quickdraw 中为 1
+    :param is_back_seg:
     :return:
     """
 
@@ -1323,6 +1325,9 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
 
     data = []
     mask = []
+    if is_back_seg:
+        seg = []
+
     for raw_data in dataset:
         try:
             # 获得绝对坐标
@@ -1334,6 +1339,11 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
                 if len(raw_data) > max_len:
                     # 大于最大长度则从末尾截断
                     raw_data = raw_data[:max_len, :]
+
+                if is_back_seg:
+                    raw_data = torch.from_numpy(raw_data)
+                    raw_seg = raw_data[:, 3:].max(1)[1]
+                    raw_data = raw_data.numpy()
 
                 # 归一化到 [-1, 1]
                 raw_data = sketch_std(raw_data.astype(np.float32))
@@ -1360,13 +1370,23 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
                 # $p_3$
                 c_data[len_raw_data + 1:, 4] = 1
 
+                if is_back_seg:
+                    c_seg = torch.zeros(max_len + 2)
+                    c_seg[1:len_raw_data + 1] = raw_seg
+
                 # Mask is on until end of sequence
                 c_mask[:len_raw_data + 1] = 1
 
                 data.append(c_data)
                 mask.append(c_mask)
 
+                if is_back_seg:
+                    seg.append(c_seg)
+
             elif back_mode == 'STD':
+                """
+                TODO: 需要在此添加相关代码返回分割标签
+                """
                 # 归一化到 [-1, 1]
                 raw_data = sketch_std(raw_data.astype(np.float32))
 
@@ -1389,7 +1409,11 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
         except:
             continue
 
-    return data, mask
+    if is_back_seg:
+        return data, mask, seg
+
+    else:
+        return data, mask
 
 
 def npz_to_txt(root_npz, root_target, delimiter=','):
@@ -1498,7 +1522,7 @@ def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=glob
     """
     n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
     n_valid_stk = len(sketch_list)
-    last_pnt = torch.from_numpy(sketch_list[-1][-1])
+    # last_pnt = torch.from_numpy(sketch_list[-1][-1])
 
     for idx, c_stk in enumerate(sketch_list):
         c_len = len(c_stk)
@@ -1506,16 +1530,78 @@ def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=glob
         n3_cube[idx, :c_len, :2] = c_torch_stk
         n3_cube[idx, :c_len, 2] = positive_val
 
-        n3_cube[idx, c_len:, :2] = c_torch_stk[-1]
+        # n3_cube[idx, c_len:, :2] = c_torch_stk[-1]
         n3_cube[idx, c_len:, 2] = negative_val
 
     for idx in range(n_valid_stk, n_stk):
-        n3_cube[idx, :, :2] = last_pnt
+        # n3_cube[idx, :, :2] = last_pnt
         n3_cube[idx, :, 2] = negative_val
 
     return n3_cube
 
 
+def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
+    """
+    将 STD 草图转化为 Tensor 图片
+    :param sketch: 文件路径或者加载好的 [n, 3] 草图
+    :param image_size:
+    :param line_thickness:
+    :param pen_up:
+    :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
+    """
+    width, height = image_size
+
+    if isinstance(sketch, str):
+        points_with_state = load_sketch_file(sketch)
+
+    elif isinstance(sketch, np.ndarray):
+        points_with_state = sketch
+
+    else:
+        raise TypeError('error sketch type')
+
+    # 1. 坐标归一化
+    pts = np.array(points_with_state[:, :2], dtype=np.float32)
+    states = np.array(points_with_state[:, 2], dtype=np.int32)
+
+    min_xy = pts.min(axis=0)
+    max_xy = pts.max(axis=0)
+    diff_xy = max_xy - min_xy
+
+    if np.allclose(diff_xy, 0):
+        scale_x = scale_y = 1.0
+    else:
+        scale_x = (width - 1) / diff_xy[0] if diff_xy[0] > 0 else 1.0
+        scale_y = (height - 1) / diff_xy[1] if diff_xy[1] > 0 else 1.0
+    scale = min(scale_x, scale_y)
+
+    pts_scaled = (pts - min_xy) * scale
+    pts_int = np.round(pts_scaled).astype(np.int32)
+
+    offset_x = (width - (diff_xy[0] * scale)) / 2 if diff_xy[0] > 0 else 0
+    offset_y = (height - (diff_xy[1] * scale)) / 2 if diff_xy[1] > 0 else 0
+    pts_int[:, 0] += int(round(offset_x))
+    pts_int[:, 1] += int(round(offset_y))
+
+    # 2. 创建白色画布
+    img = np.ones((height, width), dtype=np.uint8) * 255
+
+    # 3. 笔划切分
+    split_indices = np.where(states == pen_up)[0] + 1  # 下一个点是新笔划，所以+1
+    strokes = np.split(pts_int, split_indices)
+
+    # 4. 绘制每条笔划
+    for stroke in strokes:
+        if len(stroke) >= 2:  # 至少2个点才能画线
+            stroke = stroke.reshape(-1, 1, 2)
+            cv2.polylines(img, [stroke], isClosed=False, color=0, thickness=line_thickness, lineType=cv2.LINE_AA)
+
+    # 5. 转为归一化float32 Tensor
+    tensor_img = torch.from_numpy(img).float() / 255.0
+
+    cv2.imwrite(r'C:\Users\ChengXi\Desktop\fig\out.jpg', img)
+
+    return tensor_img
 
 
 if __name__ == '__main__':

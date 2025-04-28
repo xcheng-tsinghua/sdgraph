@@ -25,6 +25,7 @@ from torchvision import transforms
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+import cv2
 
 import global_defs
 from data_utils import preprocess as pp
@@ -67,7 +68,8 @@ class SketchDatasetCls(Dataset):
                  coor_mode='ABS',
                  max_len=200,
                  img_size=(224, 224),
-                 workers=8
+                 workers=8,
+                 is_retrieval=False
                  ):
         """
         :param root:
@@ -84,6 +86,7 @@ class SketchDatasetCls(Dataset):
         :param max_len:
         :param img_size: 图片大小
         :param workers:
+        :param is_retrieval: 是否是检索
         """
         print('sketch dataset total, from:' + root + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
@@ -93,6 +96,7 @@ class SketchDatasetCls(Dataset):
         self.coor_mode = coor_mode
         self.max_len = max_len
         self.img_size = img_size
+        self.is_retrieval = is_retrieval
 
         # 获取全部类别列表，即 root 内的全部文件夹名
         category_all = du.get_subdirs(root)
@@ -126,7 +130,8 @@ class SketchDatasetCls(Dataset):
                               back_mode=back_mode,
                               coor_mode=coor_mode,
                               max_len=max_len,
-                              img_size=img_size
+                              img_size=img_size,
+                              is_retrieval=is_retrieval
                               )
 
         with Pool(processes=workers) as pool:
@@ -158,7 +163,7 @@ class SketchDatasetCls(Dataset):
         print('number of classes all:', len(self.classes), '\n')
 
     @staticmethod
-    def load_data(cls_path, back_mode, coor_mode, max_len, img_size):
+    def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_retrieval):
         """
         从文件里读取数据，并进行预处理
         支持三种类型数据读取
@@ -167,17 +172,32 @@ class SketchDatasetCls(Dataset):
         :param coor_mode:
         :param max_len:
         :param img_size:
+        :param is_retrieval:
         :return:
         """
         class_name, file_root = cls_path
 
         try:
             if back_mode == 'STK':
-                sketch_cube = prep(file_root)
-                return class_name, sketch_cube, 0
+                if is_retrieval:
+                    sketch_cube = prep(file_root)
+                    sketch_img = du.std_to_tensor_img(file_root)
+                    return sketch_img, sketch_cube, 0
+
+                else:
+                    sketch_cube = prep(file_root)
+                    return class_name, sketch_cube, 0
+
             elif back_mode == 'S5':
-                sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
-                return class_name, sketch_cube, mask
+                if is_retrieval:
+                    sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
+                    sketch_img = du.std_to_tensor_img(file_root)
+                    return sketch_img, sketch_cube, mask
+
+                else:
+                    sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
+                    return class_name, sketch_cube, mask
+
             elif back_mode == 'IMG':
                 sketch_cube = du.img_read(file_root, img_size)
                 return class_name, sketch_cube, 0
@@ -200,9 +220,13 @@ class SketchDatasetCls(Dataset):
             raise TypeError('error dataset mode')
 
         class_key, sketch_cube, mask = data[index]
-        cls = self.classes[class_key]  # 表示类别的整形数字
 
-        return sketch_cube, mask, cls
+        if self.is_retrieval:
+            return class_key, sketch_cube, mask
+
+        else:
+            cls = self.classes[class_key]  # 表示类别的整形数字
+            return sketch_cube, mask, cls
 
     def next_index(self, index):
         max_index = self.__len__()
@@ -296,7 +320,7 @@ class QuickDrawDiff(Dataset):
                             )
                         )
                 else:
-                    for c_sketch in tqdm(self.sketch_all):
+                    for c_sketch in tqdm(self.sketch_all, total=len(self.sketch_all), desc='converting STD to STK'):
                         tmp_sketch_list.append(prep(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
@@ -637,6 +661,183 @@ class RetrievalDataset(Dataset):
         return len(self.pngs_all)
 
 
+class SketchDatasetSeg(Dataset):
+    def __init__(self, root=r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K', class_name='plane', data_mode='train', max_seq_length=256, image_size=(224, 224), return_mode='S5'):
+        self.data_mode = data_mode
+
+        npz_all = du.get_allfiles(root, 'npz')
+        npz_train = None
+        npz_test = None
+        for c_npz in npz_all:
+            if class_name in c_npz and 'train' in c_npz:
+                npz_train = c_npz
+            elif class_name in c_npz and 'test' in c_npz:
+                npz_test = c_npz
+
+        if npz_train is None or npz_test is None:
+            raise ValueError('data not found')
+
+        self.data_train = du.npz_read(npz_train, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
+        self.data_test = du.npz_read(npz_test, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
+
+        print(f'instance in training set: {len(self.data_train)}')
+        print(f'instance in testing set: {len(self.data_test)}')
+
+    def __getitem__(self, index):
+        if self.data_mode == 'train':
+            data = self.data_train
+        elif self.data_mode == 'test':
+            data = self.data_test
+        else:
+            raise TypeError('error dataset mode')
+
+        data_cube, mask, seg_label = data[0][index], data[1][index], data[2][index]
+        return data_cube, mask, seg_label
+
+    def __len__(self):
+        if self.data_mode == 'train':
+            return len(self.data_train[0])
+        elif self.data_mode == 'test':
+            return len(self.data_test[0])
+        else:
+            raise TypeError('error dataset mode')
+
+    def n_classes(self):
+        return 57
+
+    def train(self):
+        self.data_mode = 'train'
+
+    def eval(self):
+        self.data_mode = 'test'
+
+
+def canvas_size(sketch, padding: int = 30):
+    """
+    :param sketch: n*3 or n*4
+    :param padding: white padding, only make impact on visualize.
+    :return: int list,[x, y, h, w], [startX, startY, canvasH, canvasY]
+    """
+    # get canvas size
+    x_point = np.array([0])
+    y_point = np.array([0])
+    xmin_xmax = np.array([0, 0])
+    ymin_ymax = np.array([0, 0])
+    for stroke in sketch:
+        delta_x = stroke[0]
+        delta_y = stroke[1]
+        if x_point + delta_x > xmin_xmax[1]:
+            xmin_xmax[1] = x_point + delta_x
+        elif x_point + delta_x < xmin_xmax[0]:
+            xmin_xmax[0] = x_point + delta_x
+        if y_point + delta_y > ymin_ymax[1]:
+            ymin_ymax[1] = y_point + delta_y
+        elif y_point + delta_y < ymin_ymax[0]:
+            ymin_ymax[0] = y_point + delta_y
+        x_point += delta_x
+        y_point += delta_y
+
+    # padding
+    assert padding >= 0 and isinstance(padding, int)
+    xmin_xmax += np.array([-padding, +padding])  # padding
+    ymin_ymax += np.array([-padding, +padding])
+
+    w = xmin_xmax[1] - xmin_xmax[0]
+    h = ymin_ymax[1] - ymin_ymax[0]
+    start_x = np.abs(xmin_xmax[0])
+    start_y = np.abs(ymin_ymax[0])
+    # return the copy of sketch. you may use it.
+    return [int(start_x), int(start_y), int(h), int(w)], sketch[:]
+
+
+def draw_sketch(sketch, window_name="sketch_visualize", padding=30,
+                thickness=2, random_color=True, draw_time=1, drawing=True):
+    """
+    Include drawing.
+    Drawing under the guidance of positions and canvas's size given by canvas_size
+    :param sketch: (n, 3) or (n, 4)
+    :param window_name:
+    :param padding:
+    :param thickness:
+    :param random_color:
+    :param draw_time:
+    :param drawing:
+    :return: None
+    """
+
+    [start_x, start_y, h, w], sketch = canvas_size(sketch=sketch, padding=padding)
+    canvas = np.ones((h, w, 3), dtype='uint8') * 255
+    if random_color:
+        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    else:
+        color = (0, 0, 0)
+    pen_now = np.array([start_x, start_y])
+    first_zero = False
+    for stroke in sketch:
+        delta_x_y = stroke[0:0 + 2]
+        state = stroke[2]
+        if first_zero:  # the first 0 in a complete stroke
+            pen_now += delta_x_y
+            first_zero = False
+            continue
+        cv2.line(canvas, tuple(pen_now), tuple(pen_now + delta_x_y), color, thickness=thickness)
+        if int(state) != 0:  # next stroke
+            first_zero = True
+            if random_color:
+                color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+            else:
+                color = (0, 0, 0)
+        pen_now += delta_x_y
+        if drawing:
+            cv2.imshow(window_name, canvas)
+            key = cv2.waitKeyEx(draw_time)
+            if key == 27:  # esc
+                cv2.destroyAllWindows()
+                exit(0)
+
+    if drawing:
+        key = cv2.waitKeyEx()
+        if key == 27:  # esc
+            cv2.destroyAllWindows()
+            exit(0)
+    cv2.imwrite("./visualize.png", canvas)
+    return canvas
+
+
+def show_imgs():
+
+    count = 0
+    npz_root = r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K'
+    npz_all = du.get_allfiles(npz_root, 'npz')
+
+    for index, fileName in enumerate(npz_all):
+        print(f"|{index}|{fileName}|{fileName.split('_')[-1].split('.')[0]}|")
+        # choose latin1 encoding because we make this dataset by python2.
+        sketches = np.load(fileName, encoding="latin1", allow_pickle=True)
+        # randomly choose one sketch in one .npz .
+        for key in list(sketches.keys()):  # key 只有 arr_0
+            # print(f"This key is {key}")
+            # print(len(sketches[key]))
+            count += len(sketches[key])
+            number = random.randint(0, len(sketches[key]))
+            sample_sketch: np.ndarray = sketches[key][number]
+            # In this part.
+            # remove the first line. because in this visualize code, we do not need absolute start-up position.
+            # we get the start position by ourselves in func canvas_size().
+
+            # ** In fold ./augm, please comment the under line.
+            # because in augm datasets, the first line is not Absolute position.
+            sample_sketch[0][0:3] = np.array([0, 0, 0], dtype=sample_sketch.dtype)
+
+            # in cv2, data type INT is allowed.
+            # if dataset is normalized, you can make sample_sketch larger.
+            # if you run this code in a non-desktop server, drawing=False is necessary.
+            sample_sketch = (sample_sketch * 1).astype("int")
+            print(sample_sketch)
+            draw_sketch(sample_sketch, drawing=True)
+    print(count)
+
+
 if __name__ == '__main__':
     # adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
     #
@@ -697,6 +898,7 @@ if __name__ == '__main__':
     # sketch_data = std_unify(sketch_data, global_defs.n_stk, global_defs.n_stk_pnt)
 
     # sketch_std(np.loadtxt('error_stk'))
+
 
     pass
 

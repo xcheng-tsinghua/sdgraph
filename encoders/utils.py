@@ -512,64 +512,10 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
         print('save incorrect cls instance: ', save_path)
 
 
-def std_to_tensor_img(points_with_state, image_size=(224, 224), line_thickness=2, pen_up=global_defs.pen_up):
-    """
-    将 STD 草图转化为 Tensor 图片
-    :param points_with_state:
-    :param image_size:
-    :param line_thickness:
-    :param pen_up:
-    :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
-    """
-    width, height = image_size
-
-    # 1. 坐标归一化
-    pts = np.array(points_with_state[:, :2], dtype=np.float32)
-    states = np.array(points_with_state[:, 2], dtype=np.int32)
-
-    min_xy = pts.min(axis=0)
-    max_xy = pts.max(axis=0)
-    diff_xy = max_xy - min_xy
-
-    if np.allclose(diff_xy, 0):
-        scale_x = scale_y = 1.0
-    else:
-        scale_x = (width - 1) / diff_xy[0] if diff_xy[0] > 0 else 1.0
-        scale_y = (height - 1) / diff_xy[1] if diff_xy[1] > 0 else 1.0
-    scale = min(scale_x, scale_y)
-
-    pts_scaled = (pts - min_xy) * scale
-    pts_int = np.round(pts_scaled).astype(np.int32)
-
-    offset_x = (width - (diff_xy[0] * scale)) / 2 if diff_xy[0] > 0 else 0
-    offset_y = (height - (diff_xy[1] * scale)) / 2 if diff_xy[1] > 0 else 0
-    pts_int[:, 0] += int(round(offset_x))
-    pts_int[:, 1] += int(round(offset_y))
-
-    # 2. 创建白色画布
-    img = np.ones((height, width), dtype=np.uint8) * 255
-
-    # 3. 笔划切分
-    split_indices = np.where(states == pen_up)[0] + 1  # 下一个点是新笔划，所以+1
-    strokes = np.split(pts_int, split_indices)
-
-    # 4. 绘制每条笔划
-    for stroke in strokes:
-        if len(stroke) >= 2:  # 至少2个点才能画线
-            stroke = stroke.reshape(-1, 1, 2)
-            cv2.polylines(img, [stroke], isClosed=False, color=0, thickness=line_thickness, lineType=cv2.LINE_AA)
-
-    # 5. 转为归一化float32 Tensor
-    tensor_img = torch.from_numpy(img).float() / 255.0
-
-    # cv2.imwrite(r'C:\Users\ChengXi\Desktop\fig\out.jpg', img)
-
-    return tensor_img
-
 if __name__ == '__main__':
 
     asdasdas = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bolt\0a016b5f95eae21eaa9b95e7571d5bb3_1.txt'
-    std_to_tensor_img(np.loadtxt(asdasdas, delimiter=','))
+    # std_to_tensor_img(np.loadtxt(asdasdas, delimiter=','))
 
     #
     # import global_defs

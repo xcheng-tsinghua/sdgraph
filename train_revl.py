@@ -1,17 +1,12 @@
 """
 训练检索
 """
-import einops
 import torch
-from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torchvision.datasets import ImageFolder
-from torchvision import transforms
-from torch.utils.data import random_split
 from torch.nn import Module
 import torch.nn.functional as F
 import argparse
-from data_utils.sketch_dataset import RetrievalDataset
+from data_utils.sketch_dataset import SketchDatasetCls
 from encoders.sketch_rnn import SketchRNNEmbedding as SketchEncoder
 from tqdm import tqdm
 from colorama import Fore, Back, init
@@ -31,8 +26,8 @@ def parse_args():
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/sketch_cad/', help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\sketch_cad\raw', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -40,26 +35,6 @@ def parse_args():
     '''
 
     return parser.parse_args()
-
-
-class ContrastiveLoss(Module):
-
-    def __init__(self, margin=2.0):
-        super().__init__()
-        self.margin = margin
-
-    def forward(self, outputs: torch.Tensor, label: torch.Tensor):
-        if outputs.size()[0] == 2:
-            euclidean_distance = F.pairwise_distance(outputs[0], outputs[1], keepdim=True)
-
-            loss_contrastive = torch.mean(
-                (1 - label) * torch.pow(euclidean_distance, 2) +
-                label * torch.pow(torch.clamp(self.margin - euclidean_distance, min=0.0), 2)
-            )
-
-            return loss_contrastive
-
-        raise ValueError('This is the Contrastive Loss but more (or less) than 2 tensors were unpacked')
 
 
 def constructive_loss(x, y, margin=1.0, lambda_=1.0):
@@ -95,22 +70,6 @@ def constructive_loss(x, y, margin=1.0, lambda_=1.0):
     return loss
 
 
-class TripletLoss(Module):
-    def __init__(self, margin: int):
-        super().__init__()
-        self.margin = margin
-
-    def forward(self, outputs: torch.Tensor, labels: torch.Tensor) -> torch.Tensor:
-        if len(outputs) == 3:
-            positive_distance = F.pairwise_distance(outputs[0], outputs[1])
-            negative_distance = F.pairwise_distance(outputs[0], outputs[2])
-            losses = torch.relu(positive_distance - negative_distance + self.margin)
-
-            return torch.mean(losses)
-
-        raise ValueError('This is the Triplet Loss but more (or less) than 3 tensors were unpacked')
-
-
 class EmbeddingSpace(object):
     """
     创建一个特征集合，包含测试集中全部数据
@@ -126,8 +85,8 @@ class EmbeddingSpace(object):
 
         self.embeddings = []
 
-        for idx_batch, (images, images_class) in enumerate(loader_images):
-            images, images_class = images.to(self.device), images_class.to(self.device)
+        for idx_batch, (images, sketch, mask) in enumerate(loader_images):
+            images = images.to(self.device)
             with torch.no_grad():
 
                 # -> [bs, emb]
@@ -161,11 +120,8 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = RetrievalDataset(root=data_root, mode='train', return_mode='S5')
-    test_dataset = RetrievalDataset(root=data_root, mode='test', return_mode='S5')
-
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
+    dataset = SketchDatasetCls(root=data_root, back_mode='S5', is_retrieval=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
     img_encoder = VITFinetune().cuda()
@@ -187,7 +143,8 @@ def main(args):
         img_encoder = img_encoder.train()
         loss_all = []
 
-        for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
+        dataset.train()
+        for batch_id, data in tqdm(enumerate(dataloader), total=len(dataloader)):
             img, skh, mask = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
 
             # 梯度置为零，否则梯度会累加

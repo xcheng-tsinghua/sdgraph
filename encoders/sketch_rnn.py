@@ -88,32 +88,31 @@ class SketchRNNEmbedding(Module):
     This consists of a bidirectional LSTM
     """
 
-    def __init__(self, enc_hidden_size: int = 256):
+    def __init__(self, enc_hidden_size: int = 256, is_global=True):
+        """
+        :param enc_hidden_size:
+        :param is_global: True: 返回全局特征， False: 返回局部特征
+        """
         super().__init__()
-        # Create a bidirectional LSTM taking a sequence of
-        # $(\Delta x, \Delta y, p_1, p_2, p_3)$ as input.
+        self.is_global = is_global
         self.lstm = nn.LSTM(5, enc_hidden_size, bidirectional=True)
-        # Head to get $\mu$
-        self.mu_head = nn.Linear(2 * enc_hidden_size, 2 * enc_hidden_size)
+
+        if self.is_global:
+            self.mu_head = nn.Linear(2 * enc_hidden_size, 2 * enc_hidden_size)
+        else:
+            self.mu_head = nn.Conv1d(2 * enc_hidden_size, 2 * enc_hidden_size, 1)
 
     def forward(self, inputs: torch.Tensor, mask: torch.Tensor,  state=None):
         inputs = inputs.transpose(0, 1)
 
-        # The hidden state of the bidirectional LSTM is the concatenation of the
-        # output of the last token in the forward direction and
-        # first token in the reverse direction, which is what we want.
-        # $$h_{\rightarrow} = encode_{\rightarrow}(S),
-        # h_{\leftarrow} = encode←_{\leftarrow}(S_{reverse}),
-        # h = [h_{\rightarrow}; h_{\leftarrow}]$$
-        _, (hidden, cell) = self.lstm(inputs.float(), state)
-        # output = self.lstm(inputs.float(), state)
+        # -> output: [n_pnt, bs, channel]
+        output, (hidden, cell) = self.lstm(inputs.float(), state)
 
-        # The state has shape `[2, batch_size, hidden_size]`,
-        # where the first dimension is the direction.
-        # We rearrange it to get $h = [h_{\rightarrow}; h_{\leftarrow}]$
-        hidden = einops.rearrange(hidden, 'fb b h -> b (fb h)')
+        if self.is_global:
+            hidden = einops.rearrange(hidden, 'fb b h -> b (fb h)')  # fb: forward backward
+        else:
+            hidden = output.permute(1, 2, 0)
 
-        # $\mu$
         emb = self.mu_head(hidden)
         return emb
 
@@ -148,6 +147,38 @@ class SketchRNN_Cls(Module):
 
         fea = F.log_softmax(fea, dim=1)
 
+        return fea
+
+
+class SketchRNN_Seg(Module):
+    def __init__(self, n_classes: int, dropout=0.4):
+        super().__init__()
+        print('create sketch_rnn classifier')
+
+        self.encoder = SketchRNNEmbedding(is_global=False)
+
+        channel_l0 = 512
+        channel_l1 = int((channel_l0 * n_classes) ** 0.5)
+        channel_l2 = n_classes
+
+        self.linear = nn.Sequential(
+            nn.BatchNorm1d(channel_l0),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Conv1d(channel_l0, channel_l1, 1),
+            nn.BatchNorm1d(channel_l1),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+
+            nn.Conv1d(channel_l1, channel_l2, 1),
+        )
+
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor=None):
+        fea = self.encoder(inputs, mask)  # -> [bs, channel, n_pnts]
+        fea = self.linear(fea)  # -> [bs, channel, n_pnts]
+
+        fea = F.log_softmax(fea, dim=1)
         return fea
 
 
@@ -330,7 +361,7 @@ class EncoderRNN(Module):
         # h_{\leftarrow} = encode←_{\leftarrow}(S_{reverse}),
         # h = [h_{\rightarrow}; h_{\leftarrow}]$$
         _, (hidden, cell) = self.lstm(inputs.float(), state)
-        # output = self.lstm(inputs.float(), state)
+        output = self.lstm(inputs.float(), state)
 
         # The state has shape `[2, batch_size, hidden_size]`,
         # where the first dimension is the direction.
