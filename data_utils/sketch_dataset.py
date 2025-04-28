@@ -804,7 +804,7 @@ def draw_sketch(sketch, window_name="sketch_visualize", padding=30,
     return canvas
 
 
-def show_imgs():
+def show_seg_imgs():
 
     count = 0
     npz_root = r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K'
@@ -898,6 +898,7 @@ if __name__ == '__main__':
     # sketch_data = std_unify(sketch_data, global_defs.n_stk, global_defs.n_stk_pnt)
 
     # sketch_std(np.loadtxt('error_stk'))
+    show_seg_imgs()
 
 
     pass

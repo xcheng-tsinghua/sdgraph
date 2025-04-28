@@ -132,7 +132,7 @@ def main(args):
             # 模型传入数据，获取输出，并计算loss
             pred = classifier(points, mask)
 
-            pred = einops.rearrange(pred, 'b p c -> (b p) c')
+            pred = einops.rearrange(pred, 'b c p -> (b p) c')
             target = target.view(-1)
 
             loss = F.nll_loss(pred, target)
