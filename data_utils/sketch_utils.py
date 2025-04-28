@@ -1487,6 +1487,15 @@ def img_read(img_root, img_size=(224, 224)):
 
 
 def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
+    """
+    将[(n0, 2), (n1, 2), ..., (n_N, 2)] 的stroke list转换为 [n_stk, n_stk_pnt, 3] 格式草图，第三维度表示点所在平面，不足的点用 PAD 补齐
+    :param sketch_list:
+    :param n_stk:
+    :param n_stk_pnt:
+    :param positive_val:
+    :param negative_val:
+    :return:
+    """
     n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
     n_valid_stk = len(sketch_list)
     last_pnt = torch.from_numpy(sketch_list[-1][-1])
