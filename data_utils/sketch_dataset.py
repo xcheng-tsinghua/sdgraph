@@ -321,18 +321,26 @@ class QuickDrawDiff(Dataset):
             tmp_sketch_list = []
             if back_mode == 'STK':
                 # 使用多进程处理数据
-                if workers >= 2:
-                    with Pool(processes=workers) as pool:
-                        tmp_sketch_list = list(
-                            tqdm(
-                                pool.imap(prep, self.sketch_all),
-                                total=len(self.sketch_all),
-                                desc='converting STD to STK'
-                            )
+                with Pool(processes=workers) as pool:
+                    tmp_sketch_list = list(
+                        tqdm(
+                            pool.imap(prep, self.sketch_all),
+                            total=len(self.sketch_all),
+                            desc='converting STD to STK'
                         )
-                else:
-                    for c_sketch in tqdm(self.sketch_all, total=len(self.sketch_all), desc='converting STD to STK'):
-                        tmp_sketch_list.append(prep(c_sketch))
+                    )
+                # if workers >= 2:
+                #     with Pool(processes=workers) as pool:
+                #         tmp_sketch_list = list(
+                #             tqdm(
+                #                 pool.imap(prep, self.sketch_all),
+                #                 total=len(self.sketch_all),
+                #                 desc='converting STD to STK'
+                #             )
+                #         )
+                # else:
+                #     for c_sketch in tqdm(self.sketch_all, total=len(self.sketch_all), desc='converting STD to STK'):
+                #         tmp_sketch_list.append(prep(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
 
