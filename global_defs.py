@@ -12,7 +12,7 @@ n_stk = 8  # 自建机械草图
 # 每个笔划中的点数
 # n_stk_pnt = 32  # 自建机械草图
 # n_stk_pnt = 32  # quickdraw apple
-n_stk_pnt = 32  # quickdraw apple
+n_stk_pnt = 64  # quickdraw apple
 # n_stk_pnt = 32  # quickdraw apple
 # n_stk_pnt = 32  # Tu-Berlin
 

@@ -79,13 +79,14 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     plt.show()
 
 
-def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_scale=True, show_dot=False):
+def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, is_scale=False, show_dot=False):
     """
     显示原始采集的机械草图
     存储的每行应该为： [x, y, state]
     :param sketch_data:
     :param pen_up: 抬笔指令
     :param pen_down: 落笔指令
+    :param title:
     :param is_scale: 是否将质心平移到 (0, 0)，且将草图大小缩放到 [-1, 1]^2
     :param show_dot:
     :return:
@@ -114,6 +115,7 @@ def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs
             plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
+    plt.title(title)
     plt.show()
 
 

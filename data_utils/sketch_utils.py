@@ -904,7 +904,7 @@ def single_merge_(stroke_list, dist_gap, n_max_ita=200, max_merge_stk_len=float(
     :param dist_gap: 若某个笔划距其它笔划的最近距离大于该值，不合并
     :param n_max_ita: 最大循环次数
     :param max_merge_stk_len: 合并的笔划长度大于该值，不执行合并
-    :return:
+    :return: True: 成功合并一个短笔划， False: 合并失败
     """
 
     # 因距离其它笔画太远不合并的笔划
@@ -1037,13 +1037,14 @@ def stroke_merge_until(stroke_list, min_dist):
             return new_list
 
 
-def stroke_merge_number_until(stroke_list, max_n_stk):
+def stroke_merge_number_until(stroke_list, max_n_stk, dist_gap_start=0.1):
     """
     反复将 stroke_list 中的笔划合并，直到笔划数等于 max_n_stk 为止
     如果 stroke_list 中笔划数小于等于 max_n_stk，直接返回原数组
     这里笔划间的距离定义为笔划端点之间距离的最小值
     :param stroke_list:
     :param max_n_stk:
+    :param dist_gap_start:
     :return:
     """
 
@@ -1063,12 +1064,18 @@ def stroke_merge_number_until(stroke_list, max_n_stk):
         return stroke_list
 
     else:
+        dist_inc = dist_gap_start
         new_list = stroke_list.copy()
+
         while True:
-            single_merge_(new_list, 100)  # 有问题，远处的短笔画也会被合并
 
             if len(new_list) <= max_n_stk:
                 return new_list
+
+            while True:
+                if not single_merge_(new_list, dist_gap_start): break
+
+            dist_gap_start += dist_inc
 
 
 def stroke_split_number_until(stroke_list, min_n_stk):
@@ -1536,6 +1543,24 @@ def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=glob
     for idx in range(n_valid_stk, n_stk):
         # n3_cube[idx, :, :2] = last_pnt
         n3_cube[idx, :, 2] = negative_val
+
+    return n3_cube
+
+
+def sketch_list_to_tensor(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt):
+    """
+    将[(n0, 2), (n1, 2), ..., (n_N, 2)] 的stroke list转换为 [n_stk, n_stk_pnt, 2] 格式草图
+    要求每个笔划中的点数相同
+    :param sketch_list:
+    :param n_stk:
+    :param n_stk_pnt:
+    :return:
+    """
+    n3_cube = torch.zeros(n_stk, n_stk_pnt, 2)
+
+    for idx, c_stk in enumerate(sketch_list):
+        c_torch_stk = torch.from_numpy(c_stk)
+        n3_cube[idx, :, :] = c_torch_stk
 
     return n3_cube
 

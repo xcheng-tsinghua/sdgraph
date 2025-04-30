@@ -816,7 +816,7 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     # 移动草图质心并缩放大小
     sketch_data = du.sketch_std(sketch_data)
 
-    # 按点章台标志位分割笔划
+    # 按点状态标志位分割笔划
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
     # 去掉outlier
@@ -857,6 +857,37 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     sketch_data = du.sketch_list_to_n3(sketch_data)
 
     # sketch_data = np.array(sketch_data)
+    return sketch_data
+
+
+def resample_stake(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=False):
+    # 几乎不处理，仅仅通过归一化、重采样并堆叠后返回
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = du.load_sketch_file(sketch_root)
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点状态标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 若笔划数大于指定值，强制合并到指定数值
+    sketch_data = du.stroke_merge_number_until(sketch_data, global_defs.n_stk)
+
+    # 将每个笔划重采样至指定点
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
+
+    # 整理成 [n_stk, n_stk_pnt, 2] 的 tensor
+    sketch_data = du.sketch_list_to_tensor(sketch_data)
+
     return sketch_data
 
 
@@ -988,6 +1019,18 @@ if __name__ == '__main__':
     #     asasasas = preprocess_split_merge_until(c_file, is_show_status=False)
     #
     #     # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
+
+    # a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\ambulance.full.npz'
+    a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz'
+    figs_all, _ = du.npz_read(a_test_npz)
+
+    for c_fig in figs_all:
+        vis.vis_sketch_data(c_fig)
+
+        resample_stake(c_fig, is_show_status=True)
+
+
+
 
     pass
 

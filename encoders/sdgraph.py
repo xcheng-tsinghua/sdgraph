@@ -139,13 +139,13 @@ class SDGraphUNet(nn.Module):
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
-                                       sp_near=2, dn_near=10,
+                                       sp_near=1, dn_near=50,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                       sp_near=2, dn_near=10,
+                                       sp_near=1, dn_near=50,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)

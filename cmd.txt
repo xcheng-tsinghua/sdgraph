@@ -147,3 +147,21 @@ python train_cst_pred.py --model=cstpcd --save_str=cst_pcd_abc26t --abc_pack=21 
 
 invalid stks : occurred zero sketch: /root/my_data/data_set/sketch_cad/sketch_txt/train/Gear/8646fb6b0a7f42bb9d5036995471b6b0_1.txt
 
+
+
+4090 GPU
+cd Part_2
+conda create --name=clipasso python=3.8 -y
+conda activate clipasso
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+conda install -y -c anaconda cmake
+conda install -y -c conda-forge ffmpeg
+pip install -r requirements.txt
+pip install git+https://github.com/facebookresearch/segment-anything.git
+git clone https://github.com/BachiLi/diffvg
+cd diffvg
+git submodule update --init --recursive
+python setup.py install
+cd ..
+
+

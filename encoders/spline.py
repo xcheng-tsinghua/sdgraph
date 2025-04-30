@@ -474,6 +474,12 @@ def uni_arclength_resample_certain_pnts_single(stroke, n_point) -> np.ndarray:
 
 
 def uni_arclength_resample_certain_pnts_batched(stroke_list, n_point) -> list:
+    """
+    使得草图中每个笔划上的点数相同
+    :param stroke_list:
+    :param n_point:
+    :return:
+    """
     resampled = []
 
     for c_stk in stroke_list:

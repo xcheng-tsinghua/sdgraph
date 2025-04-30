@@ -58,7 +58,7 @@ def main(args):
     logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
 
     '''加载模型及权重'''
-    model = SDGraphUNet(3, 3)
+    model = SDGraphUNet(2, 2)
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
