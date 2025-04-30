@@ -1021,7 +1021,7 @@ if __name__ == '__main__':
     #     # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
     # a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\ambulance.full.npz'
-    a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz'
+    a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\tiger.full.npz'
     figs_all, _ = du.npz_read(a_test_npz)
 
     for c_fig in figs_all:
