@@ -1,3 +1,4 @@
+import einops
 import timm
 import torch.nn as nn
 import torch
@@ -35,6 +36,7 @@ class VITFinetune(nn.Module):
 
     # @torch.inference_mode()
     def forward(self, image):
+        image = einops.repeat(image, 'b w h -> b c w h', c=3)
 
         self.image_encoder_pretrained = self.image_encoder_pretrained.eval()
         with torch.no_grad():

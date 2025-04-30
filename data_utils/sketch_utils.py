@@ -1068,12 +1068,14 @@ def stroke_merge_number_until(stroke_list, max_n_stk, dist_gap_start=0.1):
         new_list = stroke_list.copy()
 
         while True:
-
-            if len(new_list) <= max_n_stk:
-                return new_list
-
             while True:
-                if not single_merge_(new_list, dist_gap_start): break
+                is_success = single_merge_(new_list, dist_gap_start)
+
+                if len(new_list) <= max_n_stk:
+                    return new_list
+
+                if not is_success:
+                    break
 
             dist_gap_start += dist_inc
 

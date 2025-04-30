@@ -14,6 +14,7 @@ import numpy as np
 from itertools import chain
 
 from encoders.vit import VITFinetune
+from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
 def parse_args():
@@ -112,6 +113,10 @@ class EmbeddingSpace(object):
         return topk_distances, topk_indices
 
 
+def test():
+    emb_space = EmbeddingSpace()
+
+
 def main(args):
 
     # 设置数据集
@@ -126,6 +131,21 @@ def main(args):
     '''加载模型及权重'''
     img_encoder = VITFinetune().cuda()
     skh_encoder = SketchEncoder().cuda()
+
+    skh_weight_path = './model_trained/sketch_retrieval_skh.pth'
+    img_weight_path = './model_trained/sketch_retrieval_img.pth'
+    if args.is_load_weight == 'True':
+        try:
+            img_encoder.load_state_dict(torch.load(img_weight_path))
+            print(Fore.GREEN + 'training image encoder from exist model: ' + img_weight_path)
+
+            skh_encoder.load_state_dict(torch.load(skh_weight_path))
+            print(Fore.GREEN + 'training sketch encoder from exist model: ' + skh_weight_path)
+
+        except:
+            print(Fore.GREEN + 'no existing model, training from scratch')
+    else:
+        print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
@@ -162,11 +182,17 @@ def main(args):
             loss_all.append(loss.item())
 
         scheduler.step()
-        torch.save(skh_encoder.state_dict(), './model_trained/sketch_retrieval_skh.pth')
-        torch.save(img_encoder.state_dict(), './model_trained/sketch_retrieval_img.pth')
-        print(Back.BLUE + f'{epoch} / {args.epoch}: save sketch weights at: ./weights/sketch_encoder.pth, loss: {np.mean(loss_all)}')
+        torch.save(skh_encoder.state_dict(), skh_weight_path)
+        torch.save(img_encoder.state_dict(), img_weight_path)
+
+        print(f'save sketch weights at: {skh_weight_path}')
+        print(f'save image weights at: {img_weight_path}')
+        print(f'{epoch} / {args.epoch}: loss: {np.mean(loss_all)}')
 
 
 if __name__ == '__main__':
+    clear_log('./log')
+    clear_confusion('./data_utils/confusion')
+    init(autoreset=True)
     main(parse_args())
 
