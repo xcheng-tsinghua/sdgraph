@@ -432,6 +432,8 @@ def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
     :param resp_dist:
     :return:
     """
+    assert isinstance(stroke_list, list)
+
     resampled = []
     for c_stk in stroke_list:
         lin_interp = LinearInterp(c_stk)
@@ -446,7 +448,7 @@ def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
 
 def uni_arclength_resample_strict_single(stroke, resp_dist) -> np.ndarray:
     """
-    均匀布点，相邻点之间距离严格为 resp_dist，可能笔划中丢失最后一个点
+    均匀布点，相邻点之间距离严格为 resp_dist，最后一个点向前插值到间隔距离
     :param stroke:
     :param resp_dist:
     :return:

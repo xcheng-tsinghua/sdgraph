@@ -57,7 +57,7 @@ def near_pnt_dist_filter(sketch, tol):
     """
     valid_stks = []
 
-    # 如果是ndarray，说明笔划未分割，直接以未分割的点进行处理
+    # 如果是ndarray，说明输入的是单个笔划
     if isinstance(sketch, np.ndarray):
         skh_length = len(sketch)
 

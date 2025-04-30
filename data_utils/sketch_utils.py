@@ -157,7 +157,7 @@ def sketch_std(sketch):
     """
     将草图质心移动到原点，范围归一化为 [-1, 1]^2
     :param sketch: [n_point, s]
-    :return:
+    :return: 输入和输出类型相同
     """
     def _mean_coor_and_dist(_sketch_np):
         """
@@ -618,11 +618,12 @@ def split_continue(arr, breaks):
     return segments
 
 
-def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False, is_resample=True):
+def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, thres: float, window_width: int, is_show_status=False, is_resample=True, is_split_once=False):
     """
     利用short straw进行角点分割，使用前必须将草图进行归一化至质心(0, 0)，范围[-1, 1]^2
     :param stroke: 单个笔划 [n, 2]
     :param resp_dist: 重采样间隔 [0, 1]
+    :param is_split_once: 是否仅在一个角点进行分割？此时的分割点将在分割的两段笔划长度比较接近的点处分割
     :return:
     """
     thres_unify_judge = 1e-2
@@ -691,8 +692,22 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     m_corners_idx = merge_point_group(resample_stk, m_corners_idx, filter_dist)
 
     # Step 5: 根据角点分割重采样后的笔画
-    # splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
-    splited_stk = split_continue(resample_stk, m_corners_idx)
+    if is_split_once:
+        n_pnts_all = len(resample_stk)
+        # 获取每个分割点的分割距离
+        corner_idx_diff = []
+        for c_corner_idx in m_corners_idx:
+            len_diff = abs((c_corner_idx + 1) - (n_pnts_all - c_corner_idx))
+            corner_idx_diff.append((c_corner_idx, len_diff))
+
+        min_idx = min(corner_idx_diff, key=lambda t: t[1])[0]
+        former = resample_stk[0: min_idx + 1]
+        later = resample_stk[min_idx:]
+        splited_stk = [former, later]
+
+    else:
+        # splited_stk = np.split(resample_stk, m_corners_idx, axis=0)
+        splited_stk = split_continue(resample_stk, m_corners_idx)
 
     if is_show_status:
         fig, axs = plt.subplots(1, 2)
@@ -721,6 +736,32 @@ def short_straw_split(stroke: np.ndarray, resp_dist: float, filter_dist: float, 
     return splited_stk
 
 
+def short_straw_split_once_until(sketch, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False, is_resample=True):
+    """
+    单次在笔划的一个角点处分割
+    TODO: 未完善
+    :param sketch: list
+    :param resp_dist:
+    :param filter_dist:
+    :param thres:
+    :param window_width:
+    :param split_length:
+    :param is_print_split_status:
+    :param is_resample:
+    :return:
+    """
+    splited_sketch = []
+
+    for c_stk in sketch:
+
+        if stroke_length(c_stk) > split_length:
+            splited_sketch += short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, is_print_split_status, is_resample)
+        else:
+            splited_sketch.append(c_stk)
+
+    return splited_sketch
+
+
 def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3, split_length: float = 0.2, is_print_split_status=False, is_resample=True):
     """
 
@@ -746,14 +787,6 @@ def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float
 
 
 def stroke_length(stroke):
-    # stroke = stroke[:, :2]
-    #
-    # dist_all = 0.0
-    #
-    # for i in range(1, len(stroke)):
-    #     dist_all += np.linalg.norm(stroke[i] - stroke[i - 1])
-    #
-    # return dist_all
     if stroke.shape[0] < 2:
         return 0.0
 
@@ -764,21 +797,25 @@ def stroke_length(stroke):
     return np.sum(segment_lengths)
 
 
-def stroke_length_var(stroke_list):
+def stroke_length_var(stroke_list, is_use_stk_pnt=False):
     """
     计算草图中的笔划长度方差
     :param stroke_list:
+    :param is_use_stk_pnt: 是否用笔划上点数代替长度加速计算
     :return:
     """
     stroke_length_all = []
 
     for c_stk in stroke_list:
-        stroke_length_all.append(stroke_length(c_stk))
+        if is_use_stk_pnt:
+            stroke_length_all.append(len(c_stk))
+        else:
+            stroke_length_all.append(stroke_length(c_stk))
 
     return np.var(stroke_length_all)
 
 
-def single_split_(stroke_list: list):
+def single_split_(stroke_list: list) -> None:
     """
     将草图中最长的笔画对半分割成两个，这里的笔划长度等于点数，请注意
     :param stroke_list:
@@ -998,6 +1035,20 @@ def single_merge_(stroke_list, dist_gap, n_max_ita=200, max_merge_stk_len=float(
                     stroke_list.extend(stk_cannot_merge)
 
                 return False
+
+
+def single_merge_dist_inc_(stroke_list, dist_begin=0.1, dist_inc=0.1, n_max_ita=200, max_merge_stk_len=float('inf')) -> bool:
+    """
+    以距离阈值递增的形式合并，保证一定能合并到
+    :param stroke_list:
+    :param dist_begin:
+    :param dist_inc:
+    :param n_max_ita:
+    :param max_merge_stk_len:
+    :return:
+    """
+    while not single_merge_(stroke_list, dist_begin):
+        dist_begin += dist_inc
 
 
 def single_merge(stroke_list, dist_gap, n_max_ita=200):

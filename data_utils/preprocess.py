@@ -2,6 +2,8 @@ import numpy as np
 import warnings
 import os
 import shutil
+
+import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
@@ -10,6 +12,77 @@ from data_utils import filter as ft
 from encoders import spline as sp
 from data_utils import sketch_utils as du
 from data_utils import vis
+
+
+def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False):
+    """
+    最初始的版本
+    通过反复合并、拆分，使得笔划长度尽量相等
+    :return:
+    """
+    # 读取草图数据
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = du.load_sketch_file(sketch_root)
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点状态标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 重采样，使点之间距离尽量相等
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.01)
+
+    # 去掉点数过少的笔划
+    sketch_data = ft.stk_pnt_num_filter(sketch_data, 5)
+
+    # 笔划数大于指定数值，将长度较短的笔划连接到最近的笔划
+    if len(sketch_data) > n_stk:
+        while len(sketch_data) > n_stk:
+            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
+
+    # 笔划数小于指定数值，拆分点数较多的笔划
+    elif len(sketch_data) < n_stk:
+        while len(sketch_data) < n_stk:
+            du.single_split_(sketch_data)
+
+    if len(sketch_data) != global_defs.n_stk:
+        raise ValueError(f'error stroke number: {len(sketch_data)}')
+
+    if is_mix_proc:
+        # 不断拆分、合并笔划，使各笔划点数尽量接近
+        n_ita = 0
+        var_brfore = 999.999
+        while True:
+
+            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
+            du.single_split_(sketch_data)
+
+            var_after = du.stroke_length_var(sketch_data, True)
+
+            if var_brfore == var_after or n_ita > 150:
+                break
+            else:
+                var_brfore = var_after
+                n_ita += 1
+
+    if len(sketch_data) != n_stk:
+        raise ValueError(f'error stroke number final: {len(sketch_data)}, file: {sketch_root}')
+
+    # 将每个笔划重采样至指定点
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
+    if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
+
+    # 转换成 Tensor
+    sketch_data = np.array(sketch_data)
+    return torch.from_numpy(sketch_data)
 
 
 def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: bool = True):
@@ -880,6 +953,8 @@ def resample_stake(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
 
     # 若笔划数大于指定值，强制合并到指定数值
     sketch_data = du.stroke_merge_number_until(sketch_data, global_defs.n_stk)
+
+
 
     # 将每个笔划重采样至指定点
     sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)
