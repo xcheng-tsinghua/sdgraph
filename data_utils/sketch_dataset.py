@@ -136,19 +136,28 @@ class SketchDatasetCls(Dataset):
                               is_retrieval=is_retrieval
                               )
 
-        with Pool(processes=workers) as pool:
-            self.data_train = list(tqdm(
-                pool.imap(worker_func, datapath_train),
-                total=len(datapath_train),
-                desc='processing training files')
-            )
+        if workers >= 2:
+            with Pool(processes=workers) as pool:
+                self.data_train = list(tqdm(
+                    pool.imap(worker_func, datapath_train),
+                    total=len(datapath_train),
+                    desc='processing training files')
+                )
 
-        with Pool(processes=workers) as pool:
-            self.data_test = list(tqdm(
-                pool.imap(worker_func, datapath_test),
-                total=len(datapath_test),
-                desc='processing testing files')
-            )
+            with Pool(processes=workers) as pool:
+                self.data_test = list(tqdm(
+                    pool.imap(worker_func, datapath_test),
+                    total=len(datapath_test),
+                    desc='processing testing files')
+                )
+        else:
+            self.data_train = []
+            for c_datapath_train in datapath_train:
+                self.data_train.append(worker_func(c_datapath_train))
+
+            self.data_test = []
+            for c_datapath_test in datapath_test:
+                self.data_test.append(worker_func(c_datapath_test))
 
         # 删除异常值
         print('删除异常值')
