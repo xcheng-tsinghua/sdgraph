@@ -34,7 +34,6 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
     
-    
     parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/apple.full.npz')
     parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
     
@@ -80,7 +79,7 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        train_dataset = QuickDrawDiff(root=data_root, workers=0)
+        train_dataset = QuickDrawDiff(root=data_root, workers=4)
         # train_dataset = DiffDataset(root=data_root, is_stk_processed=False)
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
