@@ -1057,7 +1057,7 @@ def single_merge(stroke_list, dist_gap, n_max_ita=200):
     return sketch
 
 
-def stroke_merge_until(stroke_list, min_dist):
+def stroke_merge_until(stroke_list, min_dist) -> list:
     """
     反复将stroke_list中的笔划合并，直到所有笔划间的距离大于min_dist为止
     这里笔划间的距离定义为笔划端点之间距离的最小值

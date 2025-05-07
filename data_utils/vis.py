@@ -199,12 +199,20 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
         new_x, new_y = splev(new_u, tck)
         return new_x, new_y
 
+    # 将过近的笔划合并
     n_stk, n_stk_pnt, channel = sketch_points.size()
     sketch_points = sketch_points.detach().cpu().numpy()
 
+    stroke_list = []
+    for i in range(n_stk):
+        stroke_list.append(sketch_points[i])
+
+    stroke_list = du.stroke_merge_until(stroke_list, 0.1)
+
     plt.clf()
-    for stk_idx in range(n_stk):
-        plt.plot(sketch_points[stk_idx, :, 0], -sketch_points[stk_idx, :, 1])
+    for stk_idx in range(len(stroke_list)):
+        c_stk = stroke_list[stk_idx]
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
         # plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
