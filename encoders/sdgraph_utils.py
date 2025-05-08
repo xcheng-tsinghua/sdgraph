@@ -213,68 +213,12 @@ class RMSNorm(nn.Module):
         return F.normalize(x, dim=1) * self.g * self.scale
 
 
-class DownSample(nn.Module):
-    def __init__(self, dim_in, dim_out, dropout=0.4):
-        super().__init__()
-
-        self.conv = nn.Sequential(
-            nn.Conv2d(
-                in_channels=dim_in,  # 输入通道数 (RGB)
-                out_channels=dim_out,  # 输出通道数 (保持通道数不变)
-                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
-                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
-                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
-            ),
-            nn.BatchNorm2d(dim_out),
-            eu.activate_func(),
-            nn.Dropout2d(dropout)
-        )
-
-    def forward(self, dense_fea):
-        """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :return: [bs, emb, n_stk, n_stk_pnt // 2]
-        """
-        dense_fea = self.conv(dense_fea)
-        return dense_fea
-
-
-class UpSample(nn.Module):
-    """
-    对sdgraph同时进行上采样
-    上采样后笔划数及笔划上的点数均变为原来的2倍
-    """
-    def __init__(self, dim_in, dim_out, dropout=0.4):
-        super().__init__()
-
-        self.conv = nn.Sequential(
-            nn.ConvTranspose2d(
-                in_channels=dim_in,  # 输入通道数
-                out_channels=dim_out,  # 输出通道数
-                kernel_size=(1, 4),  # 卷积核大小：1x2，仅在宽度方向扩展
-                stride=(1, 2),  # 步幅：高度不变，宽度扩展为原来的 2 倍
-                padding=(0, 1),  # 填充：在宽度方向保持有效中心对齐
-            ),
-            nn.BatchNorm2d(dim_out),
-            eu.activate_func(),
-            nn.Dropout2d(dropout)
-        )
-
-    def forward(self, dense_fea):
-        """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :return: [bs, emb, n_stk, n_stk_pnt * 2]
-        """
-        dense_fea = self.conv(dense_fea)
-        return dense_fea
-
-
 class PointToSparse(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph'
     使用一维卷积及最大池化方式
     """
-    def __init__(self, point_dim, sparse_out, with_time=False, time_emb_dim=0):
+    def __init__(self, point_dim, sparse_out, with_time=False, time_emb_dim=0, dropout=0.0):
         super().__init__()
 
         self.with_time = with_time
@@ -285,12 +229,12 @@ class PointToSparse(nn.Module):
             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
             nn.BatchNorm2d(mid_dim),
             eu.activate_func(),
-            # nn.Dropout2d(dropout),
+            nn.Dropout2d(dropout),
 
             nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
             nn.BatchNorm2d(sparse_out),
             eu.activate_func(),
-            # nn.Dropout2d(dropout),
+            nn.Dropout2d(dropout),
         )
 
         if self.with_time:
@@ -351,65 +295,6 @@ class PointToDense(nn.Module):
         return dense_emb
 
 
-class SparseToDense(nn.Module):
-    """
-    将sgraph转移到dgraph
-    直接拼接到该笔划对应的点
-    """
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, sparse_fea, dense_fea):
-        """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :param sparse_fea: [bs, emb, n_stk]
-        :return: [bs, emb, n_stk, n_stk_pnt]
-        """
-        dense_feas_from_sparse = einops.repeat(sparse_fea, 'b c s -> b c s sp', sp=dense_fea.size(3))
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
-
-        return union_dense
-
-
-class DenseToSparse(nn.Module):
-    """
-    将 dense graph 的数据转移到 sparse graph
-    通过卷积然后最大池化到一个特征，然后拼接
-    """
-    def __init__(self):
-        super().__init__()
-
-        # self.n_stk = n_stk
-        # self.n_stk_pnt = n_stk_pnt
-
-        # self.dense_to_sparse = nn.Sequential(
-        #     nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
-        #     nn.BatchNorm2d(dense_in),
-        #     activate_func(),
-        #     nn.Dropout2d(dropout),
-        # )
-
-    def forward(self, sparse_fea, dense_fea):
-        """
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :param sparse_fea: [bs, emb, n_stk]
-        :return: [bs, emb, n_stk]
-        """
-        # -> [bs, emb, n_stk, n_stk_pnt - 2]
-        # dense_fea = self.dense_to_sparse(dense_fea)
-
-        # -> [bs, emb, n_stk]
-        sparse_feas_from_dense = dense_fea.max(3)[0]
-        # assert sparse_feas_from_dense.size(2) == self.n_stk
-
-        # -> [bs, emb, n_stk]
-        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
-
-        return union_sparse
-
-
 class SparseUpdate(nn.Module):
     """
     将 dense graph 的数据转移到 sparse graph
@@ -464,69 +349,5 @@ class DenseUpdate(nn.Module):
 
         return dense_fea
 
-
-class SDGraphEncoder(nn.Module):
-    def __init__(self,
-                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
-                 # n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
-                 sp_near=2, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
-                 sample_type='down_sample',  # 采样类型
-                 with_time=False, time_emb_dim=0,  # 是否附加时间步
-                 dropout=0.4
-                 ):
-        """
-        :param sample_type: [down_sample, up_sample, none]
-        """
-        super().__init__()
-        # self.n_stk = n_stk
-        # self.n_stk_pnt = n_stk_pnt
-        self.with_time = with_time
-
-        self.dense_to_sparse = DenseToSparse()  # 这个不能设为零
-        self.sparse_to_dense = SparseToDense()
-
-        self.sparse_update = SparseUpdate(sparse_in + dense_in, sparse_out, sp_near)
-        self.dense_update = DenseUpdate(dense_in + sparse_in, dense_out, dn_near)
-
-        self.sample_type = sample_type
-        if self.sample_type == 'down_sample':
-            self.sample = DownSample(dense_out, dense_out, dropout)  # 这里dropout不能为零
-        elif self.sample_type == 'up_sample':
-            self.sample = UpSample(dense_out, dense_out, dropout)  # 这里dropout不能为零
-        elif self.sample_type == 'none':
-            self.sample = nn.Identity()
-        else:
-            raise ValueError('invalid sample type')
-
-        if self.with_time:
-            self.time_mlp_sp = TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)  # 这里dropout不能为零
-            self.time_mlp_dn = TimeMerge(dense_out, dense_out, time_emb_dim, dropout)  # 这里dropout不能为零
-
-    def forward(self, sparse_fea, dense_fea, time_emb=None):
-        """
-        :param sparse_fea: [bs, emb, n_stk]
-        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
-        :param time_emb: [bs, emb]
-        :return: [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt]
-        """
-
-        # 信息交换
-        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
-        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
-
-        # 信息更新
-        union_sparse = self.sparse_update(union_sparse)
-        union_dense = self.dense_update(union_dense)
-
-        # 采样
-        union_dense = self.sample(union_dense)
-
-        # 融合时间步特征
-        assert self.with_time ^ (time_emb is None)
-        if self.with_time:
-            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
-            union_dense = self.time_mlp_dn(union_dense, time_emb)
-
-        return union_sparse, union_dense
 
 

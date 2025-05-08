@@ -4,8 +4,188 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import global_defs
-from encoders.sdgraph_utils import PointToSparse, PointToDense, SDGraphEncoder, TimeEncode
-from encoders.utils import MLP
+import encoders.sdgraph_utils as su
+import encoders.utils as eu
+
+
+class DownSample(nn.Module):
+    def __init__(self, dim_in, dim_out, dropout=0.4):
+        super().__init__()
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(
+                in_channels=dim_in,  # 输入通道数 (RGB)
+                out_channels=dim_out,  # 输出通道数 (保持通道数不变)
+                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dim_out),
+            eu.activate_func(),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :return: [bs, emb, n_stk, n_stk_pnt // 2]
+        """
+        dense_fea = self.conv(dense_fea)
+        return dense_fea
+
+
+class UpSample(nn.Module):
+    """
+    对sdgraph同时进行上采样
+    上采样后笔划数及笔划上的点数均变为原来的2倍
+    """
+    def __init__(self, dim_in, dim_out, dropout=0.4):
+        super().__init__()
+
+        self.conv = nn.Sequential(
+            nn.ConvTranspose2d(
+                in_channels=dim_in,  # 输入通道数
+                out_channels=dim_out,  # 输出通道数
+                kernel_size=(1, 4),  # 卷积核大小：1x2，仅在宽度方向扩展
+                stride=(1, 2),  # 步幅：高度不变，宽度扩展为原来的 2 倍
+                padding=(0, 1),  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dim_out),
+            eu.activate_func(),
+            nn.Dropout2d(dropout)
+        )
+
+    def forward(self, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :return: [bs, emb, n_stk, n_stk_pnt * 2]
+        """
+        dense_fea = self.conv(dense_fea)
+        return dense_fea
+
+
+class SparseToDense(nn.Module):
+    """
+    将sgraph转移到dgraph
+    直接拼接到该笔划对应的点
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param sparse_fea: [bs, emb, n_stk]
+        :return: [bs, emb, n_stk, n_stk_pnt]
+        """
+        dense_feas_from_sparse = einops.repeat(sparse_fea, 'b c s -> b c s sp', sp=dense_fea.size(3))
+
+        # -> [bs, emb, n_stk, n_stk_pnt]
+        union_dense = torch.cat([dense_fea, dense_feas_from_sparse], dim=1)
+
+        return union_dense
+
+
+class DenseToSparse(nn.Module):
+    """
+    将 dense graph 的数据转移到 sparse graph
+    通过卷积然后最大池化到一个特征，然后拼接
+    """
+    def __init__(self):
+        super().__init__()
+
+        # self.n_stk = n_stk
+        # self.n_stk_pnt = n_stk_pnt
+
+        # self.dense_to_sparse = nn.Sequential(
+        #     nn.Conv2d(in_channels=dense_in, out_channels=dense_in, kernel_size=(1, 3)),
+        #     nn.BatchNorm2d(dense_in),
+        #     activate_func(),
+        #     nn.Dropout2d(dropout),
+        # )
+
+    def forward(self, sparse_fea, dense_fea):
+        """
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param sparse_fea: [bs, emb, n_stk]
+        :return: [bs, emb, n_stk]
+        """
+        # -> [bs, emb, n_stk, n_stk_pnt - 2]
+        # dense_fea = self.dense_to_sparse(dense_fea)
+
+        # -> [bs, emb, n_stk]
+        sparse_feas_from_dense = dense_fea.max(3)[0]
+        # assert sparse_feas_from_dense.size(2) == self.n_stk
+
+        # -> [bs, emb, n_stk]
+        union_sparse = torch.cat([sparse_fea, sparse_feas_from_dense], dim=1)
+
+        return union_sparse
+
+
+class SDGraphEncoder(nn.Module):
+    def __init__(self,
+                 sparse_in, sparse_out, dense_in, dense_out,  # 输入输出维度
+                 # n_stk, n_stk_pnt,  # 笔划数，每个笔划中的点数
+                 sp_near=2, dn_near=10,  # 更新sdgraph的两个GCN中邻近点数目
+                 sample_type='down_sample',  # 采样类型
+                 with_time=False, time_emb_dim=0,  # 是否附加时间步
+                 dropout=0.4
+                 ):
+        """
+        :param sample_type: [down_sample, up_sample, none]
+        """
+        super().__init__()
+        # self.n_stk = n_stk
+        # self.n_stk_pnt = n_stk_pnt
+        self.with_time = with_time
+
+        self.dense_to_sparse = DenseToSparse()  # 这个不能设为零
+        self.sparse_to_dense = SparseToDense()
+
+        self.sparse_update = su.SparseUpdate(sparse_in + dense_in, sparse_out, sp_near)
+        self.dense_update = su.DenseUpdate(dense_in + sparse_in, dense_out, dn_near)
+
+        self.sample_type = sample_type
+        if self.sample_type == 'down_sample':
+            self.sample = DownSample(dense_out, dense_out, dropout)  # 这里dropout不能为零
+        elif self.sample_type == 'up_sample':
+            self.sample = UpSample(dense_out, dense_out, dropout)  # 这里dropout不能为零
+        elif self.sample_type == 'none':
+            self.sample = nn.Identity()
+        else:
+            raise ValueError('invalid sample type')
+
+        if self.with_time:
+            self.time_mlp_sp = su.TimeMerge(sparse_out, sparse_out, time_emb_dim, dropout)  # 这里dropout不能为零
+            self.time_mlp_dn = su.TimeMerge(dense_out, dense_out, time_emb_dim, dropout)  # 这里dropout不能为零
+
+    def forward(self, sparse_fea, dense_fea, time_emb=None):
+        """
+        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param time_emb: [bs, emb]
+        :return: [bs, emb, n_stk], [bs, emb, n_stk, n_stk_pnt]
+        """
+
+        # 信息交换
+        union_sparse = self.dense_to_sparse(sparse_fea, dense_fea)
+        union_dense = self.sparse_to_dense(sparse_fea, dense_fea)
+
+        # 信息更新
+        union_sparse = self.sparse_update(union_sparse)
+        union_dense = self.dense_update(union_dense)
+
+        # 采样
+        union_dense = self.sample(union_dense)
+
+        # 融合时间步特征
+        assert self.with_time ^ (time_emb is None)
+        if self.with_time:
+            union_sparse = self.time_mlp_sp(union_sparse, time_emb)
+            union_dense = self.time_mlp_dn(union_dense, time_emb)
+
+        return union_sparse, union_dense
 
 
 class SDGraphCls(nn.Module):
@@ -42,8 +222,8 @@ class SDGraphCls(nn.Module):
         dense_l2 = 256
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(2, sparse_l0)
-        self.point_to_dense = PointToDense(2, dense_l0)
+        self.point_to_sparse = su.PointToSparse(2, sparse_l0)
+        self.point_to_dense = su.PointToDense(2, dense_l0)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
@@ -66,7 +246,7 @@ class SDGraphCls(nn.Module):
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
 
-        self.linear = MLP(0, (out_l0, out_l1, out_l2, out_l3), True, dropout, False)
+        self.linear = eu.MLP(0, (out_l0, out_l1, out_l2, out_l3), True, dropout, False)
 
     def forward(self, xy, mask=None):
         """
@@ -131,11 +311,11 @@ class SDGraphUNet(nn.Module):
         time_emb_dim = 256
 
         '''时间步特征生成层'''
-        self.time_encode = TimeEncode(time_emb_dim)
+        self.time_encode = su.TimeEncode(time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
-        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
@@ -152,11 +332,11 @@ class SDGraphUNet(nn.Module):
 
         '''全局特征生成层'''
         global_in = sparse_l2 + dense_l2
-        self.global_linear = MLP(dimension=0,
-                                 channels=(global_in, int((global_in * global_dim) ** 0.5), global_dim),
-                                 final_proc=True,
-                                 dropout=dropout
-                                 )
+        self.global_linear = eu.MLP(dimension=0,
+                                    channels=(global_in, int((global_in * global_dim) ** 0.5), global_dim),
+                                    final_proc=True,
+                                    dropout=dropout
+                                    )
 
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
@@ -175,10 +355,10 @@ class SDGraphUNet(nn.Module):
 
         '''最终输出层'''
         final_in = dense_l0 + sparse_l0 + dense_l1 + sparse_l1 + channel_in
-        self.final_linear = MLP(dimension=1,
-                                channels=(final_in, int((channel_out * final_in) ** 0.5), channel_out),
-                                final_proc=False,
-                                dropout=dropout)
+        self.final_linear = eu.MLP(dimension=1,
+                                   channels=(final_in, int((channel_out * final_in) ** 0.5), channel_out),
+                                   final_proc=False,
+                                   dropout=dropout)
 
     def img_size(self):
         return self.n_stk, self.n_stk_pnt, self.channel_out
