@@ -497,15 +497,15 @@ class SDGraphUNet(nn.Module):
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                        self.n_stk, self.n_stk_pnt,
-                                       self.n_stk - 1, self.n_stk_pnt // 2,
+                                       self.n_stk - 3, self.n_stk_pnt // 2,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                       self.n_stk - 1, self.n_stk_pnt // 2,
-                                       self.n_stk - 2, self.n_stk_pnt // 4,
+                                       self.n_stk - 3, self.n_stk_pnt // 2,
+                                       self.n_stk - 6, self.n_stk_pnt // 4,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
@@ -521,8 +521,8 @@ class SDGraphUNet(nn.Module):
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
                                      global_dim + dense_l2, dense_l2,
-                                     self.n_stk - 2, self.n_stk_pnt // 4,
-                                     self.n_stk - 1, self.n_stk_pnt // 2,
+                                     self.n_stk - 6, self.n_stk_pnt // 4,
+                                     self.n_stk - 3, self.n_stk_pnt // 2,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
@@ -530,7 +530,7 @@ class SDGraphUNet(nn.Module):
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
-                                     self.n_stk - 1, self.n_stk_pnt // 2,
+                                     self.n_stk - 3, self.n_stk_pnt // 2,
                                      self.n_stk, self.n_stk_pnt,
                                      sp_near=2, dn_near=10,
                                      sample_type='up_sample',
@@ -549,9 +549,9 @@ class SDGraphUNet(nn.Module):
 
     def forward(self, xy, time):
         """
-        :param xy: [bs, channel_in, n_skh_pnt]
+        :param xy: [bs, n_stk, n_stk_pnt, channel_in]
         :param time: [bs, ]
-        :return: [bs, channel_out, n_skh_pnt]
+        :return: [bs, n_stk, n_stk_pnt, channel_out]
         """
         '''生成时间步特征'''
         time_emb = self.time_encode(time)

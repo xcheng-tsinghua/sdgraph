@@ -25,7 +25,6 @@ from torchvision import transforms
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
-import cv2
 
 import global_defs
 from data_utils import preprocess as pp
@@ -723,132 +722,6 @@ class SketchDatasetSeg(Dataset):
         self.data_mode = 'test'
 
 
-def canvas_size(sketch, padding: int = 30):
-    """
-    :param sketch: n*3 or n*4
-    :param padding: white padding, only make impact on visualize.
-    :return: int list,[x, y, h, w], [startX, startY, canvasH, canvasY]
-    """
-    # get canvas size
-    x_point = np.array([0])
-    y_point = np.array([0])
-    xmin_xmax = np.array([0, 0])
-    ymin_ymax = np.array([0, 0])
-    for stroke in sketch:
-        delta_x = stroke[0]
-        delta_y = stroke[1]
-        if x_point + delta_x > xmin_xmax[1]:
-            xmin_xmax[1] = x_point + delta_x
-        elif x_point + delta_x < xmin_xmax[0]:
-            xmin_xmax[0] = x_point + delta_x
-        if y_point + delta_y > ymin_ymax[1]:
-            ymin_ymax[1] = y_point + delta_y
-        elif y_point + delta_y < ymin_ymax[0]:
-            ymin_ymax[0] = y_point + delta_y
-        x_point += delta_x
-        y_point += delta_y
-
-    # padding
-    assert padding >= 0 and isinstance(padding, int)
-    xmin_xmax += np.array([-padding, +padding])  # padding
-    ymin_ymax += np.array([-padding, +padding])
-
-    w = xmin_xmax[1] - xmin_xmax[0]
-    h = ymin_ymax[1] - ymin_ymax[0]
-    start_x = np.abs(xmin_xmax[0])
-    start_y = np.abs(ymin_ymax[0])
-    # return the copy of sketch. you may use it.
-    return [int(start_x), int(start_y), int(h), int(w)], sketch[:]
-
-
-def draw_sketch(sketch, window_name="sketch_visualize", padding=30,
-                thickness=2, random_color=True, draw_time=1, drawing=True):
-    """
-    Include drawing.
-    Drawing under the guidance of positions and canvas's size given by canvas_size
-    :param sketch: (n, 3) or (n, 4)
-    :param window_name:
-    :param padding:
-    :param thickness:
-    :param random_color:
-    :param draw_time:
-    :param drawing:
-    :return: None
-    """
-
-    [start_x, start_y, h, w], sketch = canvas_size(sketch=sketch, padding=padding)
-    canvas = np.ones((h, w, 3), dtype='uint8') * 255
-    if random_color:
-        color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-    else:
-        color = (0, 0, 0)
-    pen_now = np.array([start_x, start_y])
-    first_zero = False
-    for stroke in sketch:
-        delta_x_y = stroke[0:0 + 2]
-        state = stroke[2]
-        if first_zero:  # the first 0 in a complete stroke
-            pen_now += delta_x_y
-            first_zero = False
-            continue
-        cv2.line(canvas, tuple(pen_now), tuple(pen_now + delta_x_y), color, thickness=thickness)
-        if int(state) != 0:  # next stroke
-            first_zero = True
-            if random_color:
-                color = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-            else:
-                color = (0, 0, 0)
-        pen_now += delta_x_y
-        if drawing:
-            cv2.imshow(window_name, canvas)
-            key = cv2.waitKeyEx(draw_time)
-            if key == 27:  # esc
-                cv2.destroyAllWindows()
-                exit(0)
-
-    if drawing:
-        key = cv2.waitKeyEx()
-        if key == 27:  # esc
-            cv2.destroyAllWindows()
-            exit(0)
-    cv2.imwrite("./visualize.png", canvas)
-    return canvas
-
-
-def show_seg_imgs():
-
-    count = 0
-    npz_root = r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K'
-    npz_all = du.get_allfiles(npz_root, 'npz')
-
-    for index, fileName in enumerate(npz_all):
-        print(f"|{index}|{fileName}|{fileName.split('_')[-1].split('.')[0]}|")
-        # choose latin1 encoding because we make this dataset by python2.
-        sketches = np.load(fileName, encoding="latin1", allow_pickle=True)
-        # randomly choose one sketch in one .npz .
-        for key in list(sketches.keys()):  # key 只有 arr_0
-            # print(f"This key is {key}")
-            # print(len(sketches[key]))
-            count += len(sketches[key])
-            number = random.randint(0, len(sketches[key]))
-            sample_sketch: np.ndarray = sketches[key][number]
-            # In this part.
-            # remove the first line. because in this visualize code, we do not need absolute start-up position.
-            # we get the start position by ourselves in func canvas_size().
-
-            # ** In fold ./augm, please comment the under line.
-            # because in augm datasets, the first line is not Absolute position.
-            sample_sketch[0][0:3] = np.array([0, 0, 0], dtype=sample_sketch.dtype)
-
-            # in cv2, data type INT is allowed.
-            # if dataset is normalized, you can make sample_sketch larger.
-            # if you run this code in a non-desktop server, drawing=False is necessary.
-            sample_sketch = (sample_sketch * 1).astype("int")
-            print(sample_sketch)
-            draw_sketch(sample_sketch, drawing=True)
-    print(count)
-
-
 if __name__ == '__main__':
     # adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
     #
@@ -909,7 +782,7 @@ if __name__ == '__main__':
     # sketch_data = std_unify(sketch_data, global_defs.n_stk, global_defs.n_stk_pnt)
 
     # sketch_std(np.loadtxt('error_stk'))
-    show_seg_imgs()
+    # show_seg_imgs()
 
 
     pass
