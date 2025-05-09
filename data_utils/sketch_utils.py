@@ -13,6 +13,7 @@ from matplotlib.collections import LineCollection
 from torchvision import transforms
 from PIL import Image
 import cv2
+import json
 
 import global_defs
 import encoders.spline as sp
@@ -1476,6 +1477,37 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
         return data, mask
 
 
+def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
+    """
+    统计草图中的点数和该点数草图数量的统计值
+    :param root_npz:
+    :return:
+    """
+    npz_all = get_allfiles(root_npz, 'npz')
+    skh_statistic = {}
+    for c_npz in tqdm(npz_all, total=len(npz_all)):
+
+        npz_train, _ = npz_read(c_npz, 'train')
+        npz_test, _ = npz_read(c_npz, 'test')
+        npz_valid, _ = npz_read(c_npz, 'valid')
+
+        c_files_all = []
+        c_files_all.extend(npz_train)
+        c_files_all.extend(npz_test)
+        c_files_all.extend(npz_valid)
+
+        for c_skh in c_files_all:
+            c_skh_pnt = len(c_skh)
+
+            if c_skh_pnt not in skh_statistic.keys():
+                skh_statistic[c_skh_pnt] = 1
+            else:
+                skh_statistic[c_skh_pnt] += 1
+
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
+
+
 def npz_to_txt(root_npz, root_target, delimiter=','):
     """
     该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
@@ -1755,8 +1787,9 @@ if __name__ == '__main__':
     # plt.plot(x_adta, y_adta)
     # plt.show()
 
-    npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
+    # npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
 
+    npz_statistic()
 
 
     pass

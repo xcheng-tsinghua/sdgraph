@@ -186,12 +186,13 @@ def vis_sketch_list(strokes, show_dot=False, title=None):
     plt.show()
 
 
-def save_format_sketch(sketch_points, file_path, is_smooth=False):
+def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False):
     """
     保存设定格式的草图
     :param sketch_points: [n_stk, n_stk_pnt, 2]
     :param file_path:
     :param is_smooth: 是否保存光顺后的草图
+    :param is_near_merge:
     :return:
     """
     def curve_smooth(x, y):
@@ -208,7 +209,8 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False):
     for i in range(n_stk):
         stroke_list.append(sketch_points[i])
 
-    stroke_list = du.stroke_merge_until(stroke_list, 0.1)
+    if is_near_merge:
+        stroke_list = du.stroke_merge_until(stroke_list, 0.1)
 
     plt.clf()
     for stk_idx in range(len(stroke_list)):
