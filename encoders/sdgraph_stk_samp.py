@@ -37,8 +37,14 @@ class DownSample(nn.Module):
                               dropout=dropout,
                               final_proc=True)
 
+        # dense graph 特征更新层
+        self.dn_conv = eu.MLP(dimension=3,
+                              channels=(dn_in * 2, dn_out),
+                              dropout=dropout,
+                              final_proc=True)
+
         # dense graph 下采样及特征更新
-        self.dn_conv = nn.Sequential(
+        self.dn_downsamp = nn.Sequential(
             nn.Conv2d(
                 in_channels=dn_in,  # 输入通道数 (RGB)
                 out_channels=dn_out,  # 输出通道数 (保持通道数不变)
@@ -103,13 +109,29 @@ class DownSample(nn.Module):
         assert stk_coor_sampled.size(1) == n_stk_center
 
         # ------- 对dense fea进行下采样 -------
-        # 先找到对应的笔划
+        # 先找到 fps 获取的对应的笔划
         dense_fea = einops.rearrange(dense_fea, 'b c s sp -> b s (sp c)')
-        dense_fea = eu.index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
-        dense_fea = einops.rearrange(dense_fea, 'b s (sp c) -> b c s sp', sp=self.n_stk_pnt)
+
+        dense_center_fea = eu.index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
+
+        # 找到对应笔划附近的笔划
+        dense_neighbor_fea = eu.index_points(dense_fea, knn_idx_fps)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+
+        # 获取辅助特征，即从中心点到邻近点的向量
+        dense_assist_fea = dense_neighbor_fea - dense_center_fea.unsqueeze(2)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+
+        # 拼接中心特征和辅助特征
+        dense_center_fea = einops.repeat(dense_center_fea, 'b s c -> b s n c', n=self.sp_near)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+        dense_fea = torch.cat([dense_assist_fea, dense_center_fea], dim=3)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+        dense_fea = einops.rearrange(dense_fea, 'b s n (sp c) -> b c s sp n', sp=self.n_stk_pnt)  # -> [bs, emb, n_stk // 2, n_stk_pnt, sp_near]
+
+        # 更新特征
+        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt, sp_near]
+        dense_fea = dense_fea.max(4)[0]  # -> [bs, emb, n_stk // 2, n_stk_pnt]
+        assert dense_fea.size(3) == self.n_stk_pnt
 
         # 进行下采样
-        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
+        dense_fea = self.dn_downsamp(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
         return sparse_fea, dense_fea, stk_coor_sampled
 
 
@@ -488,7 +510,7 @@ class SDGraphUNet(nn.Module):
         self.time_encode = su.TimeEncode(time_emb_dim)
 
         '''生成笔划坐标'''
-        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0)
+        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
         self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
@@ -560,7 +582,7 @@ class SDGraphUNet(nn.Module):
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_in == self.channel_in
 
         # 获取笔划坐标，即初始节点坐标
-        stk_coor_l0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
+        stk_coor_l0 = self.point_to_stk_coor(xy, time_emb).permute(0, 2, 1)  # [bs, n_stk, emb]
 
         '''生成初始 sdgraph'''
         sparse_graph_up0 = self.point_to_sparse(xy, time_emb)  # -> [bs, emb, n_stk]
@@ -650,6 +672,11 @@ def test():
 if __name__ == '__main__':
     test()
     print('---------------')
+
+    # dense_fea = einops.rearrange(dense_fea, 'b c s sp -> b s (sp c)')
+    #
+    # dense_fea = dense_fea.permute(0, 2, 3, 1)
+    # dense_fea = dense_fea.reshape(dense_fea.size(0), dense_fea.size(1), -1)
 
 
 

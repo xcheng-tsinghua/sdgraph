@@ -13,24 +13,31 @@ class PointToSparse(nn.Module):
     将 dense graph 的数据转移到 sparse graph'
     使用一维卷积及最大池化方式
     """
-    def __init__(self, point_dim, sparse_out, with_time=False, time_emb_dim=0, dropout=0.0):
+    def __init__(self, point_dim, sparse_out, n_stk_pnt, with_time=False, time_emb_dim=0, dropout=0.0):
         super().__init__()
 
         self.with_time = with_time
 
         # 将 DGraph 的数据转移到 SGraph
-        mid_dim = int((point_dim * sparse_out) ** 0.5)
+        inc_target = point_dim * 4
+        mid_dim = int((point_dim * inc_target) ** 0.5)
         self.point_increase = nn.Sequential(
             nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
             nn.BatchNorm2d(mid_dim),
             eu.activate_func(),
             nn.Dropout2d(dropout),
 
-            nn.Conv2d(in_channels=mid_dim, out_channels=sparse_out, kernel_size=(1, 3)),
-            nn.BatchNorm2d(sparse_out),
+            nn.Conv2d(in_channels=mid_dim, out_channels=inc_target, kernel_size=(1, 3)),
+            nn.BatchNorm2d(inc_target),
             eu.activate_func(),
             nn.Dropout2d(dropout),
         )
+
+        proc_l0 = (n_stk_pnt - 4) * inc_target
+        proc_l1 = int((proc_l0 * sparse_out) ** 0.5)
+        proc_l2 = sparse_out
+
+        self.proc = eu.MLP(1, (proc_l0, proc_l1, proc_l2), dropout=dropout, final_proc=True)
 
         if self.with_time:
             self.time_merge = su.TimeMerge(sparse_out, sparse_out, time_emb_dim)
@@ -50,15 +57,8 @@ class PointToSparse(nn.Module):
         # -> [bs, emb * n_stk_pnt, n_stk]
         xy = einops.rearrange(xy, 'b c s sp -> b (c sp) s')
 
-
-
-
-
-
-
         # -> [bs, emb, n_stk]
-        xy = torch.max(xy, dim=3)[0]
-        # assert xy.size(2) == self.n_stk
+        xy = self.proc(xy)
 
         assert self.with_time ^ (time_emb is None)
         if self.with_time:
@@ -476,10 +476,10 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成笔划坐标
-        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0)
+        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt)
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0)
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt)
         self.point_to_dense = PointToDense(channel_in, dense_l0)
 
         # 利用 sdgraph 更新特征
@@ -579,10 +579,10 @@ class SDGraphUNet(nn.Module):
         self.time_encode = su.TimeEncode(time_emb_dim)
 
         '''生成笔划坐标'''
-        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0)
+        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt, with_time=True, time_emb_dim=time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt, with_time=True, time_emb_dim=time_emb_dim)
         self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''下采样层 × 2'''
@@ -651,7 +651,7 @@ class SDGraphUNet(nn.Module):
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel_in == self.channel_in
 
         # 获取笔划坐标，即初始节点坐标
-        stk_coor_l0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
+        stk_coor_l0 = self.point_to_stk_coor(xy, time_emb).permute(0, 2, 1)  # [bs, n_stk, emb]
 
         '''生成初始 sdgraph'''
         sparse_graph_up0 = self.point_to_sparse(xy, time_emb)  # -> [bs, emb, n_stk]
@@ -739,18 +739,18 @@ def test():
 
 
 if __name__ == '__main__':
-    # test()
+    test()
 
-    atensor = torch.arange(12)
-    atensor = atensor.view(4, 3)
-
-    print(atensor)
-
-    atensor1 = einops.rearrange(atensor, 'b c -> (b c)')
-    atensor2 = einops.rearrange(atensor, 'b c -> (c b)')
-
-    print(atensor1)
-    print(atensor2)
+    # atensor = torch.arange(12)
+    # atensor = atensor.view(4, 3)
+    #
+    # print(atensor)
+    #
+    # atensor1 = einops.rearrange(atensor, 'b c -> (b c)')
+    # atensor2 = einops.rearrange(atensor, 'b c -> (c b)')
+    #
+    # print(atensor1)
+    # print(atensor2)
 
 
 

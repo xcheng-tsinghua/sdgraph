@@ -19,6 +19,10 @@ class MLP(nn.Module):
     def __init__(self, dimension: int, channels: tuple, bias: bool = True, dropout: float = 0.4, final_proc=False):
         """
         :param dimension: 输入维度数，[0, 1, 2, 3]
+            输入数据维度: [bs, c], dimension = 0
+            输入数据维度: [bs, c, d], dimension = 1
+            输入数据维度: [bs, c, d, e], dimension = 2
+            输入数据维度: [bs, c, d, e, f], dimension = 3
         :param channels: 输入层到输出层的维度，[in, hid1, hid2, ..., out]
         :param bias:
         :param dropout: dropout 概率
