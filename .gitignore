@@ -7,3 +7,5 @@ data_utils/__pycache__/
 __pycache__/
 .idea/
 encoders/__pycache__/
+encoders/sdgraph2.py
+encoders/sdgraph3.py
