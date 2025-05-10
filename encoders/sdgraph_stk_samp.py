@@ -416,13 +416,13 @@ class SDGraphCls(nn.Module):
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   self.n_stk, self.n_stk_pnt,
-                                  self.n_stk // 2, self.n_stk_pnt // 2,
+                                  self.n_stk - 3, self.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  self.n_stk // 2, self.n_stk_pnt // 2,
-                                  self.n_stk // 4, self.n_stk_pnt // 4,
+                                  self.n_stk - 3, self.n_stk_pnt // 2,
+                                  self.n_stk - 6, self.n_stk_pnt // 4,
                                   dropout=dropout
                                   )
 

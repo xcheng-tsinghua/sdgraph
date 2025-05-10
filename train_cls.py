@@ -19,7 +19,7 @@ import global_defs
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=450, help='batch size in training')
     parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
     parser.add_argument('--learning_rate', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     r'''
     cad sketch
@@ -43,6 +43,10 @@ def parse_args():
     QuickDraw:
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\raw')
+    
+    QuickDraw MGT:
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     
     '''
     return parser.parse_args()
@@ -74,7 +78,7 @@ def main(args):
     else:
         back_mode = 'S5'
 
-    dataset = SketchDatasetCls(data_root, back_mode=back_mode)
+    dataset = SketchDatasetCls(data_root, back_mode=back_mode, is_already_divided=True, is_preprocess=False)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
@@ -85,7 +89,7 @@ def main(args):
         classifier = SketchTransformerCls(dataset.n_classes()).cuda()
 
     elif args.model == 'SDGraph':
-        classifier = SDGraphCls(dataset.n_classes(), 3).cuda()
+        classifier = SDGraphCls(dataset.n_classes(), 2).cuda()
 
     else:
         raise TypeError('error model type')

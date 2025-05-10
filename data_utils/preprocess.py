@@ -1,3 +1,4 @@
+import einops
 import numpy as np
 import warnings
 import os
@@ -1004,6 +1005,104 @@ def test_resample():
     pass
 
 
+def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=','):
+    """
+    将 source_dir 内的 std 草图转化为 STK 草图
+    将在 target_dir 内创建与 source_dir 相同的层级结构
+    文件后缀为 .STK
+    :param source_dir:
+    :param target_dir:
+    :param preprocess_func:
+    :param delimiter:
+    :return:
+    """
+    # 在 target_dir 内创建与 source_dir 相同的文件夹层级结构
+    print('create dirs')
+
+    for root, dirs, files in os.walk(source_dir):
+        # 计算目标文件夹中的对应路径
+        relative_path = os.path.relpath(root, source_dir)
+        target_path = os.path.join(target_dir, relative_path)
+
+        # 创建目标文件夹中的对应目录
+        os.makedirs(target_path, exist_ok=True)
+
+    # 获得source_dir中的全部文件
+    files_all = du.get_allfiles(source_dir, 'txt')
+
+    for c_file in tqdm(files_all, total=len(files_all)):
+
+        try:
+            c_target_file = c_file.replace(source_dir, target_dir)
+
+            target_skh_STK = preprocess_func(c_file)
+            target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+            target_skh_STK = target_skh_STK.numpy()
+
+            if len(target_skh_STK) == global_defs.n_skh_pnt:
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+        except:
+            print(f'error occurred, skip file: {c_file}')
+
+
+def print_tree_with_counts(root_path, prefix=""):
+    """
+    递归打印目录结构及每个目录下的文件数（不含子目录）。
+
+    Args:
+        root_path (str): 要遍历的根目录路径
+        prefix (str): 当前层级前缀，用于缩进
+    """
+    try:
+        # 列出该目录下所有项
+        entries = os.listdir(root_path)
+    except PermissionError:
+        print(f"{prefix}└── [权限不足] {os.path.basename(root_path)}/")
+        return
+
+    # 计算文件数（仅文件，不含子目录）
+    file_count = sum(1 for e in entries if os.path.isfile(os.path.join(root_path, e)))
+    dirname = os.path.basename(root_path) or root_path
+    print(f"{prefix}└── {dirname}/ ({file_count} files)")
+
+    # 仅保留子目录并排序
+    subdirs = sorted([e for e in entries if os.path.isdir(os.path.join(root_path, e))])
+    for i, sub in enumerate(subdirs):
+        path = os.path.join(root_path, sub)
+        # 对最后一个子目录使用不同的分支符号，以对齐树状图
+        if i == len(subdirs) - 1:
+            branch = "    "  # 最后一个子目录，下一层不再延续“│”
+        else:
+            branch = "│   "
+        print_tree_with_counts(path, prefix + branch)
+
+
+def find_nonstandard_leaf_dirs(root_path, expected_counts=(100, 1000)):
+    """
+    遍历 root_path 下的所有目录，找出叶子目录（无子目录）且文件数不在 expected_counts 中的目录并打印。
+
+    Args:
+        root_path (str): 顶层目录路径
+        expected_counts (tuple of int): 合格的文件数，其他文件数都将被打印
+    """
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        # 如果没有子目录，则为叶子目录
+        if not dirnames:
+            # 统计直接文件数（忽略子目录中的文件）
+            try:
+                file_count = sum(
+                    1 for f in filenames
+                    if os.path.isfile(os.path.join(dirpath, f))
+                )
+            except PermissionError:
+                print(f"权限不足，无法访问：{dirpath}")
+                continue
+
+            # 如果文件数不在预期范围内，则打印
+            if file_count not in expected_counts:
+                print(f"{dirpath} （{file_count} 文件）")
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -1080,8 +1179,9 @@ if __name__ == '__main__':
     # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
 
-    # thefile = r'D:\\document\\DeepLearning\\DataSet\\sketch_cad\\raw\\sketch_txt\\train\\Bearing\\17b0dd39d358ce217e7c76a8a20a40fe_6.txt'
-    # asketch = pre_process(thefile)
+    # thefile = r'D:\document\DeepLearning\DataSet\quickdraw\MGT\train\camouflage_full\92.txt'
+    # vis.vis_sketch_orig(thefile, title='sketch_orig')
+    # asketch = preprocess_orig(thefile)
     # vis.vis_sketch_list(asketch, True)
 
     # sk_dir = r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple'
@@ -1096,15 +1196,18 @@ if __name__ == '__main__':
     #     # vis.vis_sketch_list(asasasas, title='last', show_dot=True)
 
     # a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\ambulance.full.npz'
-    a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\tiger.full.npz'
-    figs_all, _ = du.npz_read(a_test_npz)
+    # a_test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\tiger.full.npz'
+    # figs_all, _ = du.npz_read(a_test_npz)
+    #
+    # for c_fig in figs_all:
+    #     vis.vis_sketch_data(c_fig)
+    #
+    #     resample_stake(c_fig, is_show_status=True)
 
-    for c_fig in figs_all:
-        vis.vis_sketch_data(c_fig)
+    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT', rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', preprocess_orig)
 
-        resample_stake(c_fig, is_show_status=True)
-
-
+    folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
+    find_nonstandard_leaf_dirs(folder)
 
 
     pass

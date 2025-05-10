@@ -7,6 +7,7 @@ import svgpathtools
 from svgpathtools import svg2paths2
 import pandas as pd
 import ruptures as rpt
+import json
 
 import matplotlib.pyplot as plt
 import os
@@ -466,10 +467,37 @@ if __name__ == '__main__':
 
 
 
-    atensor = torch.rand(5, 3, 224, 224)
+    # atensor = torch.rand(5, 3, 224, 224)
+    #
+    # amodel = VITFinetune(10)
+    # print(amodel(atensor).size())
 
-    amodel = VITFinetune(10)
-    print(amodel(atensor).size())
+    with open('bks/data.json', 'r', encoding='utf-8') as f:
+        data = json.load(f)
+
+    keys = list(data.keys())
+    values = list(data.values())
+
+    print('keys = [', ' '.join(str(k) for k in keys), '];')
+    print('values = [', ' '.join(str(v) for v in values), '];')
+
+
+    # 将字符串类型的键转换为整数类型
+    data_int_keys = {int(k): v for k, v in data.items()}
+
+    # 提取键和值
+    x = list(data.keys())
+    y = list(data.values())
+
+    # 创建图表
+    plt.figure(figsize=(8, 5))
+    plt.bar(x, y)
+    plt.xlabel('n points in sketch')
+    plt.ylabel('number of sketches')
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
 

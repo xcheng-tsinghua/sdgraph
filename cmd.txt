@@ -165,3 +165,24 @@ python setup.py install
 cd ..
 
 
+
+
+  0%|          | 0/414000 [00:00<?, ?it/s]E:\document\DeepLearning\SDGraph\encoders\spline.py:61: UserWarning: resample dist is equal to stroke length, drop this stroke
+  warnings.warn('resample dist is equal to stroke length, drop this stroke')
+ 10%|▉         | 39973/414000 [03:52<30:03, 207.37it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\train\animal_migration_full\531.txt
+ 17%|█▋        | 68377/414000 [09:41<1:09:07, 83.34it/s]E:\document\DeepLearning\SDGraph\encoders\spline.py:167: UserWarning: left and right points are too close, return left point
+  warnings.warn('left and right points are too close, return left point')
+ 22%|██▏       | 91407/414000 [14:21<1:17:46, 69.14it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\train\camouflage_full\92.txt
+ 66%|██████▌   | 273713/414000 [48:40<25:00, 93.48it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\train\rain_full\292.txt
+ 66%|██████▌   | 273968/414000 [48:43<25:08, 92.83it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\train\rain_full\525.txt
+ 74%|███████▍  | 305613/414000 [54:28<20:26, 88.34it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\train\snowflake_full\198.txt
+ 99%|█████████▊| 408287/414000 [1:13:22<00:56, 100.38it/s]error occurred, skip file: D:\document\DeepLearning\DataSet\quickdraw\MGT\valid\stitches_full\9.txt
+100%|██████████| 414000/414000 [1:14:25<00:00, 92.72it/s]
+
+
+
+D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\animal_migration_full （999 文件）
+D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\camouflage_full （999 文件）
+D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\rain_full （998 文件）
+D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\snowflake_full （999 文件）
+D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\valid\stitches_full （99 文件）

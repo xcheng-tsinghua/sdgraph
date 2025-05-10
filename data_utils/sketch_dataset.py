@@ -70,7 +70,9 @@ class SketchDatasetCls(Dataset):
                  max_len=200,
                  img_size=(224, 224),
                  workers=8,
-                 is_retrieval=False
+                 is_retrieval=False,
+                 is_already_divided=False,
+                 is_preprocess=True
                  ):
         """
         :param root:
@@ -88,6 +90,9 @@ class SketchDatasetCls(Dataset):
         :param img_size: 图片大小
         :param workers:
         :param is_retrieval: 是否是检索
+        :param is_already_divided: 训练集与测试集是否已经划分好
+        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK
+        :return:
         """
         print('sketch dataset total, from:' + root + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
@@ -98,70 +103,69 @@ class SketchDatasetCls(Dataset):
         self.max_len = max_len
         self.img_size = img_size
         self.is_retrieval = is_retrieval
+        self.is_preprocess = is_preprocess
 
-        # 获取全部类别列表，即 root 内的全部文件夹名
-        category_all = du.get_subdirs(root)
-        category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
+        # 训练测试集按给定比例划分
+        train_dir = os.path.join(root, 'train')
+        test_dir = os.path.join(root, 'test')
 
-        for c_class in category_all:
-            class_root = os.path.join(root, c_class)
-            file_path_all = du.get_allfiles(class_root, suffix=None)
+        if is_already_divided:
+            print('train and test set is already divided')
+            assert os.path.isdir(train_dir) and os.path.isdir(test_dir)
 
-            category_path[c_class] = file_path_all
+            datapath_train = self.get_file_path(train_dir)
+            datapath_test = self.get_file_path(test_dir)
+            category_path = du.get_subdirs(train_dir)
 
-        datapath_train = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
-        datapath_test = []
-        for item in category_path:  # item 为字典的键，即类型‘plane','car'
-            c_class_path_list = category_path[item]
-
-            if is_random_divide:
-                random.shuffle(c_class_path_list)
-
-            n_instance = len(c_class_path_list)
-            n_test = math.ceil(test_ratio * n_instance)
-
-            for i in range(n_instance):
-                if i < n_test:
-                    datapath_test.append((item, c_class_path_list[i]))
-                else:
-                    datapath_train.append((item, c_class_path_list[i]))
-
-        # 数据预处理，防止后续重复处理
-        worker_func = partial(self.load_data,
-                              back_mode=back_mode,
-                              coor_mode=coor_mode,
-                              max_len=max_len,
-                              img_size=img_size,
-                              is_retrieval=is_retrieval
-                              )
-
-        if workers >= 2:
-            with Pool(processes=workers) as pool:
-                self.data_train = list(tqdm(
-                    pool.imap(worker_func, datapath_train),
-                    total=len(datapath_train),
-                    desc='processing training files')
-                )
-
-            with Pool(processes=workers) as pool:
-                self.data_test = list(tqdm(
-                    pool.imap(worker_func, datapath_test),
-                    total=len(datapath_test),
-                    desc='processing testing files')
-                )
+        # 训练测试集已划分好
         else:
-            self.data_train = []
-            for c_datapath_train in datapath_train:
-                self.data_train.append(worker_func(c_datapath_train))
+            print('train and test set is not divided, auto divide train and test set')
+            assert not os.path.isdir(train_dir) and not os.path.isdir(test_dir)
+            datapath_train, datapath_test = self.get_file_path(root, True, is_random_divide, test_ratio)
+            category_path = du.get_subdirs(root)
 
-            self.data_test = []
-            for c_datapath_test in datapath_test:
-                self.data_test.append(worker_func(c_datapath_test))
+        if back_mode == 'STK' and not self.is_preprocess:
+            self.data_train = datapath_train
+            self.data_test = datapath_test
 
-        # 删除异常值
-        print('删除异常值')
-        self.data_train = list(filter(lambda x: x is not None, self.data_train))
-        self.data_test = list(filter(lambda x: x is not None, self.data_test))
+        else:
+            # 数据预处理，防止后续重复处理
+            worker_func = partial(self.load_data,
+                                  back_mode=back_mode,
+                                  coor_mode=coor_mode,
+                                  max_len=max_len,
+                                  img_size=img_size,
+                                  is_retrieval=is_retrieval
+                                  )
+
+            if workers >= 2:
+                with Pool(processes=workers) as pool:
+                    self.data_train = list(tqdm(
+                        pool.imap(worker_func, datapath_train),
+                        total=len(datapath_train),
+                        desc='processing training files')
+                    )
+
+                with Pool(processes=workers) as pool:
+                    self.data_test = list(tqdm(
+                        pool.imap(worker_func, datapath_test),
+                        total=len(datapath_test),
+                        desc='processing testing files')
+                    )
+            else:
+                self.data_train = []
+                for c_datapath_train in tqdm(datapath_train, total=len(datapath_train),
+                                             desc='processing training files'):
+                    self.data_train.append(worker_func(c_datapath_train))
+
+                self.data_test = []
+                for c_datapath_test in tqdm(datapath_test, total=len(datapath_test), desc='processing testing files'):
+                    self.data_test.append(worker_func(c_datapath_test))
+
+            # 删除异常值
+            print('删除异常值')
+            self.data_train = list(filter(lambda x: x is not None, self.data_train))
+            self.data_test = list(filter(lambda x: x is not None, self.data_test))
 
         # 用整形 0,1,2,3 等代表具体类型‘plane','car'等，
         # 此时字典 category_path 中的值没有用到，self.classes的键为 ‘plane' 或 'car' ，值为 0, 1, 2, ...
@@ -171,6 +175,85 @@ class SketchDatasetCls(Dataset):
         print('number of training instance all:', len(self.data_train))
         print('number of testing instance all:', len(self.data_test))
         print('number of classes all:', len(self.classes), '\n')
+
+    @staticmethod
+    def get_file_path(folder_root, is_divide=False, is_random_divide=False, test_ratio=0.0):
+        """
+        在如下层级的目录中获取其中的文件，返回一个数组
+        file_root
+        ├─ Plane
+        │   ├─0.suffix
+        │   ├─1.suffix
+        │   ...
+        │
+        ├─ Car
+        │   ├─0.suffix
+        │   ├─1.suffix
+        │   ...
+        │
+        ├─ Chair
+        │   ├─0.suffix
+        │   ├─1.suffix
+        │   ...
+        │
+        ...
+
+        [('plane', root1), ('car', root2), ...] 即标签和路径的二联体
+        :param folder_root:
+        :param is_divide:
+        :param is_random_divide: 在分割训练集测试集时是否随机
+        :param test_ratio:
+        :return:
+        """
+        if is_divide:
+            category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
+
+            # 获取全部类别列表，即 root 内的全部文件夹名
+            category_all = du.get_subdirs(folder_root)
+
+            for c_class in category_all:
+                class_root = os.path.join(folder_root, c_class)
+                file_path_all = du.get_allfiles(class_root, suffix=None)
+
+                category_path[c_class] = file_path_all
+
+            datapath_train = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
+            datapath_test = []
+
+            for item in category_path:  # item 为字典的键，即类型‘plane','car'
+                c_class_path_list = category_path[item]
+
+                if is_random_divide:
+                    random.shuffle(c_class_path_list)
+
+                n_instance = len(c_class_path_list)
+                n_test = math.ceil(test_ratio * n_instance)
+
+                for i in range(n_instance):
+                    if i < n_test:
+                        datapath_test.append((item, c_class_path_list[i]))
+                    else:
+                        datapath_train.append((item, c_class_path_list[i]))
+
+            return datapath_train, datapath_test
+
+        else:
+            # 获取全部类别列表，即 file_root 内的全部文件夹名
+            category_all = du.get_subdirs(folder_root)
+            category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
+
+            for c_class in category_all:
+                class_root = os.path.join(folder_root, c_class)
+                file_path_all = du.get_allfiles(class_root, suffix=None)
+
+                category_path[c_class] = file_path_all
+
+            datapath = []  # [(‘plane’, Path1), (‘car’, Path1), ...]存储点云的绝对路径，此外还有类型，放入同一个数组。类型，点云构成数组中的一个元素
+            for item in category_path:  # item 为字典的键，即类型‘plane','car'
+                for fn in category_path[item]:  # fn 为每类点云对应的文件路径
+                    datapath.append((item, fn))  # item：类型（‘plane','car'）
+
+            return datapath
 
     @staticmethod
     def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_retrieval):
@@ -229,7 +312,14 @@ class SketchDatasetCls(Dataset):
         else:
             raise TypeError('error dataset mode')
 
-        class_key, sketch_cube, mask = data[index]
+        if not self.is_preprocess:
+            class_key, data_path = data[index]
+            sketch_cube = np.loadtxt(data_path, delimiter=',')
+            sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
+            mask = 0
+
+        else:
+            class_key, sketch_cube, mask = data[index]
 
         if self.is_retrieval:
             return class_key, sketch_cube, mask

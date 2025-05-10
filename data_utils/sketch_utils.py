@@ -14,6 +14,7 @@ from torchvision import transforms
 from PIL import Image
 import cv2
 import json
+from typing import List
 
 import global_defs
 import encoders.spline as sp
@@ -1508,7 +1509,7 @@ def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
         json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
 
 
-def npz_to_txt(root_npz, root_target, delimiter=','):
+def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
     """
     该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
     1. 存储相对坐标
@@ -1517,62 +1518,83 @@ def npz_to_txt(root_npz, root_target, delimiter=','):
 
     将创建如下文件夹：
     root_target
-    ├─ npz_name
-    │   ├─ train
-    │   │   ├─ 1.txt
-    │   │   ├─ 2.txt
-    │   │   ├─ 3.txt
-    │   │   ...
-    │   │
-    │   ├─ test
-    │   │   ├─ 4.txt
-    │   │   ├─ 5.txt
-    │   │   ├─ 6.txt
-    │   │   ...
-    │   │
-    │   └─ valid
-    │       ├─ 7.txt
-    │       ├─ 8.txt
-    │       ├─ 9.txt
+    ├─ train
+    │   └─ npz_name
+    │       ├─ 1.txt
+    │       ├─ 2.txt
+    │       ├─ 3.txt
     │       ...
     │
-    ...
+    ├─ test
+    │   └─ npz_name
+    │       ├─ 1.txt
+    │       ├─ 2.txt
+    │       ├─ 3.txt
+    │       ...
+    │
+    └─ valid
+        └─ npz_name
+            ├─ 1.txt
+            ├─ 2.txt
+            ├─ 3.txt
+            ...
 
     :param root_npz:
     :param root_target:
     :param delimiter: 保存 txt 文件时的分隔符
+    :param select: 从 [train, test, valid] 分支中抽取的草图数 (数量来自 MGT). = None 则不选取
     :return:
     """
+
+    def _get_n_pnt_near(_sketch_list, _select, _pnt_base=35):
+        """
+        从一个草图的 list 中选择制定数量的点数最靠近 _pnt_base 的草图
+        :param _sketch_list:
+        :param _select:
+        :param _pnt_base:
+        :return:
+        """
+        # 按行数与 pnt_base 的绝对差值排序
+        sorted_arrays = sorted(_sketch_list, key=lambda arr: abs(arr.shape[0] - _pnt_base))
+
+        # 返回前 select 个
+        return sorted_arrays[:_select]
+
     # 先读取数据
     print('load data')
     std_train = npz_read(root_npz, 'train')[0]
     std_test = npz_read(root_npz, 'test')[0]
     std_valid = npz_read(root_npz, 'valid')[0]
 
+    if select is not None:
+        std_train = _get_n_pnt_near(std_train, select[0])
+        std_test = _get_n_pnt_near(std_test, select[1])
+        std_valid = _get_n_pnt_near(std_valid, select[2])
+
     # 创建文件夹
     print('create dirs')
-    file_name = os.path.splitext(os.path.basename(root_npz))[0].replace('.', '_')
+    file_name = os.path.splitext(os.path.basename(root_npz))[0].replace('.', '_').replace(' ', '_')
 
-    train_dir = os.path.join(root_target, file_name, 'train')
-    os.makedirs(train_dir)
+    train_dir = os.path.join(root_target, 'train', file_name)
+    os.makedirs(train_dir, exist_ok=True)
 
-    test_dir = os.path.join(root_target, file_name, 'test')
-    os.makedirs(test_dir)
+    test_dir = os.path.join(root_target, 'test', file_name)
+    os.makedirs(test_dir, exist_ok=True)
 
-    valid_dir = os.path.join(root_target, file_name, 'valid')
-    os.makedirs(valid_dir)
+    valid_dir = os.path.join(root_target, 'valid', file_name)
+    os.makedirs(valid_dir, exist_ok=True)
 
     # 保存数据
     print('save data')
-    for idx, c_train in tqdm(enumerate(std_train), total=len(std_train)):
+    for idx, c_train in enumerate(std_train):
         c_train_filename = os.path.join(train_dir, f'{idx}.txt')
         np.savetxt(c_train_filename, c_train, delimiter=delimiter)
 
-    for idx, c_test in tqdm(enumerate(std_test), total=len(std_test)):
+    for idx, c_test in enumerate(std_test):
         c_test_filename = os.path.join(test_dir, f'{idx}.txt')
         np.savetxt(c_test_filename, c_test, delimiter=delimiter)
 
-    for idx, c_valid in tqdm(enumerate(std_valid), total=len(std_valid)):
+    for idx, c_valid in enumerate(std_valid):
         c_valid_filename = os.path.join(valid_dir, f'{idx}.txt')
         np.savetxt(c_valid_filename, c_valid, delimiter=delimiter)
 
@@ -1580,7 +1602,7 @@ def npz_to_txt(root_npz, root_target, delimiter=','):
 def npz_to_txt_batched(root_npz, root_target):
     npz_all = get_allfiles(root_npz, 'npz')
 
-    for c_npz in npz_all:
+    for c_npz in tqdm(npz_all, total=len(npz_all)):
         npz_to_txt(c_npz, root_target)
 
 
@@ -1789,7 +1811,8 @@ if __name__ == '__main__':
 
     # npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
 
-    npz_statistic()
+    # npz_statistic()
+    npz_to_txt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT')
 
 
     pass
