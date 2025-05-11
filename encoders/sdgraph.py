@@ -194,7 +194,7 @@ class SDGraphCls(nn.Module):
     sparse graph 统一使用 [bs, channel, n_stk]
     dense graph 统一使用 [bs, channel, n_stk, n_stk_pnt]
     """
-    def __init__(self, n_class: int, dropout: float = 0.4):
+    def __init__(self, n_class: int, channel_in=2, dropout: float = 0.4):
         """
         :param n_class: 总类别数
         """
@@ -205,25 +205,25 @@ class SDGraphCls(nn.Module):
         self.n_stk_pnt = global_defs.n_stk_pnt
 
         # 各层特征维度
-        # sparse_l0 = 32 + 16
-        # sparse_l1 = 128 + 64
-        # sparse_l2 = 512 + 256
+        sparse_l0 = 32 + 16
+        sparse_l1 = 128 + 64
+        sparse_l2 = 512 + 256
+
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
+
+        # sparse_l0 = 16 + 8
+        # sparse_l1 = 64 + 32
+        # sparse_l2 = 256 + 128
         #
-        # dense_l0 = 32
-        # dense_l1 = 128
-        # dense_l2 = 512
-
-        sparse_l0 = 16 + 8
-        sparse_l1 = 64 + 32
-        sparse_l2 = 256 + 128
-
-        dense_l0 = 16
-        dense_l1 = 64
-        dense_l2 = 256
+        # dense_l0 = 16
+        # dense_l1 = 64
+        # dense_l2 = 256
 
         # 生成初始 sdgraph
-        self.point_to_sparse = su.PointToSparse(2, sparse_l0)
-        self.point_to_dense = su.PointToDense(2, dense_l0)
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0)
 
         # 利用 sdgraph 更新特征
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
