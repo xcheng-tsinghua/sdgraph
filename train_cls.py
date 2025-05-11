@@ -26,9 +26,9 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--model', type=str, default='SDGraph_orig', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
+    parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--save_str', type=str, default=f'sdgraph_orig_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
