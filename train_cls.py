@@ -112,8 +112,8 @@ def main(args):
         eps=1e-08,
         weight_decay=args.decay_rate
     )
-    # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.95)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
 
     '''训练'''
     best_instance_accu = -1.0
