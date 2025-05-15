@@ -62,7 +62,7 @@ def main(args):
     confusion_dir = os.path.join('data_utils', 'confusion', confusion_dir)
     os.makedirs(confusion_dir, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
-    model_savepth = 'model_trained/' + save_str + '.pth'
+    model_savepth = 'model_trained/best_' + save_str + '.pth'
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
