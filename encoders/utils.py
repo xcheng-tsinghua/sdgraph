@@ -433,6 +433,8 @@ def vis_cls_log(log_file: str, floats_idx_1=0, floats_idx_2=1):
     y1 = floats[:, floats_idx_1]
     y2 = floats[:, floats_idx_2]
 
+    print(max(y2))
+
     # 绘制第一条折线
     plt.plot(x, y1, label='train ins acc', linestyle='-', color='b')
 
@@ -571,5 +573,7 @@ if __name__ == '__main__':
     # vis_cls_log(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-28 02-11-56.txt')
 
     # vis_log_comp(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-27 11-46-11.txt', r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-28 02-11-56.txt')
+
+    vis_cls_log(r'C:\Users\ChengXi\Desktop\sd_qw_valid2.txt', 0, 1)
 
     pass

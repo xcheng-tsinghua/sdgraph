@@ -496,6 +496,12 @@ def test():
     plt.show()
 
 
+def vis_quickdraw(npz_file):
+    sketch_all = du.npz_read(npz_file)[0]
+    for c_sketch in sketch_all:
+        vis_sketch_data(c_sketch)
+
+
 if __name__ == '__main__':
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 
@@ -524,17 +530,19 @@ if __name__ == '__main__':
 
     # du.svg_to_txt(r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\cup\5125.svg', r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
 
-    a_svg_file = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
-    svg_fig = du.svg_read(a_svg_file)
-    vis_sketch_data(svg_fig)
+    # a_svg_file = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg\apple\333.svg'
+    # svg_fig = du.svg_read(a_svg_file)
+    # vis_sketch_data(svg_fig)
+    #
+    # # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
+    #
+    # test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz'
+    # sketch_all = du.npz_read(test_npz)[0]
+    #
+    # for c_sketch in sketch_all:
+    #     vis_sketch_data(c_sketch)
 
-    # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\fig\asasas.txt')
-
-    test_npz = r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz'
-    sketch_all = du.npz_read(test_npz)[0]
-
-    for c_sketch in sketch_all:
-        vis_sketch_data(c_sketch)
+    vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\laptop.full.npz')
 
     pass
 
