@@ -428,6 +428,10 @@ class QuickDrawDiff(Dataset):
         else:
             raise TypeError('error back mode')
 
+        # 删除异常值
+        print('删除异常值')
+        self.sketch_all = list(filter(lambda x: x is not None, self.sketch_all))
+
         print('instance all: ', len(self.sketch_all))
 
     def __getitem__(self, index):
