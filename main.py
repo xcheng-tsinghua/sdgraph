@@ -8,7 +8,7 @@ from svgpathtools import svg2paths2
 import pandas as pd
 import ruptures as rpt
 import json
-
+import cv2
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -334,7 +334,6 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
     return x, y, segData
 
 
-
 if __name__ == '__main__':
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
@@ -472,32 +471,41 @@ if __name__ == '__main__':
     # amodel = VITFinetune(10)
     # print(amodel(atensor).size())
 
-    with open('bks/data.json', 'r', encoding='utf-8') as f:
-        data = json.load(f)
+    # with open('bks/data.json', 'r', encoding='utf-8') as f:
+    #     data = json.load(f)
+    #
+    # keys = list(data.keys())
+    # values = list(data.values())
+    #
+    # print('keys = [', ' '.join(str(k) for k in keys), '];')
+    # print('values = [', ' '.join(str(v) for v in values), '];')
+    #
+    #
+    # # 将字符串类型的键转换为整数类型
+    # data_int_keys = {int(k): v for k, v in data.items()}
+    #
+    # # 提取键和值
+    # x = list(data.keys())
+    # y = list(data.values())
+    #
+    # # 创建图表
+    # plt.figure(figsize=(8, 5))
+    # plt.bar(x, y)
+    # plt.xlabel('n points in sketch')
+    # plt.ylabel('number of sketches')
+    # plt.grid(True)
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.show()
 
-    keys = list(data.keys())
-    values = list(data.values())
-
-    print('keys = [', ' '.join(str(k) for k in keys), '];')
-    print('values = [', ' '.join(str(v) for v in values), '];')
-
-
-    # 将字符串类型的键转换为整数类型
-    data_int_keys = {int(k): v for k, v in data.items()}
-
-    # 提取键和值
-    x = list(data.keys())
-    y = list(data.values())
-
-    # 创建图表
-    plt.figure(figsize=(8, 5))
-    plt.bar(x, y)
-    plt.xlabel('n points in sketch')
-    plt.ylabel('number of sketches')
-    plt.grid(True)
-    plt.legend()
-    plt.tight_layout()
-    plt.show()
+    # 读取灰度图
+    img = cv2.imread('C:/Users/ChengXi/Desktop/figure.png', cv2.IMREAD_GRAYSCALE)
+    # 高斯平滑降噪
+    blur = cv2.GaussianBlur(img, (5, 5), 1.4)
+    # Canny 检测：低阈值50，高阈值150
+    edges = cv2.Canny(blur, 50, 150)
+    edges = cv2.bitwise_not(edges)
+    cv2.imwrite('C:/Users/ChengXi/Desktop/edge.png', edges)
 
 
 

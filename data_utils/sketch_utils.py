@@ -1,3 +1,5 @@
+import random
+
 import numpy as np
 import matplotlib.pyplot as plt
 import os
@@ -14,7 +16,8 @@ from torchvision import transforms
 from PIL import Image
 import cv2
 import json
-from typing import List
+from multiprocessing import Pool
+from functools import partial
 
 import global_defs
 import encoders.spline as sp
@@ -366,6 +369,7 @@ def create_tree_like(source_dir, target_dir):
 
 def cls_distribute(source_dir, target_dir, test_rate=0.2):
     """
+    将未分训练集和测试集的文件分开
     定位文件的路径如下：
     source_dir
     ├─ Bushes
@@ -1509,8 +1513,10 @@ def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
         json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
 
 
-def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
+def quickdraw_to_mgt(root_npz, root_target, delimiter=',', select=(1000, 100, 100), is_random_select=False):
     """
+    该函数主要用于从 npz 文件中获取 MGT 数据集
+
     该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
     1. 存储相对坐标
     2. 加载的字典包含三个键，分别是 'train', 'test', 'valid'
@@ -1543,12 +1549,13 @@ def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
     :param root_target:
     :param delimiter: 保存 txt 文件时的分隔符
     :param select: 从 [train, test, valid] 分支中抽取的草图数 (数量来自 MGT). = None 则不选取
+    :param is_random_select: 是否随机选取
     :return:
     """
 
     def _get_n_pnt_near(_sketch_list, _select, _pnt_base=35):
         """
-        从一个草图的 list 中选择制定数量的点数最靠近 _pnt_base 的草图
+        从一个草图的 list 中选择指定数量的点数最靠近 _pnt_base 的草图
         :param _sketch_list:
         :param _select:
         :param _pnt_base:
@@ -1561,18 +1568,20 @@ def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
         return sorted_arrays[:_select]
 
     # 先读取数据
-    print('load data')
+    # print('load data')
     std_train = npz_read(root_npz, 'train')[0]
     std_test = npz_read(root_npz, 'test')[0]
     std_valid = npz_read(root_npz, 'valid')[0]
 
     if select is not None:
-        std_train = _get_n_pnt_near(std_train, select[0])
-        std_test = _get_n_pnt_near(std_test, select[1])
-        std_valid = _get_n_pnt_near(std_valid, select[2])
+        sample_func = random.sample if is_random_select else _get_n_pnt_near
+
+        std_train = sample_func(std_train, select[0])
+        std_test = sample_func(std_test, select[1])
+        std_valid = sample_func(std_valid, select[2])
 
     # 创建文件夹
-    print('create dirs')
+    # print('create dirs')
     file_name = os.path.splitext(os.path.basename(root_npz))[0].replace('.', '_').replace(' ', '_')
 
     train_dir = os.path.join(root_target, 'train', file_name)
@@ -1585,7 +1594,7 @@ def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
     os.makedirs(valid_dir, exist_ok=True)
 
     # 保存数据
-    print('save data')
+    # print('save data')
     for idx, c_train in enumerate(std_train):
         c_train_filename = os.path.join(train_dir, f'{idx}.txt')
         np.savetxt(c_train_filename, c_train, delimiter=delimiter)
@@ -1599,11 +1608,20 @@ def npz_to_txt(root_npz, root_target, delimiter=',', select=(1000, 100, 100)):
         np.savetxt(c_valid_filename, c_valid, delimiter=delimiter)
 
 
-def npz_to_txt_batched(root_npz, root_target):
+def quickdraw_to_mgt_batched(root_npz, root_target, is_random_select=True, workers=4):
     npz_all = get_allfiles(root_npz, 'npz')
 
-    for c_npz in tqdm(npz_all, total=len(npz_all)):
-        npz_to_txt(c_npz, root_target)
+    worker_func = partial(quickdraw_to_mgt, root_target=root_target, is_random_select=is_random_select)
+
+    with Pool(processes=workers) as pool:
+        data_trans = list(tqdm(
+            pool.imap(worker_func, npz_all),
+            total=len(npz_all),
+            desc='QuickDraw to MGT')
+        )
+
+    # for c_npz in tqdm(npz_all, total=len(npz_all)):
+    #     quickdraw_to_mgt(c_npz, root_target, is_random_select=is_random_select)
 
 
 def img_read(img_root, img_size=(224, 224)):
@@ -1812,7 +1830,7 @@ if __name__ == '__main__':
     # npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
 
     # npz_statistic()
-    npz_to_txt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT')
+    quickdraw_to_mgt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', is_random_select=True)
 
 
     pass

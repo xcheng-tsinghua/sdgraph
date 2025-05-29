@@ -3,10 +3,11 @@ import numpy as np
 import warnings
 import os
 import shutil
-
 import torch
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from multiprocessing import Pool
+from functools import partial
 
 import global_defs
 from data_utils import filter as ft
@@ -1010,15 +1011,33 @@ def test_resample():
     pass
 
 
-def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=','):
+def std_to_stk_file(std_file, source_dir, target_dir, preprocess_func, delimiter):
+    try:
+        c_target_file = std_file.replace(source_dir, target_dir)
+
+        target_skh_STK = preprocess_func(std_file)
+        target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+        target_skh_STK = target_skh_STK.numpy()
+
+        if len(target_skh_STK) == global_defs.n_skh_pnt:
+            np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+        else:
+            print(f'error occurred, skip file: {std_file}')
+    except:
+        print(f'error occurred, skip file: {std_file}')
+
+
+def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', workers=4):
     """
     将 source_dir 内的 std 草图转化为 STK 草图
+    std 草图：每行为 [x, y, s]，行数不固定
     将在 target_dir 内创建与 source_dir 相同的层级结构
     文件后缀为 .STK
     :param source_dir:
     :param target_dir:
     :param preprocess_func:
     :param delimiter:
+    :param workers: 处理进程数
     :return:
     """
     # 在 target_dir 内创建与 source_dir 相同的文件夹层级结构
@@ -1035,19 +1054,33 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=','):
     # 获得source_dir中的全部文件
     files_all = du.get_allfiles(source_dir, 'txt')
 
-    for c_file in tqdm(files_all, total=len(files_all)):
+    worker_func = partial(std_to_stk_file,
+                          source_dir=source_dir,
+                          target_dir=target_dir,
+                          preprocess_func=preprocess_func,
+                          delimiter=delimiter
+                          )
 
-        try:
-            c_target_file = c_file.replace(source_dir, target_dir)
+    with Pool(processes=workers) as pool:
+        data_trans = list(tqdm(
+            pool.imap(worker_func, files_all),
+            total=len(files_all),
+            desc='QuickDraw to MGT')
+        )
 
-            target_skh_STK = preprocess_func(c_file)
-            target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-            target_skh_STK = target_skh_STK.numpy()
-
-            if len(target_skh_STK) == global_defs.n_skh_pnt:
-                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-        except:
-            print(f'error occurred, skip file: {c_file}')
+    # for c_file in tqdm(files_all, total=len(files_all)):
+    #
+    #     try:
+    #         c_target_file = c_file.replace(source_dir, target_dir)
+    #
+    #         target_skh_STK = preprocess_func(c_file)
+    #         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+    #         target_skh_STK = target_skh_STK.numpy()
+    #
+    #         if len(target_skh_STK) == global_defs.n_skh_pnt:
+    #             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+    #     except:
+    #         print(f'error occurred, skip file: {c_file}')
 
 
 def print_tree_with_counts(root_path, prefix=""):
@@ -1209,10 +1242,12 @@ if __name__ == '__main__':
     #
     #     resample_stake(c_fig, is_show_status=True)
 
-    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT', rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', preprocess_orig)
+    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', preprocess_orig)
 
-    folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
-    find_nonstandard_leaf_dirs(folder)
+    find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    # folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
+    # find_nonstandard_leaf_dirs(folder)
 
 
     pass

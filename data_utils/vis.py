@@ -12,16 +12,24 @@ import data_utils.sketch_utils as du
 import encoders.spline as sp
 
 
-def vis_sketch_folder(root):
-    classes = get_subdirs(root)
-    for c_class in classes:
-        c_dir = os.path.join(root, c_class)
-        c_files = get_allfiles(c_dir)
+def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3):
+    files_all = get_allfiles(root)
+    if shuffle:
+        random.shuffle(files_all)
 
-        for idx in range(3):
-            c_file_show = c_files[idx]
-            print(c_file_show)
-            vis_sketch_orig(c_file_show)
+    for c_file in files_all:
+        print(c_file)
+        vis_sketch_orig(c_file, show_dot=show_dot, dot_gap=dot_gap)
+
+    # classes = get_subdirs(root)
+    # for c_class in classes:
+    #     c_dir = os.path.join(root, c_class)
+    #     c_files = get_allfiles(c_dir)
+    #
+    #     for idx in range(3):
+    #         c_file_show = c_files[idx]
+    #         print(c_file_show)
+    #         vis_sketch_orig(c_file_show, show_dot=show_dot, dot_gap=dot_gap)
 
 
 def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1):
@@ -516,7 +524,12 @@ if __name__ == '__main__':
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\unified_sketch_cad_stk32_stkpnt32\train\Gear\0dd1520e215d8d4c3cdbfe889316ba33_4.txt')
 
     # --- vis
-    # vis_sketch_folder(r'D:\document\DeepLearning\DataSet\sketch_cad\sketch_txt\train')
+    # vis_sketch_folder()
+
+
+    the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
+    vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
+
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\1.txt', show_dot=False)
 
@@ -542,7 +555,7 @@ if __name__ == '__main__':
     # for c_sketch in sketch_all:
     #     vis_sketch_data(c_sketch)
 
-    vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\laptop.full.npz')
+    # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\laptop.full.npz')
 
     pass
 
