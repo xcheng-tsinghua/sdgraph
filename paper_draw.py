@@ -3,7 +3,7 @@ import numpy as np
 
 from data_utils import sketch_utils
 from data_utils import vis
-from data_utils import preprocess
+from data_utils import preprocess as prep
 from data_utils import sketch_utils as du
 import random
 from matplotlib import pyplot as plt
@@ -21,7 +21,7 @@ def traverse_folder():
     for c_file in files_all:
         print(c_file)
         vis.vis_sketch_orig(c_file, title=c_file, show_dot=True, dot_gap=1)
-        preprocess.preprocess_orig(c_file, is_show_status=True)
+        prep.preprocess_orig(c_file, is_show_status=True)
         # sketch_utils.std_to_tensor_img(np.loadtxt(c_file, delimiter=','))
 
 
@@ -275,9 +275,9 @@ if __name__ == '__main__':
 
     # show_points()
 
-    the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'
-    vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
-
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'
+    # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
+    prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     pass
 
