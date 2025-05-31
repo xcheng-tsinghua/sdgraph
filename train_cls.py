@@ -29,8 +29,8 @@ def parse_args():
     parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--save_str', type=str, default=f'sdgraph_mgtn_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     r'''
     cad sketch
