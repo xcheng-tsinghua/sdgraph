@@ -1242,9 +1242,13 @@ if __name__ == '__main__':
     #
     #     resample_stake(c_fig, is_show_status=True)
 
-    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', preprocess_orig)
+    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', preprocess_orig)
+    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean',
+    #                    rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
+    #                    preprocess_orig)
 
-    find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\MGT_random_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
 
     # folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
     # find_nonstandard_leaf_dirs(folder)

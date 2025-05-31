@@ -7,6 +7,7 @@ from data_utils import preprocess
 from data_utils import sketch_utils as du
 import random
 from matplotlib import pyplot as plt
+from encoders import spline as sp
 
 import global_defs
 
@@ -25,7 +26,20 @@ def traverse_folder():
 
 
 def draw_main_fig():
-    the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
+    def expand_array(arr):
+        k = arr.shape[0]  # 获取数组的行数
+
+        # 创建一个形状为(k, 1)的全1数组
+        new_column = np.ones((k, 1), dtype=arr.dtype)
+
+        # 将最后一个元素设为0
+        new_column[-1, 0] = 0
+
+        # 水平拼接原数组和新列
+        return np.hstack((arr, new_column))
+
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
+    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source.txt'
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
@@ -58,35 +72,183 @@ def draw_main_fig():
     #     approx_mode='uni-arclength'
     # )
 
-    strokes_filter = []
+    # for idx, s in enumerate(strokes):
+    #     if idx == 2:
+    #         fs = s[::5, :]
+    #         fs[-1, :] = s[-1, :]
+    #         s = fs
+    #
+    #     # if idx == 12:
+    #     #     s = s[:13, :]
+    #
+    #     if du.stroke_length(s) > 0.3:
+    #         strokes_filter.append(s)
 
+    # np.savetxt(r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source.txt', np.vstack(strokes_filter), delimiter=',')
+
+    sf = []
     for idx, s in enumerate(strokes):
+        if idx == 0:
+            s = s[:-4, :]
+
+        if idx == 1:
+            s = s[:-3, :]
+
         if idx == 2:
-            s = s[::7, :]
+            s = s[:-1, :]
 
-        if du.stroke_length(s) > 0.3:
-            strokes_filter.append(s)
+        if idx == 3:
+            s = s[7:-3, :]
 
+        if idx == 4:
+            s = s[5:, :]
 
+        if idx == 5:
+            s = s[:-3, :]
 
+        if idx == 6:
+            s = s[:-2, :]
 
+        if idx == 7:
+            s = s[4:, :]
 
-    dot_gap = 1
-    for s in strokes_filter:
+        if idx == 8:
+            s = s[4:-3, :]
 
-        plt.clf()
+        if idx == 9:
+            s = s[3:-2, :]
+
+        if idx == 10:
+            s = s[:-2, :]
+
+        if idx == 11:
+            s = s[:-6, :]
+
+        if idx == 15:
+            s = s[:-3, :]
+
+        sf.append(s[:, :2])
+
+    strokes_merge = [sf[0], sf[1], sf[2]]
+    strokes_merge.append(np.vstack([np.flip(sf[4], axis=0), sf[3], sf[6], sf[5], np.flip(sf[7], axis=0), np.flip(sf[8], axis=0)]))
+    # strokes_merge.append(np.vstack([sf[9], sf[13], np.flip(sf[10], axis=0)]))
+    strokes_merge.append(sf[9])
+    strokes_merge.append(np.flip(sf[10], axis=0))
+    strokes_merge.append(np.vstack([sf[12], sf[15], sf[13], sf[14], np.flip(sf[11], axis=0)]))
+
+    plt.figure(figsize=(10, 5))
+
+    dot_gap = 2
+
+    altered_stks_save = []
+
+    for idx, s in enumerate(strokes_merge):
+        altered_stks_save.append(expand_array(s))
+
+        # plt.clf()
+
+        # np.savetxt(fr'C:\Users\ChengXi\Desktop\fig\fig1\nut_stk_{idx}.txt', s, delimiter=',')
 
         plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
         plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80)
 
-        plt.axis('off')
-        plt.axis("equal")
-        plt.show()
+        # plt.title(f'stk index: {idx}')
+        # plt.axis('off')
+        # plt.axis("equal")
+        # plt.show()
 
-    # plt.axis('off')
-    # plt.axis("equal")
-    # plt.show()
+    # for idx, s in enumerate(strokes_filter):
+    #     plt.scatter([s[0, 0]], [-s[0, 1]], s=80, c='black')
 
+    np.savetxt(r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt', np.vstack(altered_stks_save), delimiter=',')
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def show_fig1():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
+    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 1
+
+    show_fig_idx = 6
+
+    def replace_except_index_inplace(arr, index):
+        for i in range(len(arr)):
+            if i != index:
+                arr[i] = (1, 1, 1)
+        return arr
+
+    poins_resamp = []
+
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+        replace_except_index_inplace(colors, show_fig_idx)
+
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+
+    plt.plot(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], color=colors[show_fig_idx])
+    plt.scatter(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], s=80, color=colors[show_fig_idx])
+
+    np.savetxt(r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_points.txt', np.vstack(poins_resamp), delimiter=',')
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def show_points():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_points.txt'
+    points = np.loadtxt(the_file, delimiter=',')
+
+    point_skip = 4
+    plt.figure(figsize=(10, 5))
+    plt.scatter(points[::point_skip, 0], -points[::point_skip, 1], s=80)
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
 
 
 
@@ -108,7 +270,13 @@ if __name__ == '__main__':
     # sketch_processed = preprocess.preprocess_outlier_resamp_seg(fig_file)
     # vis.vis_sketch_list(sketch_processed, show_dot=True)
 
-    draw_main_fig()
+    # draw_main_fig()
+    # show_fig1()
+
+    # show_points()
+
+    the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'
+    vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
 
     pass

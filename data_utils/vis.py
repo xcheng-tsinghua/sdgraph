@@ -527,6 +527,7 @@ if __name__ == '__main__':
     # vis_sketch_folder()
 
 
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
     the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
     vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
