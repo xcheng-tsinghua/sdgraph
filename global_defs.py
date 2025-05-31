@@ -27,3 +27,10 @@ pen_down = 1  # quickdraw
 # 单个草图中的总点数
 n_skh_pnt = n_stk * n_stk_pnt
 
+
+if __name__ == '__main__':
+    print('n_stk:', n_stk)
+    print('n_stk_pnt:', n_stk_pnt)
+    print('pen_up:', pen_up)
+    print('pen_down:', pen_down)
+    print('n_skh_pnt:', n_skh_pnt)
