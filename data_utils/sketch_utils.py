@@ -1293,15 +1293,32 @@ def is_sketch_unified(stroke_list, thres=1e-5):
         print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
 
 
-def sketch_file_to_s5(root, max_length, coor_mode='ABS'):
+def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False):
     """
     将草图转换为 S5 格式，(x, y, s1, s2, s3)
+    默认存储绝对坐标
     :param root:
     :param max_length:
     :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
+    :param is_shuffle_stroke: 是否打乱笔划
     :return:
     """
-    data_raw = load_sketch_file(root)
+    if isinstance(root, str):
+        file_suffix = Path(root).suffix
+        if file_suffix == '.txt':
+            data_raw = load_sketch_file(root)
+        elif file_suffix == '.svg':
+            data_raw = svg_read(root)
+        else:
+            raise TypeError('error suffix')
+    else:
+        raise TypeError('error root type')
+
+    # 打乱笔划
+    if is_shuffle_stroke:
+        stroke_list = np.split(data_raw, np.where(data_raw[:, 2] == global_defs.pen_up)[0] + 1)[:-1]
+        random.shuffle(stroke_list)
+        data_raw = np.vstack(stroke_list)
 
     # 多于指定点数则进行采样
     n_point_raw = len(data_raw)
@@ -1309,6 +1326,7 @@ def sketch_file_to_s5(root, max_length, coor_mode='ABS'):
         choice = np.random.choice(n_point_raw, max_length, replace=True)
         data_raw = data_raw[choice, :]
 
+    # [n_points, 3]
     data_raw = sketch_std(data_raw)
 
     # 相对坐标
@@ -1830,7 +1848,10 @@ if __name__ == '__main__':
     # npz_to_txt(r'D:\document\DeepLearning\DataSet\quickdraw\small\ear.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\small')
 
     # npz_statistic()
-    quickdraw_to_mgt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', is_random_select=True)
+    # quickdraw_to_mgt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', is_random_select=True)
+    # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg', r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches')
+
+    sketch_file_to_s5(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt', 500, is_shuffle_stroke=True)
 
 
     pass

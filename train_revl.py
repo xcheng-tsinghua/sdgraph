@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from torch.nn import Module
 import torch.nn.functional as F
 import argparse
-from data_utils.sketch_dataset import SketchDatasetCls
+from data_utils.sketch_dataset import RetrievalDataset
 from encoders.sketch_rnn import SketchRNNEmbedding as SketchEncoder
 from tqdm import tqdm
 from colorama import Fore, Back, init
@@ -28,7 +28,7 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_retrieval')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -77,21 +77,18 @@ class EmbeddingSpace(object):
     """
     def __init__(self,
                  img_encoder: Module,
-                 skh_encoder: Module,
-                 loader_images: DataLoader,
-                 device: torch.device):
-        self.device = device
-        self.img_encoder = img_encoder.eval().to(self.device)
-        self.skh_encoder = skh_encoder.eval().to(self.device)
+                 skh_img_loader: DataLoader
+                 ):
+
+        img_encoder = img_encoder.eval()
 
         self.embeddings = []
+        for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='building embedding space'):
+            images = data[2].float().cuda()
 
-        for idx_batch, (images, sketch, mask) in enumerate(loader_images):
-            images = images.to(self.device)
             with torch.no_grad():
-
                 # -> [bs, emb]
-                img_embedding = self.img_encoder(images)
+                img_embedding = img_encoder(images)
 
                 # 获取测试集中全部的图片 embedding，这里embedding的索引即对应它的文件
                 self.embeddings.extend(img_embedding)
@@ -104,7 +101,7 @@ class EmbeddingSpace(object):
 
         :param sketches: [bs, emb]
         :param k:
-        :return:
+        :return: [bs, k]
         """
         # -> [bs, all]
         distances = torch.cdist(sketches, self.embeddings)
@@ -113,8 +110,30 @@ class EmbeddingSpace(object):
         return topk_distances, topk_indices
 
 
-def test():
-    emb_space = EmbeddingSpace()
+def test(img_encoder, skh_encoder, skh_img_loader):
+    emb_space = EmbeddingSpace(img_encoder, skh_img_loader)
+
+    for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='evaluate'):
+        sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[1].long().cuda()
+
+        # [bs, emb]
+        skh_embedding = skh_encoder(sketch, mask)
+
+        # [bs, k]
+        p_index = emb_space.top_k(skh_embedding, 10)[1]
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 def main(args):
@@ -125,7 +144,7 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    dataset = SketchDatasetCls(root=data_root, back_mode='S5', is_retrieval=True)
+    dataset = RetrievalDataset(root=data_root, back_mode='S5')
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
@@ -165,7 +184,7 @@ def main(args):
 
         dataset.train()
         for batch_id, data in tqdm(enumerate(dataloader), total=len(dataloader)):
-            img, skh, mask = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
+            skh, mask, img = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
 
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()

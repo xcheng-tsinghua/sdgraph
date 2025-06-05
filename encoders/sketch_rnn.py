@@ -103,6 +103,12 @@ class SketchRNNEmbedding(Module):
             self.mu_head = nn.Conv1d(2 * enc_hidden_size, 2 * enc_hidden_size, 1)
 
     def forward(self, inputs: torch.Tensor, mask: torch.Tensor,  state=None):
+        """
+        :param inputs: [bs, len, emb]
+        :param mask: [bs, len]
+        :param state:
+        :return:
+        """
         inputs = inputs.transpose(0, 1)
 
         # -> output: [n_pnt, bs, channel]

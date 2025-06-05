@@ -36,7 +36,13 @@ class VITFinetune(nn.Module):
 
     # @torch.inference_mode()
     def forward(self, image):
-        image = einops.repeat(image, 'b w h -> b c w h', c=3)
+        """
+
+        :param image: [bs, c, w, h]
+        :return:
+        """
+        if len(image.size()) == 3:
+            image = einops.repeat(image, 'b w h -> b c w h', c=3)
 
         self.image_encoder_pretrained = self.image_encoder_pretrained.eval()
         with torch.no_grad():

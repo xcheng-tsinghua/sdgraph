@@ -16,11 +16,11 @@ from data_utils import sketch_utils as du
 from data_utils import vis
 
 
-def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False):
+def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False):
     """
     最初始的版本
     通过反复合并、拆分，使得笔划长度尽量相等
-    :return:
+    :return: [n_stk, n_stk_pnt, xy]
     """
     try:
         # 读取草图数据
@@ -83,9 +83,12 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
         if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
 
-        # 转换成 Tensor
+        # 转换成 Tensor. [n_stk, n_stk_pnt, 2]
         sketch_data = np.array(sketch_data)
-        return torch.from_numpy(sketch_data)
+        if is_shuffle_stroke:
+            np.random.shuffle(sketch_data)
+
+        return sketch_data
 
     except:
         print('error file read')
@@ -1017,7 +1020,7 @@ def std_to_stk_file(std_file, source_dir, target_dir, preprocess_func, delimiter
 
         target_skh_STK = preprocess_func(std_file)
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-        target_skh_STK = target_skh_STK.numpy()
+        # target_skh_STK = target_skh_STK.numpy()
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
@@ -1247,12 +1250,15 @@ if __name__ == '__main__':
     #                    rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
     #                    preprocess_orig)
 
-    find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
 
     # folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
     # find_nonstandard_leaf_dirs(folder)
 
+    # preprocess_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt')
+
+    # std_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean\train\bat_full\349.txt', r'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk11_stkpnt32\1.txt', preprocess_orig, ',')
 
     pass
 

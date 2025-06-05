@@ -72,7 +72,8 @@ class SketchDatasetCls(Dataset):
                  workers=8,
                  is_retrieval=False,
                  is_already_divided=False,
-                 is_preprocess=True
+                 is_preprocess=True,
+                 is_shuffle_stroke=False
                  ):
         """
         :param root:
@@ -91,7 +92,8 @@ class SketchDatasetCls(Dataset):
         :param workers:
         :param is_retrieval: 是否是检索
         :param is_already_divided: 训练集与测试集是否已经划分好
-        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK
+        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK，如果无需处理，说明文件里已转化好
+        :param is_shuffle_stroke: 是否打乱笔划
         :return:
         """
         print('sketch dataset total, from:' + root + f'. using workers: {workers}')
@@ -104,6 +106,7 @@ class SketchDatasetCls(Dataset):
         self.img_size = img_size
         self.is_retrieval = is_retrieval
         self.is_preprocess = is_preprocess
+        self.is_shuffle_stroke = is_shuffle_stroke
 
         # 训练测试集按给定比例划分
         train_dir = os.path.join(root, 'train')
@@ -135,7 +138,8 @@ class SketchDatasetCls(Dataset):
                                   coor_mode=coor_mode,
                                   max_len=max_len,
                                   img_size=img_size,
-                                  is_retrieval=is_retrieval
+                                  is_retrieval=is_retrieval,
+                                  is_shuffle_stroke=is_shuffle_stroke
                                   )
 
             if workers >= 2:
@@ -256,7 +260,7 @@ class SketchDatasetCls(Dataset):
             return datapath
 
     @staticmethod
-    def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_retrieval):
+    def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_retrieval, is_shuffle_stroke):
         """
         从文件里读取数据，并进行预处理
         支持三种类型数据读取
@@ -266,29 +270,28 @@ class SketchDatasetCls(Dataset):
         :param max_len:
         :param img_size:
         :param is_retrieval:
+        :param is_shuffle_stroke:
         :return:
         """
         class_name, file_root = cls_path
 
         try:
             if back_mode == 'STK':
+                sketch_cube = prep(file_root, is_shuffle_stroke=is_shuffle_stroke)
                 if is_retrieval:
-                    sketch_cube = prep(file_root)
                     sketch_img = du.std_to_tensor_img(file_root)
                     return sketch_img, sketch_cube, 0
 
                 else:
-                    sketch_cube = prep(file_root)
                     return class_name, sketch_cube, 0
 
             elif back_mode == 'S5':
+                sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode, is_shuffle_stroke)
                 if is_retrieval:
-                    sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
                     sketch_img = du.std_to_tensor_img(file_root)
                     return sketch_img, sketch_cube, mask
 
                 else:
-                    sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode)
                     return class_name, sketch_cube, mask
 
             elif back_mode == 'IMG':
@@ -316,6 +319,10 @@ class SketchDatasetCls(Dataset):
             class_key, data_path = data[index]
             sketch_cube = np.loadtxt(data_path, delimiter=',')
             sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
+
+            if self.is_shuffle_stroke:
+                np.random.shuffle(sketch_cube)
+
             mask = 0
 
         else:
@@ -495,6 +502,7 @@ class QuickDrawCls(Dataset):
             True: 需要极长加载速度，训练时无需转化，整体看提升训练速度
         :param pen_down:
         :param pen_up:
+
         """
         print('QuickDrawCls Dataset, from:' + root_npz + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
@@ -718,51 +726,128 @@ class DiffDataset(Dataset):
 
 
 class RetrievalDataset(Dataset):
-    def __init__(self, root, mode='train', max_seq_length=256, image_size=(224, 224), return_mode='S5'):
+    def __init__(self,
+                 root,
+                 data_mode='train',
+                 max_seq_length=100,
+                 image_size=(224, 224),
+                 back_mode='S5',
+                 test_ratio=0.2,
+                 is_shuffle=False
+                 ):
         """
         图片通过将矢量图转化获得
         读取的可以是 txt，svg
         :param root:
-        :param mode: ['train', 'test']
+        :param data_mode: ['train', 'test']
         :param max_seq_length:
-        :param return_mode:
+        :param back_mode:
+        :param test_ratio: 测试集占比
+        :param is_shuffle: 是否随机划分训练集测试集
+
+        root
+        ├─ sketches
+        │   ├─ airplane
+        │   │   ├─ n02691156_58-1.svg
+        │   │   ├─ n02691156_58-2.svg
+        │   │   ├─ ...
+        │   │
+        │   ├─ alarm_clock
+        │   │   ├─ n02694662_92-1.svg
+        │   │   ├─ n02694662_92-2.svg
+        │   │   ├─ ...
+        │   ...
+        │
+        ├─ photos
+        │   ├─ airplane
+        │   │   ├─ n02691156_58.jpg
+        │   │   ├─ n02691156_196.jpg
+        │   │   ├─ ...
+        │   │
+        │   ├─ alarm_clock
+        │   │   ├─ n02694662_92.jpg
+        │   │   ├─ n02694662_166.jpg
+        │   │   ├─ ...
+        │   ...
+        │
+
         """
+        print(f'Retrieval dataset from: {root}')
+
         self.max_seq_length = max_seq_length
-        self.return_mode = return_mode
+        self.back_mode = back_mode
         self.image_size = image_size
+        self.data_mode = data_mode
 
-        png_root = os.path.join(root, 'sketch_png', mode)
+        # 草图根目录
+        sketch_root = os.path.join(root, 'sketches')
 
-        # 获取全部样本
-        self.pngs_all = du.get_allfiles(png_root, 'png')
+        # 草图类别
+        classes = du.get_subdirs(sketch_root)
+
+        self.sketch_photo_train = []
+        self.sketch_photo_test = []
+
+        for c_class in classes:
+            c_class_root = os.path.join(sketch_root, c_class)
+
+            # 获取全部草图svg文件
+            c_sketch_all = du.get_allfiles(c_class_root, 'txt')
+
+            if is_shuffle:
+                random.shuffle(c_sketch_all)
+
+            n_c_sketch = len(c_sketch_all)
+            test_idx = math.ceil(n_c_sketch * test_ratio)
+
+            for idx, c_sketch in enumerate(c_sketch_all):
+                # 获取图片文件名
+                photo_name = os.path.basename(c_sketch).split('-')[0] + '.jpg'
+                photo_path = os.path.join(root, 'photos', c_class, photo_name)
+
+                if idx < test_idx:
+                    self.sketch_photo_test.append((c_sketch, photo_path))
+                else:
+                    self.sketch_photo_train.append((c_sketch, photo_path))
+
+        print(f'Training instance all: {len(self.sketch_photo_train)}')
+        print(f'Testing instance all: {len(self.sketch_photo_test)}')
 
     def __getitem__(self, index):
-        png_path = self.pngs_all[index]
-
-        txt_path = png_path.replace('sketch_png', 'sketch_txt')
-        txt_path = txt_path.replace('png', 'txt')
-
-        image = Image.open(png_path).convert("RGB")  # 确保是 RGB 模式
-        transform = transforms.Compose([
-            transforms.Resize(self.image_size),
-            transforms.ToTensor()  # 转换为 [C, H, W] 格式的 Tensor，值在 [0, 1] 之间
-        ])
-        tensor_image = transform(image)
-
-        if self.return_mode == 'S5':
-            txt_tensor, mask = du.sketch_file_to_s5(txt_path, self.max_seq_length)
-
-        elif self.return_mode == 'STK':
-            sketch_data = pp.preprocess_just_pad(txt_path)
-            txt_tensor, mask = du.stroke_list_to_sketch_cube(sketch_data)
-
+        if self.data_mode == 'train':
+            datapath = self.sketch_photo_train
+        elif self.data_mode == 'test':
+            datapath = self.sketch_photo_test
         else:
-            raise ValueError('error return type')
+            raise TypeError('error dataset mode')
 
-        return tensor_image, txt_tensor, mask
+        sketch_root, photo_root = datapath[index]
+
+        if self.back_mode == 'STK':
+            sketch_data = prep(sketch_root)
+            mask = 0
+        elif self.back_mode == 'S5':
+            sketch_data, mask = du.sketch_file_to_s5(sketch_root, self.max_seq_length, 'REL')
+        else:
+            raise TypeError('error back mode')
+
+        photo_data = du.img_read(photo_root, self.image_size)
+
+        return sketch_data, mask, photo_data, index
 
     def __len__(self):
-        return len(self.pngs_all)
+        if self.data_mode == 'train':
+            return len(self.sketch_photo_train)
+        elif self.data_mode == 'test':
+            return len(self.sketch_photo_test)
+        else:
+            raise TypeError('error dataset mode')
+
+    def train(self):
+        self.data_mode = 'train'
+
+    def eval(self):
+        self.data_mode = 'test'
 
 
 class SketchDatasetSeg(Dataset):

@@ -499,13 +499,17 @@ if __name__ == '__main__':
     # plt.show()
 
     # 读取灰度图
-    img = cv2.imread('C:/Users/ChengXi/Desktop/figure.png', cv2.IMREAD_GRAYSCALE)
-    # 高斯平滑降噪
-    blur = cv2.GaussianBlur(img, (5, 5), 1.4)
-    # Canny 检测：低阈值50，高阈值150
-    edges = cv2.Canny(blur, 50, 150)
-    edges = cv2.bitwise_not(edges)
-    cv2.imwrite('C:/Users/ChengXi/Desktop/edge.png', edges)
+    # img = cv2.imread('C:/Users/ChengXi/Desktop/figure.png', cv2.IMREAD_GRAYSCALE)
+    # # 高斯平滑降噪
+    # blur = cv2.GaussianBlur(img, (5, 5), 1.4)
+    # # Canny 检测：低阈值50，高阈值150
+    # edges = cv2.Canny(blur, 50, 150)
+    # edges = cv2.bitwise_not(edges)
+    # cv2.imwrite('C:/Users/ChengXi/Desktop/edge.png', edges)
+
+    astr = 'n02694662_17391-2.svg'
+    print(astr.split('.'))
+
 
 
 
