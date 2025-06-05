@@ -8,20 +8,81 @@ from data_utils import sketch_utils as du
 import random
 from matplotlib import pyplot as plt
 from encoders import spline as sp
+from tqdm import tqdm
 
 import global_defs
 
 
-def traverse_folder():
-    data_root = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut'
+def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, save_idx=0):
+    """
+    显示原始采集的机械草图
+    存储的每行应该为： [x, y, state]
+    :param root:
+    :param pen_up: 抬笔指令
+    :param pen_down: 落笔指令
+    :param title: 落笔指令
+    :param show_dot:
+    :param show_axis:
+    :return:
+    """
+    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+    sketch_data = du.load_sketch_file(root, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为17，防止出现空数组
+    sketch_data[-1, 2] = pen_down
+
+    # -------------------------------
+    # 去掉点数过少的笔划
+    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
+
+    # 重采样，使得点之间的距离近似相等
+    # strokes = sp.batched_spline_approx(
+    #     point_list=strokes,
+    #     median_ratio=0.1,
+    #     approx_mode='uni-arclength'
+    # )
+    plt.figure(figsize=(10, 5))
+    for s in strokes:
+        plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
+
+        if show_dot:
+            plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80)
+
+    if not show_axis:
+        plt.axis('off')
+
+    plt.axis("equal")
+    plt.title(title)
+    plt.savefig(rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\plug-test\{save_idx}.png')
+    plt.clf()
+    plt.close()
+    # plt.show()
+
+
+
+def traverse_folder(data_root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Plug'):
+    # data_root = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut'
 
     files_all = sketch_utils.get_allfiles(data_root)
     random.shuffle(files_all)
 
-    for c_file in files_all:
-        print(c_file)
-        vis.vis_sketch_orig(c_file, title=c_file, show_dot=True, dot_gap=1)
-        prep.preprocess_orig(c_file, is_show_status=True)
+    for idx, c_file in tqdm(enumerate(files_all), total=len(files_all)):
+        # print(c_file)
+        vis_sketch_orig(c_file, title=c_file, show_dot=True, dot_gap=1, save_idx=idx)
+        # prep.preprocess_orig(c_file, is_show_status=True)
         # sketch_utils.std_to_tensor_img(np.loadtxt(c_file, delimiter=','))
 
 
@@ -251,6 +312,135 @@ def show_points():
     plt.show()
 
 
+def show_fig2():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
+    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    # colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180),
+              (31,119,180)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 2
+
+    show_fig_idx = 6
+
+    def replace_except_index_inplace(arr, index):
+        for i in range(len(arr)):
+            if i != index:
+                arr[i] = (1, 1, 1)
+        return arr
+
+    poins_resamp = []
+
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+        replace_except_index_inplace(colors, show_fig_idx)
+
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+
+    # plt.plot(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], color=colors[show_fig_idx])
+    plt.scatter(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], s=80, color=colors[show_fig_idx])
+
+    np.savetxt(r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_points.txt', np.vstack(poins_resamp), delimiter=',')
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def show_fig3():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
+    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    # colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180),
+              (31,119,180)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 2
+
+    poins_resamp = []
+
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
 
 
 if __name__ == '__main__':
@@ -275,9 +465,15 @@ if __name__ == '__main__':
 
     # show_points()
 
-    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'  # 有效齿轮
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Plug\8d3fe8a25838031b3321b480176926db_3.txt'
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
-    prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    # show_fig3()
+
+    # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    traverse_folder()
 
     pass
 
