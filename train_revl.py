@@ -22,7 +22,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sketch_rnn', help='---')
 
-    parser.add_argument('--bs', type=int, default=10, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=200, help='batch size in training')
     parser.add_argument('--epoch', default=50, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
