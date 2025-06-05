@@ -12,6 +12,7 @@ from tqdm import tqdm
 from colorama import Fore, Back, init
 import numpy as np
 from itertools import chain
+from datetime import datetime
 
 from encoders.vit import VITFinetune
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -19,16 +20,16 @@ from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
+    parser.add_argument('--save_str', type=str, default='sketch_rnn', help='---')
 
-    parser.add_argument('--bs', type=int, default=200, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=10, help='batch size in training')
     parser.add_argument('--epoch', default=50, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_retrieval')
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_retrieval')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_retrieval\test_dataset')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -83,60 +84,89 @@ class EmbeddingSpace(object):
         img_encoder = img_encoder.eval()
 
         self.embeddings = []
-        for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='building embedding space'):
-            images = data[2].float().cuda()
+        self.data_idx = []
+        for data in tqdm(skh_img_loader, total=len(skh_img_loader), desc='embeding'):
+            images, idxes = data[0].float().cuda(), data[1].long().cuda()
+
+            self.data_idx.append(idxes)
 
             with torch.no_grad():
                 # -> [bs, emb]
                 img_embedding = img_encoder(images)
 
                 # 获取测试集中全部的图片 embedding，这里embedding的索引即对应它的文件
-                self.embeddings.extend(img_embedding)
+                self.embeddings.append(img_embedding)
 
         # -> [all, emb]
         self.embeddings = torch.cat(self.embeddings, dim=0)
 
+        # -> [all, ]
+        self.data_idx = torch.cat(self.data_idx, dim=0)
+
     def top_k(self, sketches: torch.Tensor, k: int):
         """
-
         :param sketches: [bs, emb]
         :param k:
         :return: [bs, k]
         """
         # -> [bs, all]
         distances = torch.cdist(sketches, self.embeddings)
-        topk_distances, topk_indices = torch.topk(distances, k, largest=False, dim=1)
 
-        return topk_distances, topk_indices
+        # -> [bs, k]
+        topk_indices = torch.topk(distances, k, largest=False, dim=1)[1]
+
+        searched_idx = self.data_idx[topk_indices]
+        return searched_idx
 
 
-def test(img_encoder, skh_encoder, skh_img_loader):
+def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
+    skh_img_dataset.img()
     emb_space = EmbeddingSpace(img_encoder, skh_img_loader)
 
+    c_correct_1 = 0
+    c_correct_5 = 0
+    c_correct_10 = 0
+    c_all = 0
+
+    skh_img_dataset.eval()
+    skh_encoder = skh_encoder.eval()
     for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='evaluate'):
-        sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[1].long().cuda()
+        sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[3].long().cuda()
 
-        # [bs, emb]
-        skh_embedding = skh_encoder(sketch, mask)
+        with torch.no_grad():
+            # [bs, emb]
+            skh_embedding = skh_encoder(sketch, mask)
 
-        # [bs, k]
-        p_index = emb_space.top_k(skh_embedding, 10)[1]
+            # [bs, k]
+            searched_idx = emb_space.top_k(skh_embedding, 10)
 
+            # 计算准确率
+            matches = (searched_idx == v_index.unsqueeze(1))  # [bs, k]
 
+            # 检查每行是否至少有一个 True
+            match_1 = matches[:, 0].sum().item()  # [bs] 布尔向量
 
+            match_5 = matches[:, :5].any(dim=1).sum().item()  # [bs] 布尔向量
 
+            match_10 = matches.any(dim=1).sum().item()
 
+            c_correct_1 += match_1
+            c_correct_5 += match_5
+            c_correct_10 += match_10
+            c_all += sketch.size(0)
 
-
-
-
-
-
-
-
+    return c_correct_1 / c_all, c_correct_5 / c_all, c_correct_10 / c_all
 
 
 def main(args):
+    """
+    训练函数
+    :param args:
+    :return:
+    """
+
+    '''日志记录'''
+    logger = get_log('./log/' + args.save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
 
     # 设置数据集
     if args.local == 'True':
@@ -145,7 +175,7 @@ def main(args):
         data_root = args.root_sever
 
     dataset = RetrievalDataset(root=data_root, back_mode='S5')
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4, drop_last=True)
 
     '''加载模型及权重'''
     img_encoder = VITFinetune().cuda()
@@ -183,7 +213,7 @@ def main(args):
         loss_all = []
 
         dataset.train()
-        for batch_id, data in tqdm(enumerate(dataloader), total=len(dataloader)):
+        for batch_id, data in tqdm(enumerate(dataloader), total=len(dataloader), desc='training'):
             skh, mask, img = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda()
 
             # 梯度置为零，否则梯度会累加
@@ -204,9 +234,14 @@ def main(args):
         torch.save(skh_encoder.state_dict(), skh_weight_path)
         torch.save(img_encoder.state_dict(), img_weight_path)
 
-        print(f'save sketch weights at: {skh_weight_path}')
-        print(f'save image weights at: {img_weight_path}')
-        print(f'{epoch} / {args.epoch}: loss: {np.mean(loss_all)}')
+        # print(f'save sketch weights at: {skh_weight_path}')
+        # print(f'save image weights at: {img_weight_path}')
+        # print(f'{epoch} / {args.epoch}: loss: {np.mean(loss_all)}')
+
+        acc_top1, acc_top5, acc_top10 = test(img_encoder, skh_encoder, dataset, dataloader)
+        eval_str = f'{args.save_str}:{epoch}/{args.epoch}-loss: {np.mean(loss_all)} acc_top1: {acc_top1} acc_top5: {acc_top5} acc_top10: {acc_top10}'
+        print(eval_str)
+        logger.info(eval_str)
 
 
 if __name__ == '__main__':

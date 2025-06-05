@@ -787,6 +787,8 @@ class RetrievalDataset(Dataset):
 
         self.sketch_photo_train = []
         self.sketch_photo_test = []
+        # self.imgs_train = set()
+        self.imgs_test = set()
 
         for c_class in classes:
             c_class_root = os.path.join(sketch_root, c_class)
@@ -802,26 +804,39 @@ class RetrievalDataset(Dataset):
 
             for idx, c_sketch in enumerate(c_sketch_all):
                 # 获取图片文件名
-                photo_name = os.path.basename(c_sketch).split('-')[0] + '.jpg'
-                photo_path = os.path.join(root, 'photos', c_class, photo_name)
+                img_name = os.path.basename(c_sketch).split('-')[0] + '.jpg'
+                img_path = os.path.join(root, 'photos', c_class, img_name)
 
                 if idx < test_idx:
-                    self.sketch_photo_test.append((c_sketch, photo_path))
+                    self.imgs_test.add(img_path)
+                    self.sketch_photo_test.append((c_sketch, img_path))
                 else:
-                    self.sketch_photo_train.append((c_sketch, photo_path))
+                    # self.imgs_train.add(img_path)
+                    self.sketch_photo_train.append((c_sketch, img_path))
+
+        self.imgs_test = list(self.imgs_test)
 
         print(f'Training instance all: {len(self.sketch_photo_train)}')
         print(f'Testing instance all: {len(self.sketch_photo_test)}')
 
     def __getitem__(self, index):
         if self.data_mode == 'train':
-            datapath = self.sketch_photo_train
+            sketch_root, photo_root = self.sketch_photo_train[index]
+            c_index = 0
+
         elif self.data_mode == 'test':
-            datapath = self.sketch_photo_test
+            sketch_root, photo_root = self.sketch_photo_test[index]
+            c_index = self.imgs_test.index(photo_root)
+
+        elif self.data_mode == 'img':
+            # 检索评价时用
+            img_root = self.imgs_test[index]
+            img_data = du.img_read(img_root, self.image_size)
+
+            return img_data, index
+
         else:
             raise TypeError('error dataset mode')
-
-        sketch_root, photo_root = datapath[index]
 
         if self.back_mode == 'STK':
             sketch_data = prep(sketch_root)
@@ -831,15 +846,17 @@ class RetrievalDataset(Dataset):
         else:
             raise TypeError('error back mode')
 
-        photo_data = du.img_read(photo_root, self.image_size)
+        img_data = du.img_read(photo_root, self.image_size)
 
-        return sketch_data, mask, photo_data, index
+        return sketch_data, mask, img_data, c_index
 
     def __len__(self):
         if self.data_mode == 'train':
             return len(self.sketch_photo_train)
         elif self.data_mode == 'test':
             return len(self.sketch_photo_test)
+        elif self.data_mode == 'img':
+            return len(self.imgs_test)
         else:
             raise TypeError('error dataset mode')
 
@@ -848,6 +865,10 @@ class RetrievalDataset(Dataset):
 
     def eval(self):
         self.data_mode = 'test'
+
+    def img(self):
+        self.data_mode = 'img'
+
 
 
 class SketchDatasetSeg(Dataset):
