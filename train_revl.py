@@ -175,7 +175,7 @@ def main(args):
         data_root = args.root_sever
 
     dataset = RetrievalDataset(root=data_root, back_mode='S5')
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4, drop_last=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
     img_encoder = VITFinetune().cuda()
