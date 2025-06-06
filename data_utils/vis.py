@@ -510,6 +510,33 @@ def vis_quickdraw(npz_file):
         vis_sketch_data(c_sketch)
 
 
+def vis_tensor_map(cuda_tensor, title=None, save_root=None, is_show=True):
+    m, n = cuda_tensor.size()
+
+    # 1. 将 CUDA Tensor 转换为 CPU 上的 NumPy 数组
+    cpu_array = cuda_tensor.cpu().numpy()  # 关键步骤：数据从 GPU → CPU
+
+    # 2. 绘制矩阵热力图
+    plt.figure(figsize=(8, 4))  # 设置图像尺寸
+
+    # 绘制热力图，cmap 指定颜色映射（如 'viridis'、'coolwarm' 等）
+    plt.imshow(cpu_array, cmap='viridis', interpolation='nearest', aspect='auto')
+
+    # 3. 自定义图像样式
+    plt.title(title)
+    plt.xlabel("Columns", fontsize=12)
+    plt.ylabel("Rows", fontsize=12)
+    plt.xticks(range(n))
+    plt.yticks(range(m))
+    plt.colorbar()
+
+    if save_root is not None:
+        plt.savefig(save_root)
+
+    if is_show:
+        plt.show()
+
+
 if __name__ == '__main__':
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 

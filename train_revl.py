@@ -7,48 +7,26 @@ from torch.nn import Module
 import torch.nn.functional as F
 import argparse
 from data_utils.sketch_dataset import RetrievalDataset
-from encoders.sketch_rnn import SketchRNNEmbedding as SketchEncoder
+from encoders.sketch_rnn import SketchRNNEmbedding
+from encoders.sketch_transformer import SketchTransformer
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import numpy as np
 from itertools import chain
 from datetime import datetime
 import matplotlib.pyplot as plt
+from data_utils.vis import vis_tensor_map
 
 from encoders.vit import VITFinetune, create_pretrained_VIT
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
-def show_tensor_map(cuda_tensor):
-    m, n = cuda_tensor.size()
 
-    # 1. 将 CUDA Tensor 转换为 CPU 上的 NumPy 数组
-    cpu_array = cuda_tensor.cpu().numpy()  # 关键步骤：数据从 GPU → CPU
-
-    # 2. 绘制矩阵热力图
-    plt.figure(figsize=(8, 4))  # 设置图像尺寸
-
-    # 绘制热力图，cmap 指定颜色映射（如 'viridis'、'coolwarm' 等）
-    plt.imshow(cpu_array, cmap='viridis', interpolation='nearest', aspect='auto')
-
-    # 3. 自定义图像样式
-    plt.title(f"CUDA Tensor Visualization ({m}×{n})", fontsize=14, fontweight='bold')
-    plt.xlabel("Columns", fontsize=12)
-    plt.ylabel("Rows", fontsize=12)
-    plt.xticks(range(n))  # 显示列索引（可选）
-    plt.yticks(range(m))  # 显示行索引（可选）
-    plt.colorbar()  # 添加颜色条，显示数值范围
-
-    # 显示网格（可选）
-    # plt.grid(visible=True, color='white', linewidth=0.5)
-
-    # 保存或显示图像
-    plt.show()
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default='sketch_rnn', help='---')
+    parser.add_argument('--save_str', type=str, default='sketch_transformer', help='---')
 
     parser.add_argument('--bs', type=int, default=3, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
@@ -122,6 +100,8 @@ class EmbeddingSpace(object):
                 # -> [bs, emb]
                 img_embedding = img_encoder(images)
 
+                # show_tensor_map(img_embedding[:, ::10])
+
                 # 获取测试集中全部的图片 embedding，这里embedding的索引即对应它的文件
                 self.embeddings.append(img_embedding)
 
@@ -162,6 +142,7 @@ def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
 
     skh_img_dataset.eval()
     skh_encoder = skh_encoder.eval()
+    save_idx = 0
     for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='evaluate'):
         sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[3].long().cuda()
 
@@ -169,11 +150,16 @@ def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
             # [bs, emb]
             skh_embedding = skh_encoder(sketch, mask)
 
+            vis_tensor_map(skh_embedding[:, ::10], is_show=False, save_root=f'./imgs_gen/sketch_emb_{save_idx}.png')
+            save_idx += 1
+
             # [bs, k]
             searched_idx = emb_space.top_k(skh_embedding, 10)
 
             # 计算准确率
             matches = (searched_idx == v_index.unsqueeze(1))  # [bs, k]
+
+            # vis_tensor_map(matches)
 
             # 检查每行是否至少有一个 True
             match_1 = matches[:, 0].sum().item()  # [bs] 布尔向量
@@ -211,7 +197,7 @@ def main(args):
 
     '''加载模型及权重'''
     img_encoder = create_pretrained_VIT().cuda()
-    skh_encoder = SketchEncoder().cuda()
+    skh_encoder = SketchTransformer().cuda()
 
     skh_weight_path = f'./model_trained/retrieval_{args.save_str}.pth'
     # img_weight_path = './model_trained/sketch_retrieval_img.pth'
