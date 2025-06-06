@@ -25,6 +25,7 @@ from torchvision import transforms
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+from data_utils.vis import vis_sketch_orig, vis_s5_data
 
 import global_defs
 from data_utils import preprocess as pp
@@ -729,11 +730,11 @@ class RetrievalDataset(Dataset):
     def __init__(self,
                  root,
                  data_mode='train',
-                 max_seq_length=100,
+                 max_seq_length=1200,
                  image_size=(224, 224),
                  back_mode='S5',
                  test_ratio=0.2,
-                 is_shuffle=False
+                 is_shuffle=True
                  ):
         """
         图片通过将矢量图转化获得
@@ -843,7 +844,13 @@ class RetrievalDataset(Dataset):
             sketch_data = prep(sketch_root)
             mask = 0
         elif self.back_mode == 'S5':
-            sketch_data, mask = du.sketch_file_to_s5(sketch_root, self.max_seq_length, 'REL')
+
+            # vis_sketch_orig(sketch_root)
+
+            sketch_data, mask = du.sketch_file_to_s5(sketch_root, self.max_seq_length, 'ABS')
+
+            # vis_s5_data(sketch_data)
+
         else:
             raise TypeError('error back mode')
 

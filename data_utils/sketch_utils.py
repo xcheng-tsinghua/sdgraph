@@ -1323,11 +1323,16 @@ def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False
     # 多于指定点数则进行采样
     n_point_raw = len(data_raw)
     if n_point_raw > max_length:
-        choice = np.random.choice(n_point_raw, max_length, replace=True)
-        data_raw = data_raw[choice, :]
+        data_raw = data_raw[:max_length, :]
+
+        # choice = np.random.choice(n_point_raw, max_length, replace=True)
+        # data_raw = data_raw[choice, :]
 
     # [n_points, 3]
     data_raw = sketch_std(data_raw)
+
+    # plt.plot(data_raw[:, 0], data_raw[:, 1])
+    # plt.show()
 
     # 相对坐标
     if coor_mode == 'REL':
@@ -1772,6 +1777,20 @@ def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=gl
     return tensor_img
 
 
+def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
+    # 最后一行最后一个数改为17，防止出现空数组
+    sketch_data[-1, 2] = pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
+
+    for s in strokes:
+        plt.plot(s[:, 0], -s[:, 1])
+
+    plt.axis('off')
+    plt.show()
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -1851,11 +1870,17 @@ if __name__ == '__main__':
     # quickdraw_to_mgt_batched(r'D:\document\DeepLearning\DataSet\quickdraw\raw', r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random', is_random_select=True)
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg', r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches')
 
-    sketch_file_to_s5(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt', 500, is_shuffle_stroke=True)
+
+
+    cdata, cmask = sketch_file_to_s5(r'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\test_dataset\\sketches\\airplane\\n02691156_2173-4.txt', 1200, is_shuffle_stroke=True)
+    vis_s5_data(cdata)
+
+
+    # plt.plot(cdata[:, 0].numpy(), cdata[:, 1].numpy())
+    # plt.show()
 
 
     pass
-
 
 
 

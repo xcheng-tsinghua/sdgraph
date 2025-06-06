@@ -522,7 +522,7 @@ class SketchTransformerModel(nn.Module):
 
 
 class SketchTransformer(nn.Module):
-    def __init__(self, max_length=200):
+    def __init__(self, max_length=1200):
         super().__init__()
 
         self.sketch_transformer = SketchTransformerModel(max_length=max_length)

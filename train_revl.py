@@ -15,7 +15,7 @@ import numpy as np
 from itertools import chain
 from datetime import datetime
 import matplotlib.pyplot as plt
-from data_utils.vis import vis_tensor_map
+from data_utils.vis import vis_tensor_map, vis_sketch_data, vis_s5_data
 
 from encoders.vit import VITFinetune, create_pretrained_VIT
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -146,12 +146,16 @@ def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
     for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='evaluate'):
         sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[3].long().cuda()
 
+        # for i in range(sketch.size(0)):
+        #     c_skh = sketch[i]
+        #     vis_s5_data(c_skh.detach().cpu().numpy())
+
         with torch.no_grad():
             # [bs, emb]
             skh_embedding = skh_encoder(sketch, mask)
 
             vis_tensor_map(skh_embedding[:, ::10], is_show=False, save_root=f'./imgs_gen/sketch_emb_{save_idx}.png')
-            save_idx += 1
+            # save_idx += 1
 
             # [bs, k]
             searched_idx = emb_space.top_k(skh_embedding, 10)
