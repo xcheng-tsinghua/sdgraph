@@ -536,6 +536,9 @@ def vis_tensor_map(cuda_tensor, title=None, save_root=None, is_show=True):
     if is_show:
         plt.show()
 
+    plt.clf()
+    plt.close()
+
 
 if __name__ == '__main__':
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
