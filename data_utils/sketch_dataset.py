@@ -818,6 +818,7 @@ class RetrievalDataset(Dataset):
 
         print(f'Training instance all: {len(self.sketch_photo_train)}')
         print(f'Testing instance all: {len(self.sketch_photo_test)}')
+        print(f'Testing images all: {len(self.imgs_test)}')
 
     def __getitem__(self, index):
         if self.data_mode == 'train':
@@ -868,7 +869,6 @@ class RetrievalDataset(Dataset):
 
     def img(self):
         self.data_mode = 'img'
-
 
 
 class SketchDatasetSeg(Dataset):

@@ -22,6 +22,9 @@ class ImageEncoder_ULIP(nn.Module):
 
 
 class VITFinetune(nn.Module):
+    """
+    注意预训练的权重和预测头均会训练
+    """
     def __init__(self, channel_out=512, root_ckpt='./model_trained/weight_image_encoder.pth'):
         super().__init__()
         print('create vit finetune')

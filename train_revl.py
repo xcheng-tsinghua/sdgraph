@@ -13,16 +13,44 @@ from colorama import Fore, Back, init
 import numpy as np
 from itertools import chain
 from datetime import datetime
+import matplotlib.pyplot as plt
 
-from encoders.vit import VITFinetune
+from encoders.vit import VITFinetune, create_pretrained_VIT
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
+
+
+def show_tensor_map(cuda_tensor):
+    m, n = cuda_tensor.size()
+
+    # 1. 将 CUDA Tensor 转换为 CPU 上的 NumPy 数组
+    cpu_array = cuda_tensor.cpu().numpy()  # 关键步骤：数据从 GPU → CPU
+
+    # 2. 绘制矩阵热力图
+    plt.figure(figsize=(8, 4))  # 设置图像尺寸
+
+    # 绘制热力图，cmap 指定颜色映射（如 'viridis'、'coolwarm' 等）
+    plt.imshow(cpu_array, cmap='viridis', interpolation='nearest', aspect='auto')
+
+    # 3. 自定义图像样式
+    plt.title(f"CUDA Tensor Visualization ({m}×{n})", fontsize=14, fontweight='bold')
+    plt.xlabel("Columns", fontsize=12)
+    plt.ylabel("Rows", fontsize=12)
+    plt.xticks(range(n))  # 显示列索引（可选）
+    plt.yticks(range(m))  # 显示行索引（可选）
+    plt.colorbar()  # 添加颜色条，显示数值范围
+
+    # 显示网格（可选）
+    # plt.grid(visible=True, color='white', linewidth=0.5)
+
+    # 保存或显示图像
+    plt.show()
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sketch_rnn', help='---')
 
-    parser.add_argument('--bs', type=int, default=1000, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=3, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
@@ -100,6 +128,8 @@ class EmbeddingSpace(object):
         # -> [all, emb]
         self.embeddings = torch.cat(self.embeddings, dim=0)
 
+        # show_tensor_map(self.embeddings)
+
         # -> [all, ]
         self.data_idx = torch.cat(self.data_idx, dim=0)
 
@@ -111,6 +141,8 @@ class EmbeddingSpace(object):
         """
         # -> [bs, all]
         distances = torch.cdist(sketches, self.embeddings)
+
+        # show_tensor_map(distances)
 
         # -> [bs, k]
         topk_indices = torch.topk(distances, k, largest=False, dim=1)[1]
@@ -178,15 +210,15 @@ def main(args):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
-    img_encoder = VITFinetune().cuda()
+    img_encoder = create_pretrained_VIT().cuda()
     skh_encoder = SketchEncoder().cuda()
 
-    skh_weight_path = './model_trained/sketch_retrieval_skh.pth'
-    img_weight_path = './model_trained/sketch_retrieval_img.pth'
+    skh_weight_path = f'./model_trained/retrieval_{args.save_str}.pth'
+    # img_weight_path = './model_trained/sketch_retrieval_img.pth'
     if args.is_load_weight == 'True':
         try:
-            img_encoder.load_state_dict(torch.load(img_weight_path))
-            print(Fore.GREEN + 'training image encoder from exist model: ' + img_weight_path)
+            # img_encoder.load_state_dict(torch.load(img_weight_path))
+            # print(Fore.GREEN + 'training image encoder from exist model: ' + img_weight_path)
 
             skh_encoder.load_state_dict(torch.load(skh_weight_path))
             print(Fore.GREEN + 'training sketch encoder from exist model: ' + skh_weight_path)
@@ -198,7 +230,7 @@ def main(args):
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        chain(img_encoder.parameters(), list(skh_encoder.parameters())),
+        skh_encoder.parameters(),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -206,10 +238,12 @@ def main(args):
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 
+    # acc_top1, acc_top5, acc_top10 = test(img_encoder, skh_encoder, dataset, dataloader)
+
     '''训练'''
     for epoch in range(args.epoch):
         skh_encoder = skh_encoder.train()
-        img_encoder = img_encoder.train()
+        # img_encoder = img_encoder.train()
         loss_all = []
 
         dataset.train()
@@ -220,8 +254,9 @@ def main(args):
             optimizer.zero_grad()
 
             skh_emb = skh_encoder(skh, mask)
-            img_emb = img_encoder(img)
+            img_emb = img_encoder(img).detach()
 
+            # loss = F.mse_loss(skh_emb, img_emb)
             loss = constructive_loss(skh_emb, img_emb)
 
             # 利用loss更新参数
@@ -232,7 +267,7 @@ def main(args):
 
         scheduler.step()
         torch.save(skh_encoder.state_dict(), skh_weight_path)
-        torch.save(img_encoder.state_dict(), img_weight_path)
+        # torch.save(img_encoder.state_dict(), img_weight_path)
 
         # print(f'save sketch weights at: {skh_weight_path}')
         # print(f'save image weights at: {img_weight_path}')
