@@ -18,6 +18,7 @@ import cv2
 import json
 from multiprocessing import Pool
 from functools import partial
+from scipy.interpolate import CubicSpline
 
 import global_defs
 import encoders.spline as sp
@@ -1791,6 +1792,50 @@ def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen
     plt.show()
 
 
+def stk_extend(stk: np.ndarray, n_extend=2):
+    """
+    将笔划左右分别向前插值n_extend个点
+    :param stk:
+    :param n_extend:
+    :return:
+    """
+    if len(stk) < 3:
+        return stk
+
+    n = stk.shape[0]
+    # 原始参数 t：均匀 0,1,...,n-1
+    t = np.arange(n)
+
+    x = stk[:, 0]
+    y = stk[:, 1]
+
+    # 构造可外推的三次样条
+    spline_x = CubicSpline(t, x, extrapolate=True)
+    spline_y = CubicSpline(t, y, extrapolate=True)
+
+    # 生成新的 t 取值：从 -n_extend...-1, 再 0...n-1, 再 n...n-1+n_extend
+    t_ext_head = np.arange(-n_extend, 0, 1)
+    t_ext_tail = np.arange(n, n + n_extend, 1)
+
+    # 组合所有 t
+    t_all = np.concatenate([t_ext_head, t, t_ext_tail])
+
+    # 样条插值（包括外推部分）
+    x_all = spline_x(t_all)
+    y_all = spline_y(t_all)
+
+    extended_pts = np.vstack([x_all, y_all]).T
+    return extended_pts
+
+
+def stk_extend_batched(stk_list, n_extend=2) -> list:
+    stks_extended = []
+    for c_stk in stk_list:
+        stks_extended.append(stk_extend(c_stk, n_extend))
+
+    return stks_extended
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -1872,13 +1917,19 @@ if __name__ == '__main__':
 
 
 
-    cdata, cmask = sketch_file_to_s5(r'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\test_dataset\\sketches\\airplane\\n02691156_2173-4.txt', 1200, is_shuffle_stroke=True)
-    vis_s5_data(cdata)
+    # cdata, cmask = sketch_file_to_s5(r'D:\\document\\DeepLearning\\DataSet\\sketch_retrieval\\test_dataset\\sketches\\airplane\\n02691156_2173-4.txt', 1200, is_shuffle_stroke=True)
+    # vis_s5_data(cdata)
 
 
     # plt.plot(cdata[:, 0].numpy(), cdata[:, 1].numpy())
     # plt.show()
 
+    points = np.array([[0, 0], [1, 1], [2, 4], [3, 9], [4, 16]])
+
+    pts_extend = stk_extend(points, 2)
+    plt.plot(pts_extend[:, 0], pts_extend[:, 1])
+    plt.scatter(pts_extend[:, 0], pts_extend[:, 1])
+    plt.show()
 
     pass
 
