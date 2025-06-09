@@ -20,7 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default=f'sdgraph_moon_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
-    parser.add_argument('--bs', type=int, default=200, help='batch size in training')  # bs = 100, 6889 MiB
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')  # bs = 100, 6889 MiB
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
