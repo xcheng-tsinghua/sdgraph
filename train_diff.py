@@ -10,16 +10,17 @@ from datetime import datetime
 import global_defs
 from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
 from data_utils.vis import save_format_sketch, save_format_sketch_test
-from encoders.sdgraph_stk_samp import SDGraphUNet
+# from encoders.sdgraph_stk_samp import SDGraphUNet
+from encoders.sdgraph import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log, get_log
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default=f'sdgraph_apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--save_str', type=str, default=f'sdgraph_moon_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
-    parser.add_argument('--bs', type=int, default=32, help='batch size in training')  # bs = 100, 6889 MiB
+    parser.add_argument('--bs', type=int, default=200, help='batch size in training')  # bs = 100, 6889 MiB
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
@@ -27,8 +28,8 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/apple.full.npz')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz')
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/raw/moon.full.npz')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz')
 
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')

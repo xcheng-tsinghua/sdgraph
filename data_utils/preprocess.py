@@ -82,6 +82,8 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         if len(sketch_data) != n_stk:
             raise ValueError(f'error stroke number final: {len(sketch_data)}, file: {sketch_root}')
 
+        # TODO: 将每个笔划左右插值两个点，使笔划间存在一定的重合区域，减缓生成时笔划过于分散
+
         # 将每个笔划重采样至指定点
         sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
         if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
