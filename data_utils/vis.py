@@ -576,9 +576,9 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Turbine\6cb038970ff89914aaf1010e1fae3505_3.txt'
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Sprocket\ee6719b6fd0110c3ffaba2c28a4a7e38_3.txt'
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Rivet\4c7f5c43de8782deda9d715bc6c0a804_4.txt'
-    the_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\test_dataset\sketches\airplane\n02691156_359-2.txt'
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\test_dataset\sketches\airplane\n02691156_359-2.txt'
 
-    vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
+    # vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
 
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_from_quickdraw\apple\1.txt', show_dot=False)
@@ -606,6 +606,14 @@ if __name__ == '__main__':
     #     vis_sketch_data(c_sketch)
 
     # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\laptop.full.npz')
+
+    # 有效的草图
+    # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
+    # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz'
+    # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz'
+    the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\zigzag.full.npz'
+
+    vis_quickdraw(the_file)
 
     pass
 
