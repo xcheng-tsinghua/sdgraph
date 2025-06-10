@@ -20,10 +20,10 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default=f'sdgraph_$TYPE$_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')  # bs = 100, 6889 MiB
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
+    parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=100, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
@@ -53,7 +53,8 @@ def parse_args():
 def main(args):
     print(args)
 
-    save_str = args.save_str.replace('$TYPE$', args.category)
+    save_str = f'sdgraph_{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+    # save_str = args.save_str.replace('$TYPE$', args.category)
 
     if args.is_stk_sample == 'True':
         model = sd_stk_sample(2, 2)
