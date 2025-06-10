@@ -1,19 +1,46 @@
-import einops
 import numpy as np
 import warnings
-import os
-import shutil
 import torch
-from tqdm import tqdm
 import matplotlib.pyplot as plt
-from multiprocessing import Pool
-from functools import partial
 
 import global_defs
 from data_utils import filter as ft
 from encoders import spline as sp
 from data_utils import sketch_utils as du
 from data_utils import vis
+from data_utils import sketch_file_read as fr
+
+
+def stroke_list_padding_to_cube(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
+    """
+    将[(n0, 2), (n1, 2), ..., (n_N, 2)] 的stroke list转换为 [n_stk, n_stk_pnt, 3] 格式草图，第三维度表示点所在平面，不足的点用 PAD 补齐
+    有效位置为 [x, y, positive_val], 无效位置为 [0, 0, negative_val]
+    :param sketch_list:
+    :param n_stk:
+    :param n_stk_pnt:
+    :param positive_val:
+    :param negative_val:
+    :return:
+    """
+    n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
+    n_valid_stk = len(sketch_list)
+    # last_pnt = torch.from_numpy(sketch_list[-1][-1])
+
+    for idx, c_stk in enumerate(sketch_list):
+        c_len = len(c_stk)
+        c_torch_stk = torch.from_numpy(c_stk)
+        n3_cube[idx, :c_len, :2] = c_torch_stk
+        n3_cube[idx, :c_len, 2] = positive_val
+
+        # 末端重合
+        # n3_cube[idx, c_len:, :2] = c_torch_stk[-1]
+        n3_cube[idx, c_len:, 2] = negative_val
+
+    for idx in range(n_valid_stk, n_stk):
+        # n3_cube[idx, :, :2] = last_pnt
+        n3_cube[idx, :, 2] = negative_val
+
+    return n3_cube
 
 
 def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False):
@@ -26,7 +53,7 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         # 读取草图数据
         if isinstance(sketch_root, str):
             # 读取草图数据
-            sketch_data = du.load_sketch_file(sketch_root)
+            sketch_data = fr.load_sketch_file(sketch_root)
 
         elif isinstance(sketch_root, (np.ndarray, list)):
             sketch_data = sketch_root
@@ -99,297 +126,6 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
     except:
         print('error file read')
         return None
-
-
-def std_unify(std_root: str, min_pnt: int = global_defs.n_stk * 2, is_mix_proc: bool = True):
-    """
-    将单个 std 草图转化为 unified_std 草图
-    :param std_root: [n, 4]
-    :param min_pnt: 处理后点数低于该数值的草图剔除
-    :param is_mix_proc: 是否反复进行笔划拆分、合并、实现笔划的长度尽量相等
-    :return:
-    """
-
-    # 读取std草图数据
-    sketch_data = np.loadtxt(std_root, delimiter=',')
-    sketch_data[-1, 2] = global_defs.pen_down
-
-    # 去掉点数过少的笔划
-    sketch_data = ft.stk_pnt_num_filter(sketch_data, 4)
-
-    # 去掉笔划上距离过近的点
-    sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.05)
-
-    if len(sketch_data) <= min_pnt:
-        warnings.warn(f'筛选后的草图点数太少，不处理该草图：{std_root}！点数：{len(sketch_data)}')
-        return None
-
-    # 移动草图质心与大小
-    sketch_data = du.sketch_std(sketch_data)
-
-    # 分割草图笔划
-    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
-
-    # 去掉过短的笔划
-    strokes = ft.stroke_len_filter(strokes, 0.1)
-
-    # 重采样，使得点之间的距离近似相等
-    strokes = sp.batched_spline_approx(
-        point_list=strokes,
-        median_ratio=0.1,
-        approx_mode='uni-arclength'
-    )
-
-    # 先处理笔划数
-    # 大于指定数值，将长度较短的笔划连接到最近的笔划
-    n_stk = global_defs.n_stk
-
-    if len(strokes) > n_stk:
-        while len(strokes) > n_stk:
-            strokes = du.single_merge(strokes)
-
-    # 小于指定数值，拆分点数较多的笔划
-    elif len(strokes) < n_stk:
-        while len(strokes) < n_stk:
-            strokes = du.single_split(strokes)
-
-    if len(strokes) != global_defs.n_stk:
-        raise ValueError(f'error stroke number: {len(strokes)}')
-
-    if is_mix_proc:
-        # 不断拆分、合并笔划，使各笔划点数尽量接近
-        n_ita = 0
-        while True:
-            before_var = du.stroke_length_var(strokes)
-
-            strokes = du.single_merge(strokes)
-            strokes = du.single_split(strokes)
-
-            after_var = du.stroke_length_var(strokes)
-
-            if after_var == before_var or n_ita > 150:
-                # print('number of iteration: ', n_ita)
-                break
-
-            n_ita += 1
-
-    if len(strokes) != global_defs.n_stk:
-        raise ValueError(f'error stroke number final: {len(strokes)}, file: {std_root}')
-
-    # 处理点数
-    n_stk_pnt = global_defs.n_stk_pnt
-    strokes = sp.batched_spline_approx(
-        point_list=strokes,
-        min_sample=n_stk_pnt,
-        max_sample=n_stk_pnt,
-        approx_mode='linear-interp'
-    )
-
-    return strokes
-
-
-def std_unify_batched(source_dir=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', target_dir=r'D:\document\DeepLearning\DataSet\unified_sketch', is_mix_proc=True):
-    """
-    将 source_dir 文件夹中的全部 txt 草图转化为 unified_std 草图，并保存到 target_dir
-    :param source_dir:
-    :param target_dir:
-    :return:
-    """
-    os.makedirs(target_dir, exist_ok=True)
-    # 清空target_dir
-    print('clear dir: ', target_dir)
-    shutil.rmtree(target_dir)
-
-    # 在target_dir中创建与source_dir相同的目录层级
-    print('create dirs')
-    for root, dirs, files in os.walk(source_dir):
-        # 计算目标文件夹中的对应路径
-        relative_path = os.path.relpath(root, source_dir)
-        target_path = os.path.join(target_dir, relative_path)
-
-        # 创建目标文件夹中的对应目录
-        os.makedirs(target_path, exist_ok=True)
-
-    files_all = du.get_allfiles(source_dir)
-
-    for c_file in tqdm(files_all, total=len(files_all)):
-        try:
-            sketch_data = std_unify(c_file, is_mix_proc)
-        except:
-            warnings.warn(f'error occurred when trans {c_file}, has skipped!')
-            continue
-
-        if sketch_data is not None:
-            try:
-                sketch_data = np.concatenate(sketch_data, axis=0)
-                sketch_data = sketch_data[:, :2]
-
-                transed_npnts = len(sketch_data)
-                if transed_npnts == global_defs.n_stk * global_defs.n_stk_pnt:
-
-                    target_save_path = c_file.replace(source_dir, target_dir)
-                    np.savetxt(target_save_path, sketch_data, delimiter=',')
-                else:
-                    warnings.warn(f'current point number is {transed_npnts}, skip file trans: {c_file}')
-            except:
-                warnings.warn(f'error occurred when trans {c_file}, has skipped!')
-
-
-# def short_straw_split_sketch(sketch_root: str, resp_dist: float = 0.01, filter_dist: float = 0.1, thres: float = 0.9, window_width: int = 3,
-#                              pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, is_show_status=True) -> list:
-#     """
-#     利用short straw对彩图进行角点分割
-#     :param sketch_root:
-#     :param resp_dist:
-#     :param filter_dist:
-#     :param thres:
-#     :param window_width:
-#     :param is_show_status:
-#     :return:
-#     """
-#
-#     # 读取草图数据
-#     sketch_data = np.loadtxt(sketch_root, delimiter=',')
-#
-#     # 移动草图质心与大小
-#     sketch_data = du.sketch_std(sketch_data)
-#
-#     # 分割草图
-#     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
-#
-#     # tmp_vis_sketch_list(sketch_data)
-#
-#     # 去掉点数过少的笔划
-#     # sketch_data = sp.stk_pnt_num_filter(sketch_data, 5)
-#
-#     # 去掉笔划上距离过近的点
-#     # sketch_data = sp.near_pnt_dist_filter(sketch_data, 0.03)
-#
-#     # 去掉长度过短的笔划
-#     # sketch_data = sp.stroke_len_filter(sketch_data, 0.07)
-#
-#     vis.vis_sketch_list(sketch_data)
-#
-#     if du.n_sketch_pnt(sketch_data) <= 20:
-#         warnings.warn(f'筛选后的草图点数太少，不处理该草图：{sketch_root}！点数：{len(sketch_data)}')
-#         return []
-#
-#     # 分割笔划
-#     strokes_splited = []
-#     for c_stk in sketch_data:
-#         strokes_splited += du.short_straw_split(c_stk[:, :2], resp_dist, filter_dist, thres, window_width, False)
-#
-#     vis.vis_sketch_list(strokes_splited)
-#
-#     # 去掉点数过少的笔划
-#     # strokes_splited = sp.stk_pnt_num_filter(strokes_splited, 16)
-#
-#     # 去掉笔划上距离过近的点
-#     # strokes_splited = sp.near_pnt_dist_filter(strokes_splited, 0.03)
-#
-#     # 去掉长度过短的笔划
-#     # strokes_splited = sp.stroke_len_filter(strokes_splited, 0.07)
-#
-#     # 仅保留点数最多的前 global_def.n_stk 个笔划
-#     strokes_splited = ft.stk_number_filter(strokes_splited, global_defs.n_stk)
-#
-#     # 每个笔划中的点数仅保留前 global_def.n_pnt 个
-#     strokes_splited = ft.stk_pnt_filter(strokes_splited, global_defs.n_stk_pnt)
-#
-#     if is_show_status:
-#         for s in strokes_splited:
-#             plt.plot(s[:, 0], -s[:, 1])
-#             plt.scatter(s[:, 0], -s[:, 1])
-#         plt.show()
-#
-#     return strokes_splited
-
-
-# def pre_process(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
-#     """
-#     TODO: 需考虑太长笔划和太短笔划不能放在一起的问题，必须进行分割
-#     :param sketch_root:
-#     :param resp_dist:
-#     :param pen_up:
-#     :param pen_down:
-#     :return:
-#     """
-#     # 读取草图数据
-#     sketch_data = np.loadtxt(sketch_root, delimiter=',')
-#
-#     # 移动草图质心与大小
-#     sketch_data = du.sketch_std(sketch_data)
-#
-#     # 分割笔划
-#     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
-#
-#     # 去掉相邻过近的点
-#     # -----------------需要先归一化才可使用，不然单位不统一
-#     sketch_data = ft.near_pnt_dist_filter(sketch_data, 0.001)
-#
-#     # 重采样
-#     # sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist)
-#
-#     # 角点分割
-#     sketch_data = du.sketch_short_straw_split(sketch_data, resp_dist, is_print_split_status=False)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # tmp_vis_sketch_list(sketch_data, True)
-#
-#     # 去掉无效笔划
-#     # sketch_data = sp.valid_stk_filter(sketch_data)
-#
-#     # 长笔划分割
-#     sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, global_defs.n_stk_pnt)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # tmp_vis_sketch_list(sketch_data)
-#
-#     # 去掉点数过少的笔划
-#     sketch_data = ft.stk_pnt_num_filter(sketch_data, 8)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # 使所有笔划的点数均为2的整数倍
-#     sketch_data = ft.stk_pnt_double_filter(sketch_data)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # 每个笔划中的点数过多时，仅保留前 global_def.n_pnt 个
-#     sketch_data = ft.stk_pnt_filter(sketch_data, global_defs.n_stk_pnt)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # 有效笔划数必须大于指定值，否则图节点之间的联系将不复存在
-#     sketch_data = ft.stk_num_minimal_filter(sketch_data, 4)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # 有效笔划数大于上限时，仅保留点数最多的前 global_def.n_stk 个笔划
-#     sketch_data = ft.stk_number_filter(sketch_data, global_defs.n_stk)
-#
-#     if len(sketch_data) == 0:
-#         print(f'occurred zero sketch: {sketch_root}')
-#         return [torch.zeros(global_defs.n_stk_pnt, 2, dtype=torch.float).numpy()]
-#
-#     # tmp_vis_sketch_list(sketch_data)
-#     # tmp_vis_sketch_list(sketch_data, True)
-#
-#     return sketch_data
 
 
 def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
@@ -650,7 +386,7 @@ def preprocess(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen
     # tmp_vis_sketch_list(sketch_data)
     # vis.vis_sketch_list(sketch_data, True, sketch_root)
 
-    sketch_data = du.stroke_list_to_sketch_cube(sketch_data)
+    sketch_data = stroke_list_padding_to_cube(sketch_data)
 
     return sketch_data
 
@@ -805,7 +541,7 @@ def preprocess_force_seg_merge(sketch_root, resp_dist: float = 0.01, pen_up=glob
     """
     if isinstance(sketch_root, str):
         # 读取草图数据
-        sketch_data = du.load_sketch_file(sketch_root)
+        sketch_data = fr.load_sketch_file(sketch_root)
 
     elif isinstance(sketch_root, (np.ndarray, list)):
         sketch_data = sketch_root
@@ -894,7 +630,7 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     """
     if isinstance(sketch_root, str):
         # 读取草图数据
-        sketch_data = du.load_sketch_file(sketch_root)
+        sketch_data = fr.load_sketch_file(sketch_root)
 
     elif isinstance(sketch_root, (np.ndarray, list)):
         sketch_data = sketch_root
@@ -942,8 +678,8 @@ def preprocess_split_merge_until(sketch_root, resp_dist: float = 0.05, pen_up=gl
     sketch_data = du.stroke_split_number_until(sketch_data, 3)
     # vis.vis_sketch_list(sketch_data, title='final', show_dot=True)
 
-    # 转化为 N3 格式
-    sketch_data = du.sketch_list_to_n3(sketch_data)
+    # 将长短不一的笔划补齐
+    sketch_data = stroke_list_padding_to_cube(sketch_data)
 
     # sketch_data = np.array(sketch_data)
     return sketch_data
@@ -953,7 +689,7 @@ def resample_stake(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
     # 几乎不处理，仅仅通过归一化、重采样并堆叠后返回
     if isinstance(sketch_root, str):
         # 读取草图数据
-        sketch_data = du.load_sketch_file(sketch_root)
+        sketch_data = fr.load_sketch_file(sketch_root)
 
     elif isinstance(sketch_root, (np.ndarray, list)):
         sketch_data = sketch_root
@@ -977,7 +713,7 @@ def resample_stake(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
     if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
 
     # 整理成 [n_stk, n_stk_pnt, 2] 的 tensor
-    sketch_data = du.sketch_list_to_tensor(sketch_data)
+    sketch_data = np.array(sketch_data)
 
     return sketch_data
 
@@ -1018,169 +754,6 @@ def test_resample():
 
     plt.show()
     pass
-
-
-def std_to_stk_file(std_file, source_dir, target_dir, preprocess_func, delimiter):
-    try:
-        c_target_file = std_file.replace(source_dir, target_dir)
-
-        target_skh_STK = preprocess_func(std_file)
-        target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-        # target_skh_STK = target_skh_STK.numpy()
-
-        if len(target_skh_STK) == global_defs.n_skh_pnt:
-            np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-        else:
-            print(f'error occurred, skip file: {std_file}')
-    except:
-        print(f'error occurred, skip file: {std_file}')
-
-
-def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', workers=4):
-    """
-    将 source_dir 内的 std 草图转化为 STK 草图
-    std 草图：每行为 [x, y, s]，行数不固定
-    将在 target_dir 内创建与 source_dir 相同的层级结构
-    文件后缀为 .STK
-    :param source_dir:
-    :param target_dir:
-    :param preprocess_func:
-    :param delimiter:
-    :param workers: 处理进程数
-    :return:
-    """
-    # 在 target_dir 内创建与 source_dir 相同的文件夹层级结构
-    print('create dirs')
-
-    for root, dirs, files in os.walk(source_dir):
-        # 计算目标文件夹中的对应路径
-        relative_path = os.path.relpath(root, source_dir)
-        target_path = os.path.join(target_dir, relative_path)
-
-        # 创建目标文件夹中的对应目录
-        os.makedirs(target_path, exist_ok=True)
-
-    # 获得source_dir中的全部文件
-    files_all = du.get_allfiles(source_dir, 'txt')
-
-    worker_func = partial(std_to_stk_file,
-                          source_dir=source_dir,
-                          target_dir=target_dir,
-                          preprocess_func=preprocess_func,
-                          delimiter=delimiter
-                          )
-
-    with Pool(processes=workers) as pool:
-        data_trans = list(tqdm(
-            pool.imap(worker_func, files_all),
-            total=len(files_all),
-            desc='QuickDraw to MGT')
-        )
-
-    # for c_file in tqdm(files_all, total=len(files_all)):
-    #
-    #     try:
-    #         c_target_file = c_file.replace(source_dir, target_dir)
-    #
-    #         target_skh_STK = preprocess_func(c_file)
-    #         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-    #         target_skh_STK = target_skh_STK.numpy()
-    #
-    #         if len(target_skh_STK) == global_defs.n_skh_pnt:
-    #             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-    #     except:
-    #         print(f'error occurred, skip file: {c_file}')
-
-
-def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=preprocess_orig, delimiter=','):
-    """
-    将npz文件转化为stk草图并保存
-    :param npz_file:
-    :param stk_root:
-    :param n_stk:
-    :param n_stk_pnt:
-    :param preprocess_func:
-    :return:
-    """
-    class_name = os.path.basename(npz_file).split('.')[0]
-    stk_root_inner = os.path.join(stk_root, f'{class_name}_{n_stk}_{n_stk_pnt}')
-    os.makedirs(stk_root_inner)
-
-    skh_all = du.npz_read(npz_file, 'train')[0]
-
-    for idx, c_skh in tqdm(enumerate(skh_all), total=len(skh_all)):
-
-        try:
-            c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
-
-            target_skh_STK = preprocess_func(c_skh)
-            target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-
-            if len(target_skh_STK) == global_defs.n_skh_pnt:
-                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-            else:
-                print(f'error occurred, skip instance: {idx}')
-
-        except:
-            print(f'error occurred, skip instance: {idx}')
-
-
-def print_tree_with_counts(root_path, prefix=""):
-    """
-    递归打印目录结构及每个目录下的文件数（不含子目录）。
-
-    Args:
-        root_path (str): 要遍历的根目录路径
-        prefix (str): 当前层级前缀，用于缩进
-    """
-    try:
-        # 列出该目录下所有项
-        entries = os.listdir(root_path)
-    except PermissionError:
-        print(f"{prefix}└── [权限不足] {os.path.basename(root_path)}/")
-        return
-
-    # 计算文件数（仅文件，不含子目录）
-    file_count = sum(1 for e in entries if os.path.isfile(os.path.join(root_path, e)))
-    dirname = os.path.basename(root_path) or root_path
-    print(f"{prefix}└── {dirname}/ ({file_count} files)")
-
-    # 仅保留子目录并排序
-    subdirs = sorted([e for e in entries if os.path.isdir(os.path.join(root_path, e))])
-    for i, sub in enumerate(subdirs):
-        path = os.path.join(root_path, sub)
-        # 对最后一个子目录使用不同的分支符号，以对齐树状图
-        if i == len(subdirs) - 1:
-            branch = "    "  # 最后一个子目录，下一层不再延续“│”
-        else:
-            branch = "│   "
-        print_tree_with_counts(path, prefix + branch)
-
-
-def find_nonstandard_leaf_dirs(root_path, expected_counts=(100, 1000)):
-    """
-    遍历 root_path 下的所有目录，找出叶子目录（无子目录）且文件数不在 expected_counts 中的目录并打印。
-
-    Args:
-        root_path (str): 顶层目录路径
-        expected_counts (tuple of int): 合格的文件数，其他文件数都将被打印
-    """
-    for dirpath, dirnames, filenames in os.walk(root_path):
-        # 如果没有子目录，则为叶子目录
-        if not dirnames:
-            # 统计直接文件数（忽略子目录中的文件）
-            try:
-                file_count = sum(
-                    1 for f in filenames
-                    if os.path.isfile(os.path.join(dirpath, f))
-                )
-            except PermissionError:
-                print(f"权限不足，无法访问：{dirpath}")
-                continue
-
-            # 如果文件数不在预期范围内，则打印
-            if file_count not in expected_counts:
-                print(f"{dirpath} （{file_count} 文件）")
 
 
 if __name__ == '__main__':
@@ -1292,8 +865,7 @@ if __name__ == '__main__':
     # find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+
 
     # folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
     # find_nonstandard_leaf_dirs(folder)

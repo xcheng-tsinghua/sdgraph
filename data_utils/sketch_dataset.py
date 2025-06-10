@@ -28,12 +28,13 @@ import numpy as np
 from data_utils.vis import vis_sketch_orig, vis_s5_data
 
 import global_defs
-from data_utils import preprocess as pp
 # from data_utils.preprocess import preprocess_force_seg_merge as prep
 # from data_utils.preprocess import preprocess_split_merge_until as prep
 # from data_utils.preprocess import resample_stake as prep
 from data_utils.preprocess import preprocess_orig as prep
 from data_utils import sketch_utils as du
+from data_utils import sketch_file_read as fr
+from data_utils import data_convert as dc
 
 
 class SketchDatasetCls(Dataset):
@@ -280,23 +281,23 @@ class SketchDatasetCls(Dataset):
             if back_mode == 'STK':
                 sketch_cube = prep(file_root, is_shuffle_stroke=is_shuffle_stroke)
                 if is_retrieval:
-                    sketch_img = du.std_to_tensor_img(file_root)
+                    sketch_img = dc.std_to_tensor_img(file_root)
                     return sketch_img, sketch_cube, 0
 
                 else:
                     return class_name, sketch_cube, 0
 
             elif back_mode == 'S5':
-                sketch_cube, mask = du.sketch_file_to_s5(file_root, max_len, coor_mode, is_shuffle_stroke)
+                sketch_cube, mask = dc.sketch_file_to_s5(file_root, max_len, coor_mode, is_shuffle_stroke)
                 if is_retrieval:
-                    sketch_img = du.std_to_tensor_img(file_root)
+                    sketch_img = dc.std_to_tensor_img(file_root)
                     return sketch_img, sketch_cube, mask
 
                 else:
                     return class_name, sketch_cube, mask
 
             elif back_mode == 'IMG':
-                sketch_cube = du.img_read(file_root, img_size)
+                sketch_cube = fr.img_read(file_root, img_size)
                 return class_name, sketch_cube, 0
             else:
                 raise TypeError('error back mode')
@@ -394,9 +395,9 @@ class QuickDrawDiff(Dataset):
 
         print('loading npz files ...')
         if back_mode == 'S5':
-            sketch_train, mask_train = du.npz_read(root, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
-            sketch_test, mask_test = du.npz_read(root, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
-            sketch_valid, mask_valid = du.npz_read(root, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_train, mask_train = fr.npz_read(root, 'train', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_test, mask_test = fr.npz_read(root, 'test', back_mode, coor_mode, max_len, pen_down, pen_up)
+            sketch_valid, mask_valid = fr.npz_read(root, 'valid', back_mode, coor_mode, max_len, pen_down, pen_up)
 
             self.sketch_all.extend(sketch_train)
             self.sketch_all.extend(sketch_test)
@@ -407,9 +408,9 @@ class QuickDrawDiff(Dataset):
             self.mask_all.extend(mask_valid)
 
         elif back_mode == 'STK' or back_mode == 'STD':
-            sketch_train = du.npz_read(root, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_test = du.npz_read(root, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_valid = du.npz_read(root, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_train = fr.npz_read(root, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_test = fr.npz_read(root, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_valid = fr.npz_read(root, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
 
             self.sketch_all.extend(sketch_train)
             self.sketch_all.extend(sketch_test)
@@ -588,8 +589,8 @@ class QuickDrawCls(Dataset):
         else:
             raise TypeError('error back mode')
 
-        sk_train, mk_train = du.npz_read(c_npz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
-        sk_test, mk_test = du.npz_read(c_npz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+        sk_train, mk_train = fr.npz_read(c_npz, 'train', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
+        sk_test, mk_test = fr.npz_read(c_npz, 'test', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
 
         # sk_valid, mk_valid = du.npz_read(c_npz, 'valid', back_mode_alt, coor_mode, max_len, pen_down, pen_up)
         # sk_train.extend(sk_valid)
@@ -716,7 +717,7 @@ class DiffDataset(Dataset):
                 sketch_cube = prep(fn)
             mask = 0
         elif self.back_mode == 'S5':
-            sketch_cube, mask = du.sketch_file_to_s5(fn, self.n_max_len, self.coor_mode)
+            sketch_cube, mask = dc.sketch_file_to_s5(fn, self.n_max_len, self.coor_mode)
         else:
             raise TypeError('error back mode')
 
@@ -833,7 +834,7 @@ class RetrievalDataset(Dataset):
         elif self.data_mode == 'img':
             # 检索评价时用
             img_root = self.imgs_test[index]
-            img_data = du.img_read(img_root, self.image_size)
+            img_data = fr.img_read(img_root, self.image_size)
 
             return img_data, index
 
@@ -847,14 +848,14 @@ class RetrievalDataset(Dataset):
 
             # vis_sketch_orig(sketch_root)
 
-            sketch_data, mask = du.sketch_file_to_s5(sketch_root, self.max_seq_length, 'ABS')
+            sketch_data, mask = dc.sketch_file_to_s5(sketch_root, self.max_seq_length, 'ABS')
 
             # vis_s5_data(sketch_data)
 
         else:
             raise TypeError('error back mode')
 
-        img_data = du.img_read(photo_root, self.image_size)
+        img_data = fr.img_read(photo_root, self.image_size)
 
         return sketch_data, mask, img_data, c_index
 
@@ -894,8 +895,8 @@ class SketchDatasetSeg(Dataset):
         if npz_train is None or npz_test is None:
             raise ValueError('data not found')
 
-        self.data_train = du.npz_read(npz_train, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
-        self.data_test = du.npz_read(npz_test, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
+        self.data_train = fr.npz_read(npz_train, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
+        self.data_test = fr.npz_read(npz_test, 'arr_0', 'S5', 'REL', 200, is_back_seg=True)
 
         print(f'instance in training set: {len(self.data_train)}')
         print(f'instance in testing set: {len(self.data_test)}')

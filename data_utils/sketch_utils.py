@@ -1,23 +1,13 @@
-import random
-
 import numpy as np
 import matplotlib.pyplot as plt
 import os
 from pathlib import Path
-from svgpathtools import svg2paths2
 import warnings
 import shutil
 import math
 from tqdm import tqdm
 import requests
-import torch
 from matplotlib.collections import LineCollection
-from torchvision import transforms
-from PIL import Image
-import cv2
-import json
-from multiprocessing import Pool
-from functools import partial
 from scipy.interpolate import CubicSpline
 
 import global_defs
@@ -215,141 +205,6 @@ def sketch_std(sketch):
 
     else:
         raise TypeError('error sketch type')
-
-
-def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
-    """
-    从 svg 文件读取草图
-    :param svg_path:
-    :param pen_down:
-    :param pen_up:
-    :return: [n, 3] (x, y, s)
-    """
-    paths, attributes, svg_attributes = svg2paths2(svg_path)
-
-    strokes = []
-    for path, attr in zip(paths, attributes):
-        if len(path) == 0:
-            continue
-
-        # 分割子路径（处理M/m移动命令）
-        subpaths = []
-        current_subpath = []
-
-        for segment in path:
-            if segment.start != (current_subpath[-1].end if current_subpath else None):
-                if current_subpath:
-                    subpaths.append(current_subpath)
-                current_subpath = []
-            current_subpath.append(segment)
-
-        if current_subpath:
-            subpaths.append(current_subpath)
-
-        # 处理每个子路径
-        for subpath in subpaths:
-            points = []
-            # 添加第一个线段的起点
-            points.append((subpath[0].start.real, subpath[0].start.imag))
-
-            # 添加所有线段的终点
-            for segment in subpath:
-                points.append((segment.end.real, segment.end.imag))
-
-            strokes.append(points)
-
-    stroke_list_np = []
-    for c_stk in strokes:
-        c_stk = np.array(c_stk)
-        n = len(c_stk)
-        ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
-        ones_col[-1, 0] = pen_up
-        c_stk = np.hstack((c_stk, ones_col))
-
-        stroke_list_np.append(c_stk)
-
-    stroke_list_np = np.vstack(stroke_list_np)
-
-    return stroke_list_np
-
-
-def svg_to_txt(svg_path, txt_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
-    svg_data = svg_read(svg_path, pen_down, pen_up)
-    # np.savetxt(txt_path, svg_data, fmt="%.5f", delimiter=delimiter)
-    np.savetxt(txt_path, svg_data, delimiter=delimiter)
-
-    # paths, attributes, svg_attributes = svg2paths2(svg_path)
-    # strokes = []
-    #
-    # for path, attr in zip(paths, attributes):
-    #     if len(path) == 0:
-    #         continue
-    #
-    #     # 分割子路径（处理M/m移动命令）
-    #     subpaths = []
-    #     current_subpath = []
-    #
-    #     for segment in path:
-    #         if segment.start != (current_subpath[-1].end if current_subpath else None):
-    #             if current_subpath:
-    #                 subpaths.append(current_subpath)
-    #             current_subpath = []
-    #         current_subpath.append(segment)
-    #
-    #     if current_subpath:
-    #         subpaths.append(current_subpath)
-    #
-    #     # 处理每个子路径
-    #     for subpath in subpaths:
-    #         points = []
-    #         # 添加第一个线段的起点
-    #         points.append((subpath[0].start.real, subpath[0].start.imag))
-    #
-    #         # 添加所有线段的终点
-    #         for segment in subpath:
-    #             points.append((segment.end.real, segment.end.imag))
-    #
-    #         strokes.append(points)
-    #
-    # # for c_stk in strokes:
-    # #     c_stk = np.array(c_stk)
-    # #     plt.plot(c_stk[:, 0], -c_stk[:, 1])
-    # #
-    # # plt.axis('equal')
-    # # plt.show()
-    #
-    # with open(txt_path, 'w') as f:
-    #     for stroke_idx, stroke in enumerate(strokes):
-    #         for i, (x, y) in enumerate(stroke):
-    #             # 笔划状态判断（当前笔划的最后一个点标记s=0）
-    #             s = 0 if (i == len(stroke) - 1) and (stroke_idx != len(strokes) - 1) else 1
-    #
-    #             # 写入文件，保留3位小数
-    #             f.write(f"{round(x, 3):.3f},{round(y, 3):.3f},{s}\n")
-
-
-def svg_to_txt_batched(source_dir, target_dir):
-    os.makedirs(target_dir, exist_ok=True)
-    # 清空target_dir
-    print('clear dir: ', target_dir)
-    shutil.rmtree(target_dir)
-
-    # 在target_dir中创建与source_dir相同的目录层级
-    for root, dirs, files in os.walk(source_dir):
-        # 计算目标文件夹中的对应路径
-        relative_path = os.path.relpath(root, source_dir)
-        target_path = os.path.join(target_dir, relative_path)
-
-        # 创建目标文件夹中的对应目录
-        os.makedirs(target_path, exist_ok=True)
-
-    files_all = get_allfiles(source_dir, 'svg')
-
-    for c_file in tqdm(files_all, total=len(files_all)):
-        try:
-            svg_to_txt(c_file, c_file.replace(source_dir, target_dir).replace('svg', 'txt'))
-        except:
-            print(f'trans failure: {c_file}')
 
 
 def create_tree_like(source_dir, target_dir):
@@ -1046,7 +901,7 @@ def single_merge_(stroke_list, dist_gap, n_max_ita=200, max_merge_stk_len=float(
 
 def single_merge_dist_inc_(stroke_list, dist_begin=0.1, dist_inc=0.1, n_max_ita=200, max_merge_stk_len=float('inf')) -> bool:
     """
-    以距离阈值递增的形式合并，保证一定能合并到
+    以距离阈值递增的形式合并，保证一定能进行一次笔划合并
     :param stroke_list:
     :param dist_begin:
     :param dist_inc:
@@ -1054,8 +909,15 @@ def single_merge_dist_inc_(stroke_list, dist_begin=0.1, dist_inc=0.1, n_max_ita=
     :param max_merge_stk_len:
     :return:
     """
+    n_ita = 0
     while not single_merge_(stroke_list, dist_begin):
+        if n_ita > n_max_ita or dist_begin > max_merge_stk_len:
+            return False
+
         dist_begin += dist_inc
+        n_ita += 1
+
+    return True
 
 
 def single_merge(stroke_list, dist_gap, n_max_ita=200):
@@ -1253,37 +1115,6 @@ def get_rect(stroke_list):
     return Rectangle(min_x, max_x, min_y, max_y)
 
 
-def stroke_list_to_sketch_cube(sketch_list):
-    """
-    将笔划转化为规则的 pytorch 的 Tensor
-    有效位置为(x, y, 1)
-    无效位置为(0, 0, -1)
-    :param sketch_list:
-    :return:
-    """
-    # sketch_cube = torch.full([global_defs.n_stk, global_defs.n_stk_pnt, 2], float('nan'), dtype=torch.float)
-    # # sketch_cube = torch.full((global_defs.n_stk, global_defs.n_stk_pnt, 2), float('-inf'))
-    # for i, c_stk in enumerate(sketch_list):
-    #     n_cstk_pnt = len(c_stk)
-    #     # sketch_mask[i, :n_cstk_pnt] = 1
-    #
-    #     sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
-    #
-    # return sketch_cube
-
-    sketch_cube = torch.zeros(global_defs.n_stk, global_defs.n_stk_pnt, 3, dtype=torch.float)
-    for i, c_stk in enumerate(sketch_list):
-        n_cstk_pnt = len(c_stk)
-
-        ones_column = np.ones((n_cstk_pnt, 1))
-        c_stk = np.hstack((c_stk, ones_column))
-
-        sketch_cube[i, :n_cstk_pnt, :] = torch.from_numpy(c_stk)
-        # sketch_cube[i, n_cstk_pnt:, 2] = -1.0
-
-    return sketch_cube
-
-
 def is_sketch_unified(stroke_list, thres=1e-5):
 
     sketch = np.vstack(stroke_list)
@@ -1294,502 +1125,18 @@ def is_sketch_unified(stroke_list, thres=1e-5):
         print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
 
 
-def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False):
-    """
-    将草图转换为 S5 格式，(x, y, s1, s2, s3)
-    默认存储绝对坐标
-    :param root:
-    :param max_length:
-    :param coor_mode: ['ABS', 'REL'], 'ABS': absolute coordinate. 'REL': relative coordinate [(x,y), (△x, △y), (△x, △y), ...].
-    :param is_shuffle_stroke: 是否打乱笔划
-    :return:
-    """
-    if isinstance(root, str):
-        file_suffix = Path(root).suffix
-        if file_suffix == '.txt':
-            data_raw = load_sketch_file(root)
-        elif file_suffix == '.svg':
-            data_raw = svg_read(root)
-        else:
-            raise TypeError('error suffix')
-    else:
-        raise TypeError('error root type')
-
-    # 打乱笔划
-    if is_shuffle_stroke:
-        stroke_list = np.split(data_raw, np.where(data_raw[:, 2] == global_defs.pen_up)[0] + 1)[:-1]
-        random.shuffle(stroke_list)
-        data_raw = np.vstack(stroke_list)
-
-    # 多于指定点数则进行采样
-    n_point_raw = len(data_raw)
-    if n_point_raw > max_length:
-        data_raw = data_raw[:max_length, :]
-
-        # choice = np.random.choice(n_point_raw, max_length, replace=True)
-        # data_raw = data_raw[choice, :]
-
-    # [n_points, 3]
-    data_raw = sketch_std(data_raw)
-
-    # plt.plot(data_raw[:, 0], data_raw[:, 1])
-    # plt.show()
-
-    # 相对坐标
-    if coor_mode == 'REL':
-        coordinate = data_raw[:, :2]
-        coordinate[1:] = coordinate[1:] - coordinate[:-1]
-        data_raw[:, :2] = coordinate
-
-    elif coor_mode == 'ABS':
-        # 无需处理
-        pass
-
-    else:
-        raise TypeError('error coor mode')
-
-    c_sketch_len = len(data_raw)
-    data_raw = torch.from_numpy(data_raw)
-
-    data_cube = torch.zeros(max_length, 5, dtype=torch.float)
-    mask = torch.zeros(max_length, dtype=torch.float)
-
-    data_cube[:c_sketch_len, :2] = data_raw[:, :2]
-    data_cube[:c_sketch_len, 2] = data_raw[:, 2]
-    data_cube[:c_sketch_len, 3] = 1 - data_raw[:, 2]
-    data_cube[-1, 4] = 1
-
-    mask[:c_sketch_len] = 1
-
-    return data_cube, mask
-
-
-def load_sketch_file(skh_file, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
-    """
-    从草图文件中获取草图数据
-    注意这里是直接读取文件存储的数据
-    文件中存储的是绝对坐标，读取的就是绝对坐标。文件中存储的是相对坐标，读取的就是相对坐标。
-    TU_Berlin 的 svg 文件中存储的是绝对坐标
-
-    :param skh_file:
-    :param pen_down:
-    :param pen_up:
-    :param delimiter:
-    :return: [n, 3] (x, y, s)
-    """
-    suffix = os.path.splitext(skh_file)[1]
-
-    if suffix == '.txt':
-        sketch_data = np.loadtxt(skh_file, delimiter=delimiter)
-    elif suffix == '.svg':
-        sketch_data = svg_read(skh_file, pen_down, pen_up)
-    else:
-        raise TypeError('error file suffix')
-
-    return sketch_data
-
-
-def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, is_back_seg=False):
-    """
-    读取 npz 文件中的草图，读取后的草图已归一化
-    这里默认将 npz 文件中存储的数据视为相对坐标，因为 QuickDraw 数据集中的 npz 文件中存储的是相对坐标
-    如果您的 npz 文件中存储绝对坐标，请修改
-
-    :param npz_root:
-    :param data_mode: ['train', 'test', 'valid']
-    :param back_mode: ['STD', 'S5']
-        'STD': [n, 3] (x, y, s)
-        'S5': data: [N, 5], mask: [N, ], N = max_len + 2, 因为首尾要加两个标志位
-    :param coor_mode: ['ABS', 'REL']
-        'ABS': 绝对坐标
-        'REL': 相对坐标
-    :param max_len: S5 模式下的最长长度
-    :param pen_down: quickdraw 中为 0
-    :param pen_up: quickdraw 中为 1
-    :param is_back_seg:
-    :return:
-    """
-
-    data_all = np.load(str(npz_root), encoding='latin1', allow_pickle=True)
-    dataset = data_all[data_mode]
-
-    data = []
-    mask = []
-    if is_back_seg:
-        seg = []
-
-    for raw_data in dataset:
-        try:
-            # 获得绝对坐标
-            xy_data = raw_data[:, :2]
-            xy_data = np.cumsum(xy_data, axis=0)
-            raw_data[:, :2] = xy_data
-
-            if back_mode == 'S5':
-                if len(raw_data) > max_len:
-                    # 大于最大长度则从末尾截断
-                    raw_data = raw_data[:max_len, :]
-
-                if is_back_seg:
-                    raw_data = torch.from_numpy(raw_data)
-                    raw_seg = raw_data[:, 3:].max(1)[1]
-                    raw_data = raw_data.numpy()
-
-                # 归一化到 [-1, 1]
-                raw_data = sketch_std(raw_data.astype(np.float32))
-
-                # 转换为相对坐标
-                if coor_mode == 'REL':
-                    xy_data = raw_data[:, :2]
-                    xy_data[1:] = xy_data[1:] - xy_data[:-1]
-                    raw_data[:, :2] = xy_data
-
-                # 提取到 data_cube 和 mask
-                c_data = torch.zeros(max_len + 2, 5)
-                c_mask = torch.zeros(max_len + 2)
-
-                raw_data = torch.from_numpy(raw_data)
-                len_raw_data = len(raw_data)
-
-                # xy
-                c_data[1:len_raw_data + 1, :2] = raw_data[:, :2]
-                # $p_1$
-                c_data[1:len_raw_data + 1, 2] = 1 - raw_data[:, 2]
-                # $p_2$
-                c_data[1:len_raw_data + 1, 3] = raw_data[:, 2]
-                # $p_3$
-                c_data[len_raw_data + 1:, 4] = 1
-
-                if is_back_seg:
-                    c_seg = torch.zeros(max_len + 2)
-                    c_seg[1:len_raw_data + 1] = raw_seg
-
-                # Mask is on until end of sequence
-                c_mask[:len_raw_data + 1] = 1
-
-                data.append(c_data)
-                mask.append(c_mask)
-
-                if is_back_seg:
-                    seg.append(c_seg)
-
-            elif back_mode == 'STD':
-                """
-                TODO: 需要在此添加相关代码返回分割标签
-                """
-                # 归一化到 [-1, 1]
-                raw_data = sketch_std(raw_data.astype(np.float32))
-
-                # 替换抬笔落笔标志位
-                state = raw_data[:, 2]
-                state = np.where(state == 0, pen_down, pen_up)
-                raw_data[:, 2] = state
-
-                # 转换为相对坐标
-                if coor_mode == 'REL':
-                    xy_data = raw_data[:, :2]
-                    xy_data[1:] = xy_data[1:] - xy_data[:-1]
-                    raw_data[:, :2] = xy_data
-
-                data.append(raw_data)
-
-            else:
-                raise TypeError('error back mode')
-
-        except:
-            continue
-
-    if is_back_seg:
-        return data, mask, seg
-
-    else:
-        return data, mask
-
-
-def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
-    """
-    统计草图中的点数和该点数草图数量的统计值
-    :param root_npz:
-    :return:
-    """
-    npz_all = get_allfiles(root_npz, 'npz')
-    skh_statistic = {}
-    for c_npz in tqdm(npz_all, total=len(npz_all)):
-
-        npz_train, _ = npz_read(c_npz, 'train')
-        npz_test, _ = npz_read(c_npz, 'test')
-        npz_valid, _ = npz_read(c_npz, 'valid')
-
-        c_files_all = []
-        c_files_all.extend(npz_train)
-        c_files_all.extend(npz_test)
-        c_files_all.extend(npz_valid)
-
-        for c_skh in c_files_all:
-            c_skh_pnt = len(c_skh)
-
-            if c_skh_pnt not in skh_statistic.keys():
-                skh_statistic[c_skh_pnt] = 1
-            else:
-                skh_statistic[c_skh_pnt] += 1
-
-    with open('data.json', 'w', encoding='utf-8') as f:
-        json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
-
-
-def quickdraw_to_mgt(root_npz, root_target, delimiter=',', select=(1000, 100, 100), is_random_select=False):
-    """
-    该函数主要用于从 npz 文件中获取 MGT 数据集
-
-    该函数根据 QuickDraw 的 npz 文件编写，主要特征如下：
-    1. 存储相对坐标
-    2. 加载的字典包含三个键，分别是 'train', 'test', 'valid'
-    如果你的 npz 文件不符合以上要求，请修改
-
-    将创建如下文件夹：
-    root_target
-    ├─ train
-    │   └─ npz_name
-    │       ├─ 1.txt
-    │       ├─ 2.txt
-    │       ├─ 3.txt
-    │       ...
-    │
-    ├─ test
-    │   └─ npz_name
-    │       ├─ 1.txt
-    │       ├─ 2.txt
-    │       ├─ 3.txt
-    │       ...
-    │
-    └─ valid
-        └─ npz_name
-            ├─ 1.txt
-            ├─ 2.txt
-            ├─ 3.txt
-            ...
-
-    :param root_npz:
-    :param root_target:
-    :param delimiter: 保存 txt 文件时的分隔符
-    :param select: 从 [train, test, valid] 分支中抽取的草图数 (数量来自 MGT). = None 则不选取
-    :param is_random_select: 是否随机选取
-    :return:
-    """
-
-    def _get_n_pnt_near(_sketch_list, _select, _pnt_base=35):
-        """
-        从一个草图的 list 中选择指定数量的点数最靠近 _pnt_base 的草图
-        :param _sketch_list:
-        :param _select:
-        :param _pnt_base:
-        :return:
-        """
-        # 按行数与 pnt_base 的绝对差值排序
-        sorted_arrays = sorted(_sketch_list, key=lambda arr: abs(arr.shape[0] - _pnt_base))
-
-        # 返回前 select 个
-        return sorted_arrays[:_select]
-
-    # 先读取数据
-    # print('load data')
-    std_train = npz_read(root_npz, 'train')[0]
-    std_test = npz_read(root_npz, 'test')[0]
-    std_valid = npz_read(root_npz, 'valid')[0]
-
-    if select is not None:
-        sample_func = random.sample if is_random_select else _get_n_pnt_near
-
-        std_train = sample_func(std_train, select[0])
-        std_test = sample_func(std_test, select[1])
-        std_valid = sample_func(std_valid, select[2])
-
-    # 创建文件夹
-    # print('create dirs')
-    file_name = os.path.splitext(os.path.basename(root_npz))[0].replace('.', '_').replace(' ', '_')
-
-    train_dir = os.path.join(root_target, 'train', file_name)
-    os.makedirs(train_dir, exist_ok=True)
-
-    test_dir = os.path.join(root_target, 'test', file_name)
-    os.makedirs(test_dir, exist_ok=True)
-
-    valid_dir = os.path.join(root_target, 'valid', file_name)
-    os.makedirs(valid_dir, exist_ok=True)
-
-    # 保存数据
-    # print('save data')
-    for idx, c_train in enumerate(std_train):
-        c_train_filename = os.path.join(train_dir, f'{idx}.txt')
-        np.savetxt(c_train_filename, c_train, delimiter=delimiter)
-
-    for idx, c_test in enumerate(std_test):
-        c_test_filename = os.path.join(test_dir, f'{idx}.txt')
-        np.savetxt(c_test_filename, c_test, delimiter=delimiter)
-
-    for idx, c_valid in enumerate(std_valid):
-        c_valid_filename = os.path.join(valid_dir, f'{idx}.txt')
-        np.savetxt(c_valid_filename, c_valid, delimiter=delimiter)
-
-
-def quickdraw_to_mgt_batched(root_npz, root_target, is_random_select=True, workers=4):
-    npz_all = get_allfiles(root_npz, 'npz')
-
-    worker_func = partial(quickdraw_to_mgt, root_target=root_target, is_random_select=is_random_select)
-
-    with Pool(processes=workers) as pool:
-        data_trans = list(tqdm(
-            pool.imap(worker_func, npz_all),
-            total=len(npz_all),
-            desc='QuickDraw to MGT')
-        )
-
-    # for c_npz in tqdm(npz_all, total=len(npz_all)):
-    #     quickdraw_to_mgt(c_npz, root_target, is_random_select=is_random_select)
-
-
-def img_read(img_root, img_size=(224, 224)):
-    """
-    从图片读取数据，返回包含数据的 tensor
-    :param img_root:
-    :param img_size:
-    :return: [channel, width, height]
-    """
-    image = Image.open(img_root).convert("RGB")  # 确保是 RGB 模式
-
-    transform = transforms.Compose([
-        transforms.Resize(img_size),
-        transforms.ToTensor()
-    ])
-    tensor_image = transform(image)
-
-    return tensor_image
-
-
-def sketch_list_to_n3(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, positive_val=1, negative_val=-1):
-    """
-    将[(n0, 2), (n1, 2), ..., (n_N, 2)] 的stroke list转换为 [n_stk, n_stk_pnt, 3] 格式草图，第三维度表示点所在平面，不足的点用 PAD 补齐
-    :param sketch_list:
-    :param n_stk:
-    :param n_stk_pnt:
-    :param positive_val:
-    :param negative_val:
-    :return:
-    """
-    n3_cube = torch.zeros(n_stk, n_stk_pnt, 3)
-    n_valid_stk = len(sketch_list)
-    # last_pnt = torch.from_numpy(sketch_list[-1][-1])
-
-    for idx, c_stk in enumerate(sketch_list):
-        c_len = len(c_stk)
-        c_torch_stk = torch.from_numpy(c_stk)
-        n3_cube[idx, :c_len, :2] = c_torch_stk
-        n3_cube[idx, :c_len, 2] = positive_val
-
-        # n3_cube[idx, c_len:, :2] = c_torch_stk[-1]
-        n3_cube[idx, c_len:, 2] = negative_val
-
-    for idx in range(n_valid_stk, n_stk):
-        # n3_cube[idx, :, :2] = last_pnt
-        n3_cube[idx, :, 2] = negative_val
-
-    return n3_cube
-
-
-def sketch_list_to_tensor(sketch_list: list, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt):
-    """
-    将[(n0, 2), (n1, 2), ..., (n_N, 2)] 的stroke list转换为 [n_stk, n_stk_pnt, 2] 格式草图
-    要求每个笔划中的点数相同
-    :param sketch_list:
-    :param n_stk:
-    :param n_stk_pnt:
-    :return:
-    """
-    n3_cube = torch.zeros(n_stk, n_stk_pnt, 2)
-
-    for idx, c_stk in enumerate(sketch_list):
-        c_torch_stk = torch.from_numpy(c_stk)
-        n3_cube[idx, :, :] = c_torch_stk
-
-    return n3_cube
-
-
-def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
-    """
-    将 STD 草图转化为 Tensor 图片
-    :param sketch: 文件路径或者加载好的 [n, 3] 草图
-    :param image_size:
-    :param line_thickness:
-    :param pen_up:
-    :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
-    """
-    width, height = image_size
-
-    if isinstance(sketch, str):
-        points_with_state = load_sketch_file(sketch)
-
-    elif isinstance(sketch, np.ndarray):
-        points_with_state = sketch
-
-    else:
-        raise TypeError('error sketch type')
-
-    # 1. 坐标归一化
-    pts = np.array(points_with_state[:, :2], dtype=np.float32)
-    states = np.array(points_with_state[:, 2], dtype=np.int32)
-
-    min_xy = pts.min(axis=0)
-    max_xy = pts.max(axis=0)
-    diff_xy = max_xy - min_xy
-
-    if np.allclose(diff_xy, 0):
-        scale_x = scale_y = 1.0
-    else:
-        scale_x = (width - 1) / diff_xy[0] if diff_xy[0] > 0 else 1.0
-        scale_y = (height - 1) / diff_xy[1] if diff_xy[1] > 0 else 1.0
-    scale = min(scale_x, scale_y)
-
-    pts_scaled = (pts - min_xy) * scale
-    pts_int = np.round(pts_scaled).astype(np.int32)
-
-    offset_x = (width - (diff_xy[0] * scale)) / 2 if diff_xy[0] > 0 else 0
-    offset_y = (height - (diff_xy[1] * scale)) / 2 if diff_xy[1] > 0 else 0
-    pts_int[:, 0] += int(round(offset_x))
-    pts_int[:, 1] += int(round(offset_y))
-
-    # 2. 创建白色画布
-    img = np.ones((height, width), dtype=np.uint8) * 255
-
-    # 3. 笔划切分
-    split_indices = np.where(states == pen_up)[0] + 1  # 下一个点是新笔划，所以+1
-    strokes = np.split(pts_int, split_indices)
-
-    # 4. 绘制每条笔划
-    for stroke in strokes:
-        if len(stroke) >= 2:  # 至少2个点才能画线
-            stroke = stroke.reshape(-1, 1, 2)
-            cv2.polylines(img, [stroke], isClosed=False, color=0, thickness=line_thickness, lineType=cv2.LINE_AA)
-
-    # 5. 转为归一化float32 Tensor
-    tensor_img = torch.from_numpy(img).float() / 255.0
-
-    cv2.imwrite(r'C:\Users\ChengXi\Desktop\fig\out.jpg', img)
-
-    return tensor_img
-
-
-def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
-    # 最后一行最后一个数改为17，防止出现空数组
-    sketch_data[-1, 2] = pen_down
-
-    # split all strokes
-    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
-
-    for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
-
-    plt.axis('off')
-    plt.show()
+# def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
+#     # 最后一行最后一个数改为17，防止出现空数组
+#     sketch_data[-1, 2] = pen_down
+#
+#     # split all strokes
+#     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
+#
+#     for s in strokes:
+#         plt.plot(s[:, 0], -s[:, 1])
+#
+#     plt.axis('off')
+#     plt.show()
 
 
 def stk_extend(stk: np.ndarray, n_extend=2):
@@ -1834,6 +1181,64 @@ def stk_extend_batched(stk_list, n_extend=2) -> list:
         stks_extended.append(stk_extend(c_stk, n_extend))
 
     return stks_extended
+
+
+def print_tree_with_counts(root_path, prefix=""):
+    """
+    递归打印目录结构及每个目录下的文件数（不含子目录）。
+
+    Args:
+        root_path (str): 要遍历的根目录路径
+        prefix (str): 当前层级前缀，用于缩进
+    """
+    try:
+        # 列出该目录下所有项
+        entries = os.listdir(root_path)
+    except PermissionError:
+        print(f"{prefix}└── [权限不足] {os.path.basename(root_path)}/")
+        return
+
+    # 计算文件数（仅文件，不含子目录）
+    file_count = sum(1 for e in entries if os.path.isfile(os.path.join(root_path, e)))
+    dirname = os.path.basename(root_path) or root_path
+    print(f"{prefix}└── {dirname}/ ({file_count} files)")
+
+    # 仅保留子目录并排序
+    subdirs = sorted([e for e in entries if os.path.isdir(os.path.join(root_path, e))])
+    for i, sub in enumerate(subdirs):
+        path = os.path.join(root_path, sub)
+        # 对最后一个子目录使用不同的分支符号，以对齐树状图
+        if i == len(subdirs) - 1:
+            branch = "    "  # 最后一个子目录，下一层不再延续“│”
+        else:
+            branch = "│   "
+        print_tree_with_counts(path, prefix + branch)
+
+
+def find_nonstandard_leaf_dirs(root_path, expected_counts=(100, 1000)):
+    """
+    遍历 root_path 下的所有目录，找出叶子目录（无子目录）且文件数不在 expected_counts 中的目录并打印。
+
+    Args:
+        root_path (str): 顶层目录路径
+        expected_counts (tuple of int): 合格的文件数，其他文件数都将被打印
+    """
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        # 如果没有子目录，则为叶子目录
+        if not dirnames:
+            # 统计直接文件数（忽略子目录中的文件）
+            try:
+                file_count = sum(
+                    1 for f in filenames
+                    if os.path.isfile(os.path.join(dirpath, f))
+                )
+            except PermissionError:
+                print(f"权限不足，无法访问：{dirpath}")
+                continue
+
+            # 如果文件数不在预期范围内，则打印
+            if file_count not in expected_counts:
+                print(f"{dirpath} （{file_count} 文件）")
 
 
 if __name__ == '__main__':

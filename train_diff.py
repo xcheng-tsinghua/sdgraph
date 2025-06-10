@@ -18,7 +18,7 @@ from encoders.utils import clear_log, get_log
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default=f'sdgraph_apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--save_str', type=str, default=f'sdgraph_bicycle_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')  # bs = 100, 6889 MiB
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
@@ -28,8 +28,8 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/diffusion/apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/diffusion/bicycle_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion\bicycle_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')

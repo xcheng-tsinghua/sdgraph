@@ -10,6 +10,7 @@ import global_defs
 from data_utils.sketch_utils import get_allfiles, get_subdirs
 import data_utils.sketch_utils as du
 import encoders.spline as sp
+from data_utils import sketch_file_read as fr
 
 
 def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3):
@@ -45,7 +46,7 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     :return:
     """
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = du.load_sketch_file(root, delimiter=',')
+    sketch_data = fr.load_sketch_file(root, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -519,7 +520,7 @@ def test():
 
 
 def vis_quickdraw(npz_file):
-    sketch_all = du.npz_read(npz_file)[0]
+    sketch_all = fr.npz_read(npz_file)[0]
     for c_sketch in sketch_all:
         vis_sketch_data(c_sketch)
 

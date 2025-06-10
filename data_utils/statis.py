@@ -4,6 +4,7 @@ import json
 from tqdm import tqdm
 
 from data_utils.sketch_utils import get_allfiles
+from data_utils import sketch_file_read as fr
 
 
 def stroke_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', pen_up=16, pen_down=17, decrease=0.95, is_read_data=False):
@@ -176,6 +177,37 @@ def ex_matlab(adict: dict):
     # 打印 MATLAB 代码
     print(keys_str)
     print(values_str)
+
+
+def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
+    """
+    统计草图中的点数和该点数草图数量的统计值
+    :param root_npz:
+    :return:
+    """
+    npz_all = get_allfiles(root_npz, 'npz')
+    skh_statistic = {}
+    for c_npz in tqdm(npz_all, total=len(npz_all)):
+
+        npz_train, _ = fr.npz_read(c_npz, 'train')
+        npz_test, _ = fr.npz_read(c_npz, 'test')
+        npz_valid, _ = fr.npz_read(c_npz, 'valid')
+
+        c_files_all = []
+        c_files_all.extend(npz_train)
+        c_files_all.extend(npz_test)
+        c_files_all.extend(npz_valid)
+
+        for c_skh in c_files_all:
+            c_skh_pnt = len(c_skh)
+
+            if c_skh_pnt not in skh_statistic.keys():
+                skh_statistic[c_skh_pnt] = 1
+            else:
+                skh_statistic[c_skh_pnt] += 1
+
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == '__main__':
