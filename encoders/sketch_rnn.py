@@ -558,7 +558,6 @@ class Sampler(object):
 
 
 def main():
-    os.makedirs('sketch_gen', exist_ok=True)
     args = parse_args()
 
     '''定义数据集'''
