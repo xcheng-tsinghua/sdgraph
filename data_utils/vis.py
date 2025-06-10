@@ -611,9 +611,10 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz'
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz'
-    the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\zigzag.full.npz'
+    # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz'
+    # vis_quickdraw(the_file)
 
-    vis_quickdraw(the_file)
+    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
 
     pass
 

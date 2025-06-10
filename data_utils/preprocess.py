@@ -1092,6 +1092,39 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
     #         print(f'error occurred, skip file: {c_file}')
 
 
+def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=preprocess_orig, delimiter=','):
+    """
+    将npz文件转化为stk草图并保存
+    :param npz_file:
+    :param stk_root:
+    :param n_stk:
+    :param n_stk_pnt:
+    :param preprocess_func:
+    :return:
+    """
+    class_name = os.path.basename(npz_file).split('.')[0]
+    stk_root_inner = os.path.join(stk_root, f'{class_name}_{n_stk}_{n_stk_pnt}')
+    os.makedirs(stk_root_inner)
+
+    skh_all = du.npz_read(npz_file, 'train')[0]
+
+    for idx, c_skh in tqdm(enumerate(skh_all), total=len(skh_all)):
+
+        try:
+            c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
+
+            target_skh_STK = preprocess_func(c_skh)
+            target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+
+            if len(target_skh_STK) == global_defs.n_skh_pnt:
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+            else:
+                print(f'error occurred, skip instance: {idx}')
+
+        except:
+            print(f'error occurred, skip instance: {idx}')
+
+
 def print_tree_with_counts(root_path, prefix=""):
     """
     递归打印目录结构及每个目录下的文件数（不含子目录）。
@@ -1256,8 +1289,11 @@ if __name__ == '__main__':
     #                    rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
     #                    preprocess_orig)
 
-    find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    # find_nonstandard_leaf_dirs(rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
+                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
     # folder = r'D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32'
     # find_nonstandard_leaf_dirs(folder)

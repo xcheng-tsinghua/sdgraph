@@ -530,7 +530,7 @@ class SDGraphUNet(nn.Module):
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                        self.n_stk - d_down_stk, self.n_stk_pnt // 2,
                                        self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
-                                       sp_near=2, dn_near=10,
+                                       sp_near=2, dn_near=5,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
@@ -547,7 +547,7 @@ class SDGraphUNet(nn.Module):
                                      global_dim + dense_l2, dense_l2,
                                      self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
                                      self.n_stk - d_down_stk, self.n_stk_pnt // 2,
-                                     sp_near=2, dn_near=10,
+                                     sp_near=2, dn_near=3,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
@@ -556,7 +556,7 @@ class SDGraphUNet(nn.Module):
                                      dense_l1 + dense_l2, dense_l1,
                                      self.n_stk - d_down_stk, self.n_stk_pnt // 2,
                                      self.n_stk, self.n_stk_pnt,
-                                     sp_near=2, dn_near=10,
+                                     sp_near=2, dn_near=5,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
