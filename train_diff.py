@@ -31,8 +31,9 @@ def parse_args():
     parser.add_argument('--is_stk_sample', default='True', type=str, choices=['True', 'False'], help='using stroke sample model?')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/diffusion/$TYPE$_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion\$TYPE$_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
+    parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/diffusion')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -59,12 +60,8 @@ def main(args):
     if args.is_stk_sample == 'True':
         model = sd_stk_sample(2, 2)
         save_str = save_str.replace('sdgraph', 'sdgraph_stk_sample')
-
-    elif args.is_stk_sample == 'False':
-        model = sd_normal(2, 2)
-
     else:
-        raise TypeError('error is_stk_sample')
+        model = sd_normal(2, 2)
 
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
@@ -99,10 +96,15 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        data_root = data_root.replace('$TYPE$', args.category)
 
-        # train_dataset = QuickDrawDiff(root=data_root, workers=0)
-        train_dataset = DiffDataset(root=data_root, is_stk_processed=True)
+        if args.is_load_npz == 'True':
+            data_root = os.path.join(data_root, f'{args.category}.full.npz')
+            train_dataset = QuickDrawDiff(root=data_root, workers=0)
+
+        else:
+            data_root = os.path.join(data_root, f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+            train_dataset = DiffDataset(root=data_root, is_stk_processed=True)
+
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
         '''优化器'''
