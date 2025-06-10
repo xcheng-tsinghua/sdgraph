@@ -401,20 +401,6 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
             desc='QuickDraw to MGT')
         )
 
-    # for c_file in tqdm(files_all, total=len(files_all)):
-    #
-    #     try:
-    #         c_target_file = c_file.replace(source_dir, target_dir)
-    #
-    #         target_skh_STK = preprocess_func(c_file)
-    #         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-    #         target_skh_STK = target_skh_STK.numpy()
-    #
-    #         if len(target_skh_STK) == global_defs.n_skh_pnt:
-    #             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-    #     except:
-    #         print(f'error occurred, skip file: {c_file}')
-
 
 def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=','):
     """
