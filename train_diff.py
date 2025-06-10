@@ -1,7 +1,6 @@
 # 工具包
 import torch
 import os
-import logging # 记录日志信息
 import argparse
 from colorama import Fore, Back, init
 from datetime import datetime

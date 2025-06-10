@@ -30,7 +30,7 @@ def parse_args():
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
 
-    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', help='npz file root')
+    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', help='npz file root')
 
     return parser.parse_args()
 
@@ -553,7 +553,7 @@ class Sampler(object):
         # Show the plot
 
         # global gen_idx
-        plt.savefig(f'sketch_gen/{plot_idx}.png')
+        plt.savefig(f'E:/document/DeepLearning/SDGraph/imgs_gen/{plot_idx}.png')
         # gen_idx += 1
 
 
@@ -632,12 +632,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
 
 
 
