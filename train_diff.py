@@ -18,16 +18,15 @@ from encoders.utils import clear_log, get_log
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    # parser.add_argument('--save_str', type=str, default=f'sdgraph_$TYPE$_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=100, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
-    parser.add_argument('--category', default='apple', type=str, help='training diffusion category')
+    parser.add_argument('--category', default='bicycle', type=str, help='training diffusion category')
     parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
