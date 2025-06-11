@@ -27,11 +27,14 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=10000, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
 
-    parser.add_argument('--root', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', help='npz file root')
+    parser.add_argument('--category', type=str, default='apple', help='diffusion category')
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
+    parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw', help='root of local')
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/quickdraw/raw', help='root of sever')
 
     return parser.parse_args()
 
@@ -468,7 +471,7 @@ class Sampler(object):
         self.decoder = decoder
         self.encoder = encoder
 
-    def sample(self, data: torch.Tensor, plot_idx, temperature: float = 0.4):
+    def sample(self, data: torch.Tensor, category: str, plot_idx: int, temperature: float = 0.4):
         # $N_{max}$
         longest_seq_len = len(data)
 
@@ -505,7 +508,7 @@ class Sampler(object):
         seq = torch.stack(seq)
 
         # Plot the sequence of strokes
-        self.plot(seq, plot_idx)
+        self.plot(seq, category, plot_idx)
 
     @staticmethod
     def _sample_step(dist: 'BivariateGaussianMixture', q_logits: torch.Tensor, temperature: float):
@@ -534,7 +537,7 @@ class Sampler(object):
         return stroke
 
     @staticmethod
-    def plot(seq: torch.Tensor, plot_idx: int):
+    def plot(seq: torch.Tensor, category: str, plot_idx: int):
         # Take the cumulative sums of $(\Delta x, \Delta y)$ to get $(x, y)$
         seq[:, 0:2] = torch.cumsum(seq[:, 0:2], dim=0)
         # Create a new numpy array of the form $(x, y, q_2)$
@@ -556,7 +559,9 @@ class Sampler(object):
         # global gen_idx
         c_root = Path(__file__).resolve()
         parent_dir = c_root.parent.parent
-        save_root = os.path.join(parent_dir, 'imgs_gen', f'{plot_idx}.png')
+        save_dir = os.path.join(parent_dir, 'imgs_gen', category)
+        os.makedirs(save_dir, exist_ok=True)
+        save_root = os.path.join(save_dir, f'{plot_idx}.png')
 
         # save image
         plt.savefig(save_root)
@@ -565,9 +570,17 @@ class Sampler(object):
 def main():
     args = parse_args()
 
+    if args.local == 'True':
+        root = args.root_local
+    else:
+        root = args.root_sever
+
+    npz_root = os.path.join(root, f'{args.category}.full.npz')
+    print(f'loading npz file from: {npz_root}')
+
     '''定义数据集'''
-    train_dataset = StrokesDataset(args.root, 'train', 200)
-    valid_dataset = StrokesDataset(args.root, 'valid', 200, train_dataset.scale)
+    train_dataset = StrokesDataset(npz_root, 'train', 200)
+    valid_dataset = StrokesDataset(npz_root, 'valid', 200, train_dataset.scale)
 
     train_loader = DataLoader(train_dataset, args.bs, shuffle=True)
 
@@ -630,7 +643,7 @@ def main():
             data = data.unsqueeze(1).cuda()
 
             # Sample
-            sampler.sample(data, skh_gen_idx)
+            sampler.sample(data, args.category, skh_gen_idx)
             skh_gen_idx += 1
 
 
