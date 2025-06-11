@@ -344,13 +344,12 @@ def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=gl
     return tensor_img
 
 
-def std_to_stk_file(std_file, source_dir, target_dir, preprocess_func, delimiter):
+def std_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter=','):
     try:
         c_target_file = std_file.replace(source_dir, target_dir)
 
         target_skh_STK = preprocess_func(std_file)
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-        # target_skh_STK = target_skh_STK.numpy()
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
@@ -387,7 +386,7 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
     # 获得source_dir中的全部文件
     files_all = du.get_allfiles(source_dir, 'txt')
 
-    worker_func = partial(std_to_stk_file,
+    worker_func = partial(std_to_stk_ass,
                           source_dir=source_dir,
                           target_dir=target_dir,
                           preprocess_func=preprocess_func,
@@ -402,7 +401,25 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
         )
 
 
-def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=','):
+def npz_to_stk_ass(skh_idx, stk_root_inner, preprocess_func, delimiter):
+    c_skh, idx = skh_idx
+
+    try:
+        c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
+
+        target_skh_STK = preprocess_func(c_skh)
+        target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+
+        if len(target_skh_STK) == global_defs.n_skh_pnt:
+            np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+        else:
+            print(f'error occurred, skip instance: {idx}')
+
+    except:
+        print(f'error occurred, skip instance: {idx}')
+
+
+def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=',', workers=4):
     """
     将npz文件转化为stk草图并保存
     :param npz_file:
@@ -418,21 +435,36 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
     skh_all = fr.npz_read(npz_file, 'train')[0]
 
-    for idx, c_skh in tqdm(enumerate(skh_all), total=len(skh_all)):
+    worker_func = partial(npz_to_stk_ass,
+                          stk_root_inner=stk_root_inner,
+                          preprocess_func=preprocess_func,
+                          delimiter=delimiter
+                          )
 
-        try:
-            c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
+    param_input = list(enumerate(skh_all))
 
-            target_skh_STK = preprocess_func(c_skh)
-            target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+    with Pool(processes=workers) as pool:
+        data_trans = list(tqdm(
+            pool.imap(worker_func, param_input),
+            total=len(param_input),
+            desc='QuickDraw to MGT')
+        )
 
-            if len(target_skh_STK) == global_defs.n_skh_pnt:
-                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-            else:
-                print(f'error occurred, skip instance: {idx}')
-
-        except:
-            print(f'error occurred, skip instance: {idx}')
+    # for idx, c_skh in tqdm(enumerate(skh_all), total=len(skh_all)):
+    #
+    #     try:
+    #         c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
+    #
+    #         target_skh_STK = preprocess_func(c_skh)
+    #         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+    #
+    #         if len(target_skh_STK) == global_defs.n_skh_pnt:
+    #             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+    #         else:
+    #             print(f'error occurred, skip instance: {idx}')
+    #
+    #     except:
+    #         print(f'error occurred, skip instance: {idx}')
 
 
 if __name__ == '__main__':

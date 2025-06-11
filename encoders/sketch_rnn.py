@@ -1,7 +1,7 @@
 import math
-import os
 from typing import Optional, Tuple, Any
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 from matplotlib import pyplot as plt
@@ -11,6 +11,7 @@ import einops
 from torch.nn import Module
 import argparse
 import torch.nn.functional as F
+from pathlib import Path
 
 
 def sketch_plot(data):
@@ -26,7 +27,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=10000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
 
@@ -553,8 +554,12 @@ class Sampler(object):
         # Show the plot
 
         # global gen_idx
-        plt.savefig(f'E:/document/DeepLearning/SDGraph/imgs_gen/{plot_idx}.png')
-        # gen_idx += 1
+        c_root = Path(__file__).resolve()
+        parent_dir = c_root.parent.parent
+        save_root = os.path.join(parent_dir, 'imgs_gen', f'{plot_idx}.png')
+
+        # save image
+        plt.savefig(save_root)
 
 
 def main():

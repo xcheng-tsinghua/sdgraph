@@ -8,97 +8,6 @@ from encoders import sdgraph_utils as su
 from encoders import utils as eu
 
 
-class PointToSparse(nn.Module):
-    """
-    将 dense graph 的数据转移到 sparse graph'
-    使用一维卷积及最大池化方式
-    """
-    def __init__(self, point_dim, sparse_out, n_stk_pnt, with_time=False, time_emb_dim=0, dropout=0.0):
-        super().__init__()
-
-        self.with_time = with_time
-
-        # 将 DGraph 的数据转移到 SGraph
-        inc_target = point_dim * 4
-        mid_dim = int((point_dim * inc_target) ** 0.5)
-        self.point_increase = nn.Sequential(
-            nn.Conv2d(in_channels=point_dim, out_channels=mid_dim, kernel_size=(1, 3)),
-            nn.BatchNorm2d(mid_dim),
-            eu.activate_func(),
-            nn.Dropout2d(dropout),
-
-            nn.Conv2d(in_channels=mid_dim, out_channels=inc_target, kernel_size=(1, 3)),
-            nn.BatchNorm2d(inc_target),
-            eu.activate_func(),
-            nn.Dropout2d(dropout),
-        )
-
-        proc_l0 = (n_stk_pnt - 4) * inc_target
-        proc_l1 = int((proc_l0 * sparse_out) ** 0.5)
-        proc_l2 = sparse_out
-
-        self.proc = eu.MLP(1, (proc_l0, proc_l1, proc_l2), dropout=dropout, final_proc=True)
-
-        if self.with_time:
-            self.time_merge = su.TimeMerge(sparse_out, sparse_out, time_emb_dim)
-
-    def forward(self, xy, time_emb=None):
-        """
-        :param xy: [bs, n_stk, n_stk_pnt, 2]
-        :param time_emb: [bs, emb]
-        :return: [bs, emb, n_stk]
-        """
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = xy.permute(0, 3, 1, 2)
-
-        # -> [bs, emb, n_stk, n_stk_pnt]
-        xy = self.point_increase(xy)
-
-        # -> [bs, emb * n_stk_pnt, n_stk]
-        xy = einops.rearrange(xy, 'b c s sp -> b (c sp) s')
-
-        # -> [bs, emb, n_stk]
-        xy = self.proc(xy)
-
-        assert self.with_time ^ (time_emb is None)
-        if self.with_time:
-            xy = self.time_merge(xy, time_emb)
-
-        return xy
-
-
-class PointToDense(nn.Module):
-    """
-    利用点坐标生成 dense graph
-    使用DGCNN直接为每个点生成对应特征
-    """
-    def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10):
-        super().__init__()
-        self.encoder = su.GCNEncoder(point_dim, emb_dim, n_near)
-
-        self.with_time = with_time
-        if self.with_time:
-            self.time_merge = su.TimeMerge(emb_dim, emb_dim, time_emb_dim)
-
-    def forward(self, xy, time_emb=None):
-        """
-        :param xy: [bs, n_stk, n_stk_pnt, 2]
-        :param time_emb: [bs, emb]
-        :return: [bs, emb, n_stk, n_stk_pnt]
-        """
-        bs, n_stk, n_stk_pnt, channel = xy.size()
-
-        xy = einops.rearrange(xy, 'b s sp c -> b c (s sp)')
-        dense_emb = self.encoder(xy)
-
-        assert self.with_time ^ (time_emb is None)
-        if self.with_time:
-            dense_emb = self.time_merge(dense_emb, time_emb)
-
-        dense_emb = dense_emb.view(bs, dense_emb.size(1), n_stk, n_stk_pnt)
-        return dense_emb
-
-
 class DownSample(nn.Module):
     """
     对sdgraph同时进行下采样
@@ -128,8 +37,14 @@ class DownSample(nn.Module):
                               dropout=dropout,
                               final_proc=True)
 
+        # dense graph 特征更新层
+        self.dn_conv = eu.MLP(dimension=3,
+                              channels=(dn_in * 2, dn_out),
+                              dropout=dropout,
+                              final_proc=True)
+
         # dense graph 下采样及特征更新
-        self.dn_conv = nn.Sequential(
+        self.dn_downsamp = nn.Sequential(
             nn.Conv2d(
                 in_channels=dn_in,  # 输入通道数 (RGB)
                 out_channels=dn_out,  # 输出通道数 (保持通道数不变)
@@ -194,13 +109,29 @@ class DownSample(nn.Module):
         assert stk_coor_sampled.size(1) == n_stk_center
 
         # ------- 对dense fea进行下采样 -------
-        # 先找到对应的笔划
+        # 先找到 fps 获取的对应的笔划
         dense_fea = einops.rearrange(dense_fea, 'b c s sp -> b s (sp c)')
-        dense_fea = eu.index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
-        dense_fea = einops.rearrange(dense_fea, 'b s (sp c) -> b c s sp', sp=self.n_stk_pnt)
+
+        dense_center_fea = eu.index_points(dense_fea, fps_idx)  # -> [bs, n_stk // 2, n_stk_pnt * emb]
+
+        # 找到对应笔划附近的笔划
+        dense_neighbor_fea = eu.index_points(dense_fea, knn_idx_fps)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+
+        # 获取辅助特征，即从中心点到邻近点的向量
+        dense_assist_fea = dense_neighbor_fea - dense_center_fea.unsqueeze(2)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+
+        # 拼接中心特征和辅助特征
+        dense_center_fea = einops.repeat(dense_center_fea, 'b s c -> b s n c', n=self.sp_near)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+        dense_fea = torch.cat([dense_assist_fea, dense_center_fea], dim=3)  # -> [bs, n_stk // 2, sp_near, n_stk_pnt * emb]
+        dense_fea = einops.rearrange(dense_fea, 'b s n (sp c) -> b c s sp n', sp=self.n_stk_pnt)  # -> [bs, emb, n_stk // 2, n_stk_pnt, sp_near]
+
+        # 更新特征
+        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt, sp_near]
+        dense_fea = dense_fea.max(4)[0]  # -> [bs, emb, n_stk // 2, n_stk_pnt]
+        assert dense_fea.size(3) == self.n_stk_pnt
 
         # 进行下采样
-        dense_fea = self.dn_conv(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
+        dense_fea = self.dn_downsamp(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
         return sparse_fea, dense_fea, stk_coor_sampled
 
 
@@ -476,22 +407,23 @@ class SDGraphCls(nn.Module):
         dense_l2 = 512
 
         # 生成笔划坐标
-        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt)
+        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0)
 
         # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt)
-        self.point_to_dense = PointToDense(channel_in, dense_l0)
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0)
 
         # 利用 sdgraph 更新特征
+        d_down_stk = (self.n_stk - 3) // 2
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                   self.n_stk, self.n_stk_pnt,
-                                  self.n_stk // 2, self.n_stk_pnt // 2,
+                                  self.n_stk - d_down_stk, self.n_stk_pnt // 2,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                  self.n_stk // 2, self.n_stk_pnt // 2,
-                                  self.n_stk // 4, self.n_stk_pnt // 4,
+                                  self.n_stk - d_down_stk, self.n_stk_pnt // 2,
+                                  self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
                                   dropout=dropout
                                   )
 
@@ -573,31 +505,32 @@ class SDGraphUNet(nn.Module):
         dense_l2 = 256
 
         global_dim = 1024
-        time_emb_dim = 64
+        time_emb_dim = 256
 
         '''时间步特征生成层'''
         self.time_encode = su.TimeEncode(time_emb_dim)
 
         '''生成笔划坐标'''
-        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_stk_coor = su.PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''点坐标 -> 初始 sdgraph 生成层'''
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0, self.n_stk_pnt, with_time=True, time_emb_dim=time_emb_dim)
-        self.point_to_dense = PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_sparse = su.PointToSparse(channel_in, sparse_l0, with_time=True, time_emb_dim=time_emb_dim)
+        self.point_to_dense = su.PointToDense(channel_in, dense_l0, with_time=True, time_emb_dim=time_emb_dim)
 
         '''下采样层 × 2'''
+        d_down_stk = (self.n_stk - 3) // 2
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                        self.n_stk, self.n_stk_pnt,
-                                       self.n_stk - 3, self.n_stk_pnt // 2,
+                                       self.n_stk - d_down_stk, self.n_stk_pnt // 2,
                                        sp_near=2, dn_near=10,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
-                                       self.n_stk - 3, self.n_stk_pnt // 2,
-                                       self.n_stk - 6, self.n_stk_pnt // 4,
-                                       sp_near=2, dn_near=10,
+                                       self.n_stk - d_down_stk, self.n_stk_pnt // 2,
+                                       self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
+                                       sp_near=2, dn_near=5,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
@@ -612,18 +545,18 @@ class SDGraphUNet(nn.Module):
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2,
                                      global_dim + dense_l2, dense_l2,
-                                     self.n_stk - 6, self.n_stk_pnt // 4,
-                                     self.n_stk - 3, self.n_stk_pnt // 2,
-                                     sp_near=2, dn_near=10,
+                                     self.n_stk - d_down_stk * 2, self.n_stk_pnt // 4,
+                                     self.n_stk - d_down_stk, self.n_stk_pnt // 2,
+                                     sp_near=2, dn_near=3,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1,
                                      dense_l1 + dense_l2, dense_l1,
-                                     self.n_stk - 3, self.n_stk_pnt // 2,
+                                     self.n_stk - d_down_stk, self.n_stk_pnt // 2,
                                      self.n_stk, self.n_stk_pnt,
-                                     sp_near=2, dn_near=10,
+                                     sp_near=2, dn_near=5,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
@@ -740,22 +673,12 @@ def test():
 
 if __name__ == '__main__':
     test()
-
-    # atensor = torch.arange(12)
-    # atensor = atensor.view(4, 3)
-    #
-    # print(atensor)
-    #
-    # atensor1 = einops.rearrange(atensor, 'b c -> (b c)')
-    # atensor2 = einops.rearrange(atensor, 'b c -> (c b)')
-    #
-    # print(atensor1)
-    # print(atensor2)
-
-
-
-
     print('---------------')
+
+    # dense_fea = einops.rearrange(dense_fea, 'b c s sp -> b s (sp c)')
+    #
+    # dense_fea = dense_fea.permute(0, 2, 3, 1)
+    # dense_fea = dense_fea.reshape(dense_fea.size(0), dense_fea.size(1), -1)
 
 
 

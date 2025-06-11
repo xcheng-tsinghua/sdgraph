@@ -1,9 +1,11 @@
+import os.path
 import einops
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
 from einops import rearrange
+from pathlib import Path
 
 import encoders.utils as eu
 
@@ -348,6 +350,14 @@ class DenseUpdate(nn.Module):
         dense_fea = dense_fea.view(bs, dense_fea.size(1), n_stk, n_stk_pnt)
 
         return dense_fea
+
+
+if __name__ == '__main__':
+    c_root = Path(__file__).resolve()
+    parent_dir = c_root.parent.parent
+    save_root = os.path.join(parent_dir, 'imgs_gen', '1.png')
+
+    print(save_root)
 
 
 
