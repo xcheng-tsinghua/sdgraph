@@ -721,6 +721,7 @@ class DiffDataset(Dataset):
         else:
             raise TypeError('error back mode')
 
+        sketch_cube = 100 * sketch_cube
         return sketch_cube, mask
 
     def __len__(self):

@@ -401,8 +401,8 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
         )
 
 
-def npz_to_stk_ass(skh_idx, stk_root_inner, preprocess_func, delimiter):
-    c_skh, idx = skh_idx
+def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter):
+    idx, c_skh = idx_skh
 
     try:
         c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
@@ -431,7 +431,7 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     """
     class_name = os.path.basename(npz_file).split('.')[0]
     stk_root_inner = os.path.join(stk_root, f'{class_name}_{n_stk}_{n_stk_pnt}')
-    os.makedirs(stk_root_inner)
+    os.makedirs(stk_root_inner, exist_ok=True)
 
     skh_all = fr.npz_read(npz_file, 'train')[0]
 
@@ -468,6 +468,6 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
 
 if __name__ == '__main__':
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
+    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz',
                     r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
