@@ -274,7 +274,7 @@ def cls_distribute(source_dir, target_dir, test_rate=0.2):
 
 def quickdraw_download(target_dir):
     # 先提取全部类别
-    class_file = r'C:\Users\ChengXi\Desktop\quickdraw.txt'
+    class_file = 'quickdraw_classes.txt'
     class_all = []
 
     with open(class_file, 'r') as f:
@@ -282,9 +282,6 @@ def quickdraw_download(target_dir):
             c_line = c_line.strip()
             if 'full' in c_line:
                 class_all.append(c_line.split('/')[-2])
-
-    # print(class_all)
-    # print(len(class_all))
 
     os.makedirs(target_dir, exist_ok=True)
 
