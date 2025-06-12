@@ -407,7 +407,7 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter):
     try:
         c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
 
-        target_skh_STK = preprocess_func(c_skh)
+        target_skh_STK = preprocess_func(c_skh, is_order_stk=True)
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
@@ -430,7 +430,7 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     :return:
     """
     class_name = os.path.basename(npz_file).split('.')[0]
-    stk_root_inner = os.path.join(stk_root, f'{class_name}_{n_stk}_{n_stk_pnt}')
+    stk_root_inner = os.path.join(stk_root, f'{class_name}_order_stk_{n_stk}_{n_stk_pnt}')
     os.makedirs(stk_root_inner, exist_ok=True)
 
     skh_all = fr.npz_read(npz_file, 'train')[0]
@@ -468,6 +468,6 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
 
 if __name__ == '__main__':
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz',
+    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
                     r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 

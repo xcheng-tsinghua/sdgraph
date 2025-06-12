@@ -169,6 +169,47 @@ def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n
     plt.show()
 
 
+def show_color(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt):
+    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+    sketch_data = np.loadtxt(root, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    stroke = coordinates / dist
+    stroke = stroke.reshape([n_stroke, n_stk_pnt, 2])
+
+    stroke = [stroke[i] for i in range(stroke.shape[0])]
+
+    stroke = du.order_strokes(stroke)
+    stroke = np.vstack(stroke)
+
+    # 获取点的数量
+    n = stroke.shape[0]
+
+    # 创建颜色映射，使用索引作为颜色值
+    colors = np.linspace(0, 1, n)
+
+    # 绘制笔划并为每个点上色
+    plt.figure(figsize=(6, 4))
+    scatter = plt.scatter(stroke[:, 0], -stroke[:, 1], c=colors, cmap='viridis', s=50)
+
+    # 可选：连接相邻点形成笔划路径
+    plt.plot(stroke[:, 0], -stroke[:, 1], color='gray', linestyle='--', alpha=0.5)
+
+    # 添加颜色条以显示索引颜色映射
+    plt.colorbar(scatter, label='Index')
+
+    # 设置图形显示
+    plt.title("Stroke Colored by Index")
+    plt.axis('equal')
+    plt.grid(True)
+    plt.show()
+
+
 def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False, title=None):
     """
     显示笔划与笔划点归一化后的草图
@@ -615,7 +656,9 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz'
     # vis_quickdraw(the_file)
 
-    vis_sketch_unified(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
+    # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
+
+    show_color(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
 
     pass
 

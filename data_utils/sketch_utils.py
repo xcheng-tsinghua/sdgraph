@@ -1241,6 +1241,68 @@ def find_nonstandard_leaf_dirs(root_path, expected_counts=(100, 1000)):
                 print(f"{dirpath} （{file_count} 文件）")
 
 
+def order_strokes(strokes):
+    """
+    Given a list of strokes (each a numpy array of shape (n, 2)),
+    order and orient them for drawing:
+    1. Start with the longest stroke (by polyline length).
+    2. Orient the starting stroke: choose its endpoint with highest y (then lowest x) as start.
+    3. Iteratively select the next stroke whose endpoint is closest to the current stroke's end,
+       orienting that stroke so its start is nearest to the current end.
+
+    Returns:
+        ordered (list of numpy arrays): the ordered and oriented strokes.
+    """
+    # Make a copy of strokes to avoid modifying input
+    remaining = strokes.copy()
+
+    # 1. Choose longest stroke
+    lengths = [stroke_length(s) for s in remaining]
+    idx = int(np.argmax(lengths))
+    first = remaining.pop(idx)
+
+    # 2. Orient the first stroke
+    if first[0, 0] > first[-1, 0]:
+        first = first[::-1]
+    ordered = [first]
+
+    # 3. Iteratively connect remaining strokes
+    while remaining:
+        # 已排序的最后一个笔划的最后一个点
+        last_pt = ordered[-1][-1]
+
+        best_dist = None
+        best_idx = None
+        best_oriented = None
+
+        # search for stroke with nearest endpoint
+        for i, stroke in enumerate(remaining):
+            # 未排序的当前笔划的始末点
+            s0, s1 = stroke[0], stroke[-1]
+
+            d0 = np.linalg.norm(s0 - last_pt)
+            d1 = np.linalg.norm(s1 - last_pt)
+
+            if d1 < d0:
+                dist, orient = d1, True  # reverse needed
+            else:
+                dist, orient = d0, False
+
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best_idx = i
+                # apply orientation
+                best_oriented = stroke[::-1] if orient else stroke
+
+        # append best oriented stroke
+        ordered.append(best_oriented)
+
+        # remove from remaining
+        remaining.pop(best_idx)
+
+    return ordered
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')

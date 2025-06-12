@@ -43,7 +43,7 @@ def stroke_list_padding_to_cube(sketch_list: list, n_stk=global_defs.n_stk, n_st
     return n3_cube
 
 
-def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False) -> np.ndarray:
+def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False) -> np.ndarray:
     """
     最初始的版本
     通过反复合并、拆分，使得笔划长度尽量相等
@@ -115,6 +115,10 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         # 将每个笔划重采样至指定点
         sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
         if is_show_status: vis.vis_sketch_list(sketch_data, title='after resample', show_dot=True)
+
+        # 排序笔划
+        if is_order_stk:
+            sketch_data = du.order_strokes(sketch_data)
 
         # 转换成 Tensor. [n_stk, n_stk_pnt, 2]
         sketch_data = np.array(sketch_data)
