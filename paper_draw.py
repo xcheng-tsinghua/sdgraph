@@ -9,6 +9,7 @@ import random
 from matplotlib import pyplot as plt
 from encoders import spline as sp
 from tqdm import tqdm
+from data_utils import sketch_file_read as fr
 
 import global_defs
 
@@ -26,7 +27,7 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     :return:
     """
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = du.load_sketch_file(root, delimiter=',')
+    sketch_data = fr.load_sketch_file(root, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -104,7 +105,7 @@ def draw_main_fig():
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -230,7 +231,7 @@ def draw_main_fig():
 
 def show_fig1():
     the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
-    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -314,7 +315,7 @@ def show_points():
 
 def show_fig2():
     the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
-    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -386,8 +387,8 @@ def show_fig2():
 
 
 def show_fig3():
-    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source_merged2.txt'
-    sketch_data = du.load_sketch_file(the_file, delimiter=',')
+    the_file = r'C:\Users\ChengXi\Desktop\fig\vec_sketch\nut_source_merged2.txt'
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
 
     # 2D coordinates
     coordinates = sketch_data[:, :2]
@@ -442,6 +443,143 @@ def show_fig3():
     plt.show()
 
 
+def add_noise():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\vec_sketch\nut_source_merged2.txt'
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    # 添加噪音
+    np.random.seed(99)
+    random_array1 = np.random.randn(*coordinates.shape)
+    random_array2 = np.random.randn(*coordinates.shape)
+    # coordinates = 0.9 * coordinates + 0.05 * random_array1 + 0.05 * random_array2
+    coordinates = 0.96 * coordinates + 0.04 * random_array1
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    # colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 1
+
+    poins_resamp = []
+
+    show_fig_idx = 7
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+        if idx == show_fig_idx:
+            sel_stk = s
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+        # plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=[1,1,1])
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=[1,1,1])
+
+    plt.plot(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], color=colors[show_fig_idx])
+    plt.scatter(strokes[show_fig_idx][::dot_gap, 0], -strokes[show_fig_idx][::dot_gap, 1], s=80, color=colors[show_fig_idx])
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def add_noise2():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\vec_sketch\nut_source_merged2.txt'
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    # 添加噪音
+    np.random.seed(99)
+    random_array1 = np.random.randn(*coordinates.shape)
+    random_array2 = np.random.randn(*coordinates.shape)
+    # coordinates = 0.9 * coordinates + 0.05 * random_array1 + 0.05 * random_array2
+    coordinates = 0.96 * coordinates + 0.04 * random_array1
+    # coordinates = 0.04 * random_array1
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    # colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 1
+
+    poins_resamp = []
+
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+        # plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=(31/255,119/255,180/255))
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
 
 if __name__ == '__main__':
 
@@ -469,11 +607,11 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Plug\8d3fe8a25838031b3321b480176926db_3.txt'
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
-    # show_fig3()
+    add_noise2()
 
     # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
-    traverse_folder()
+    # traverse_folder()
 
     pass
 

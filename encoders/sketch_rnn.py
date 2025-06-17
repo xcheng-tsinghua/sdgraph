@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
 
-    parser.add_argument('--category', type=str, default='apple', help='diffusion category')
+    parser.add_argument('--category', type=str, default='shark', help='diffusion category')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--root_local', type=str, default=r'D:\document\DeepLearning\DataSet\quickdraw\raw', help='root of local')
     parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/quickdraw/raw', help='root of sever')

@@ -21,7 +21,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=100, type=int, help='---')
@@ -121,7 +121,7 @@ def main(args):
         for epoch_idx in range(args.epoch):
             diffusion = diffusion.train()
 
-            print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
+            print(f'Epoch ({epoch_idx}/{args.epoch}):')
 
             for batch_idx, data in enumerate(train_dataloader, 0):
                 points, masks = data[0].float().cuda(), data[1].float().cuda()

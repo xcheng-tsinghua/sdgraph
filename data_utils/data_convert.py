@@ -13,6 +13,7 @@ from multiprocessing import Pool
 from functools import partial
 import random
 import einops
+import svgwrite
 
 from data_utils import sketch_utils as du
 from data_utils import sketch_file_read as fr
@@ -97,6 +98,184 @@ def svg_to_txt_batched(source_dir, target_dir):
             svg_to_txt(c_file, c_file.replace(source_dir, target_dir).replace('svg', 'txt'))
         except:
             print(f'trans failure: {c_file}')
+
+
+def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='#000000', canvas_size=800, padding=20):
+    """
+    将txt文件转化为svg文件，txt文件需要保存为每行(x, y, s)合适
+    :param txt_file:
+    :param svg_file:
+    :param pen_up:
+    :param pen_down:
+    :return:
+    """
+    sketch = du.sketch_split(txt_file, pen_up, pen_down, delimiter)
+
+    # 计算草图范围
+    # all_points = np.vstack(sketch)
+    # min_x, min_y = all_points.min(axis=0)
+    # max_x, max_y = all_points.max(axis=0)
+    # width = max_x - min_x
+    # height = max_y - min_y
+    #
+    # # 创建SVG图像
+    # dwg = svgwrite.Drawing(filename=svg_file, size=(f"{width}px", f"{height}px"))
+    #
+    # for stroke in sketch:
+    #
+    #     if len(stroke > 8):
+    #
+    #         # 偏移到(0,0)并翻转y轴（SVG的y轴向下）
+    #         points = [(x - min_x, height - (y - min_y)) for x, y in stroke]
+    #         dwg.add(dwg.polyline(points, stroke='black', fill='none', stroke_width=1))
+    #
+    # # 保存
+    # dwg.save()
+    # print(f"SVG已保存至: {svg_file}")
+
+
+    # 计算画布范围
+    # all_points = np.vstack(sketch)
+    # min_x, min_y = all_points.min(axis=0)
+    # max_x, max_y = all_points.max(axis=0)
+    # width = max_x - min_x
+    # height = max_y - min_y
+    #
+    # # 构建SVG头
+    # header = f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{width}" height="{height}">\n'
+    # footer = '</svg>\n'
+    #
+    # paths = []
+    # for pathid, stroke in enumerate(sketch):
+    #     if len(stroke) < 5:
+    #         continue
+    #     # 偏移并翻转y轴（保持一致方向）
+    #     points = [(x - min_x, height - (y - min_y)) for x, y in stroke]
+    #     d = f"M {points[0][0]:.2f} {points[0][1]:.2f}"
+    #     d += ''.join(f" L {x:.2f} {y:.2f}" for x, y in points[1:])
+    #     path = f'<path pathid="{pathid}" d="{d}" style="fill:none;stroke:{stroke_color};stroke-width:{stroke_width}"/>\n'
+    #     paths.append(path)
+    #
+    # # 写入文件
+    # with open(svg_file, 'w') as f:
+    #     f.write(header)
+    #     f.writelines(paths)
+    #     f.write(footer)
+    #
+    # print(f"SVG 文件已保存为: {svg_file}")
+
+    # header = '''<?xml version="1.0" encoding="utf-8"?>
+    # <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    # <svg viewBox="0 0 800 800" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg" version="1.1">
+    # <g fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8481">
+    # <g transform="translate(87.52,135.4065) scale(1.6233) translate(0,-60)">
+    # '''
+    #
+    # footer = '''</g>
+    # </g>
+    # </svg>
+    # '''
+    #
+    # path_lines = []
+    # for pathid, stroke in enumerate(sketch):
+    #     if len(stroke) < 5:
+    #         continue
+    #     # 构建 d 属性字符串
+    #     d = f'M {stroke[0][0]:.2f} {stroke[0][1]:.2f}'
+    #     d += ''.join(f' L {x:.2f} {y:.2f}' for x, y in stroke[1:])
+    #     path_line = f'<path pathid="{pathid}" d="{d}"/>\n'
+    #     path_lines.append(path_line)
+    #
+    # # 写入文件
+    # with open(svg_file, 'w') as f:
+    #     f.write(header)
+    #     f.writelines(path_lines)
+    #     f.write(footer)
+    #
+    # print(f"已生成 SVG 文件：{svg_file}")
+
+    # 提取所有点
+    all_points = np.vstack([s for s in sketch if len(s) > 0])
+    min_xy = all_points.min(axis=0)
+    max_xy = all_points.max(axis=0)
+
+    min_x, min_y = min_xy
+    max_x, max_y = max_xy
+    width = max_x - min_x
+    height = max_y - min_y
+
+    # 可视区域大小
+    usable_size = canvas_size - 2 * padding
+    scale_factor = min(usable_size / width, usable_size / height) if width > 0 and height > 0 else 1.0
+
+    # 第一个 translate 把图形移到 padding 位置
+    trans_x = padding
+    trans_y = padding + scale_factor * (max_y - min_y)  # y 方向是向下的
+
+    # 构造 header
+    header = f'''<?xml version="1.0" encoding="utf-8"?>
+    <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+    <svg viewBox="0 0 {canvas_size} {canvas_size}" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg" version="1.1">
+    <g fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8481">
+    <g transform="translate({trans_x:.4f},{trans_y:.4f}) scale({scale_factor:.4f}) translate({-min_x:.4f},{-max_y:.4f})">
+    '''
+
+    footer = '''</g>
+    </g>
+    </svg>
+    '''
+
+    def stroke_to_bezier_path(_stroke):
+        """
+        将一个二维点序列转换为 SVG 路径字符串，使用 C 命令（三次 Bézier 曲线）。
+        简单策略：每 3 个点组成一段 Bézier，如果不足则做简化处理。
+        """
+        if len(_stroke) < 2:
+            return ""  # 没有足够的点画路径
+
+        d = f"M {_stroke[0][0]:.2f} {_stroke[0][1]:.2f}"
+
+        i = 1
+        while i + 2 < len(_stroke):
+            p1, p2, p3 = _stroke[i], _stroke[i + 1], _stroke[i + 2]
+            d += f" C {p1[0]:.2f} {p1[1]:.2f}, {p2[0]:.2f} {p2[1]:.2f}, {p3[0]:.2f} {p3[1]:.2f}"
+            i += 3
+
+        # 若剩下 1~2 个点，退化为直线或重复控制点处理
+        # if i < len(_stroke):
+        #     remaining = _stroke[i:]
+        #     if len(remaining) == 2:
+        #         # 使用两个点，复制起点作为控制点
+        #         d += f" C {remaining[0][0]:.2f} {remaining[0][1]:.2f}, {remaining[0][0]:.2f} {remaining[0][1]:.2f}, {remaining[1][0]:.2f} {remaining[1][1]:.2f}"
+        #     elif len(remaining) == 1:
+        #         d += f" L {remaining[0][0]:.2f} {remaining[0][1]:.2f}"
+
+        return d
+
+    # 构造 path 行
+    path_lines = []
+    for pathid, stroke in enumerate(sketch):
+        if len(stroke) == 0:
+            continue
+        # d = f'M {stroke[0][0]:.2f} {stroke[0][1]:.2f}'
+        # d += ''.join(f' L {x:.2f} {y:.2f}' for x, y in stroke[1:])
+
+        d = stroke_to_bezier_path(stroke)
+        path_lines.append(f'<path pathid="{pathid}" d="{d}"/>\n')
+
+    # 写入
+    with open(svg_file, 'w') as f:
+        f.write(header)
+        f.writelines(path_lines)
+        f.write(footer)
+
+    print(f"✅ SVG 文件已保存：{svg_file}")
+    print(
+        f"📐 transform = translate({trans_x:.2f},{trans_y:.2f}) scale({scale_factor:.4f}) translate({-min_x:.2f},{-max_y:.2f})")
+
+
+
+
 
 
 def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False):
@@ -468,6 +647,10 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
 
 if __name__ == '__main__':
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+
+    txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
+
+    pass
 
