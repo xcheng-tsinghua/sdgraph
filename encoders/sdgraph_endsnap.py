@@ -12,6 +12,78 @@ import global_defs
 import encoders.utils as eu
 
 
+def extend_strokes(sketch_tensor, side_extend=3):
+    """
+    对每个笔划进行扩展，在首尾两侧各扩展 side_extend 个点。
+
+    参数:
+        sketch_tensor: torch.Tensor，大小为 [n_stk, n_tk_pnt, c]
+        side_extend: int，表示每端扩展的点数
+
+    返回:
+        extended_tensor: torch.Tensor，大小为 [n_stk, n_tk_pnt + 2*side_extend, c]
+    """
+    n_stk, n_tk_pnt, c = sketch_tensor.shape
+
+    def find_nearest_endpoint(point, stroke_idx):
+        """
+        找到除了当前笔划以外，离给定点最近的其它笔划的起点或终点及其索引。
+        返回 (closest_stroke_idx, is_start, distance)
+        """
+        min_dist = float('inf')
+        closest_info = (None, None)
+        for j in range(n_stk):
+            if j == stroke_idx:
+                continue
+            start = sketch_tensor[j, 0]
+            end = sketch_tensor[j, -1]
+            d_start = torch.norm(point - start)
+            d_end = torch.norm(point - end)
+            if d_start < min_dist:
+                min_dist = d_start
+                closest_info = (j, True)
+            if d_end < min_dist:
+                min_dist = d_end
+                closest_info = (j, False)
+        return closest_info
+
+    extended_strokes = []
+
+    for i in range(n_stk):
+        stroke = sketch_tensor[i]  # [n_tk_pnt, c]
+
+        # 起点扩展
+        start_point = stroke[0]
+        idx, is_start = find_nearest_endpoint(start_point, i)
+        if idx is not None:
+            neighbor = sketch_tensor[idx]
+            if is_start:
+                ext_part_start = neighbor[:side_extend].flip(0)
+            else:
+                ext_part_start = neighbor[-side_extend:].flip(0)
+        else:
+            ext_part_start = start_point.repeat(side_extend, 1)
+
+        # 终点扩展
+        end_point = stroke[-1]
+        idx, is_start = find_nearest_endpoint(end_point, i)
+        if idx is not None:
+            neighbor = sketch_tensor[idx]
+            if is_start:
+                ext_part_end = neighbor[:side_extend]
+            else:
+                ext_part_end = neighbor[-side_extend:]
+        else:
+            ext_part_end = end_point.repeat(side_extend, 1)
+
+        # 拼接扩展部分
+        extended = torch.cat([ext_part_start, stroke, ext_part_end], dim=0)
+        extended_strokes.append(extended)
+
+    extended_tensor = torch.stack(extended_strokes)
+    return extended_tensor
+
+
 def sequence_extend(seq, side_extend):
     """
 

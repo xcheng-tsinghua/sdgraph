@@ -100,9 +100,10 @@ def svg_to_txt_batched(source_dir, target_dir):
             print(f'trans failure: {c_file}')
 
 
-def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='#000000', canvas_size=800, padding=20):
+def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='black', canvas_size=800, padding=20):
     """
-    将txt文件转化为svg文件，txt文件需要保存为每行(x, y, s)合适
+    将txt文件转化为svg文件，txt文件需要保存为每行(x, y, s)格式
+    该函数用于配合sketch-a-net变形代码进行数据增强
     :param txt_file:
     :param svg_file:
     :param pen_up:
@@ -110,89 +111,6 @@ def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_de
     :return:
     """
     sketch = du.sketch_split(txt_file, pen_up, pen_down, delimiter)
-
-    # 计算草图范围
-    # all_points = np.vstack(sketch)
-    # min_x, min_y = all_points.min(axis=0)
-    # max_x, max_y = all_points.max(axis=0)
-    # width = max_x - min_x
-    # height = max_y - min_y
-    #
-    # # 创建SVG图像
-    # dwg = svgwrite.Drawing(filename=svg_file, size=(f"{width}px", f"{height}px"))
-    #
-    # for stroke in sketch:
-    #
-    #     if len(stroke > 8):
-    #
-    #         # 偏移到(0,0)并翻转y轴（SVG的y轴向下）
-    #         points = [(x - min_x, height - (y - min_y)) for x, y in stroke]
-    #         dwg.add(dwg.polyline(points, stroke='black', fill='none', stroke_width=1))
-    #
-    # # 保存
-    # dwg.save()
-    # print(f"SVG已保存至: {svg_file}")
-
-
-    # 计算画布范围
-    # all_points = np.vstack(sketch)
-    # min_x, min_y = all_points.min(axis=0)
-    # max_x, max_y = all_points.max(axis=0)
-    # width = max_x - min_x
-    # height = max_y - min_y
-    #
-    # # 构建SVG头
-    # header = f'<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{width}" height="{height}">\n'
-    # footer = '</svg>\n'
-    #
-    # paths = []
-    # for pathid, stroke in enumerate(sketch):
-    #     if len(stroke) < 5:
-    #         continue
-    #     # 偏移并翻转y轴（保持一致方向）
-    #     points = [(x - min_x, height - (y - min_y)) for x, y in stroke]
-    #     d = f"M {points[0][0]:.2f} {points[0][1]:.2f}"
-    #     d += ''.join(f" L {x:.2f} {y:.2f}" for x, y in points[1:])
-    #     path = f'<path pathid="{pathid}" d="{d}" style="fill:none;stroke:{stroke_color};stroke-width:{stroke_width}"/>\n'
-    #     paths.append(path)
-    #
-    # # 写入文件
-    # with open(svg_file, 'w') as f:
-    #     f.write(header)
-    #     f.writelines(paths)
-    #     f.write(footer)
-    #
-    # print(f"SVG 文件已保存为: {svg_file}")
-
-    # header = '''<?xml version="1.0" encoding="utf-8"?>
-    # <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-    # <svg viewBox="0 0 800 800" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg" version="1.1">
-    # <g fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8481">
-    # <g transform="translate(87.52,135.4065) scale(1.6233) translate(0,-60)">
-    # '''
-    #
-    # footer = '''</g>
-    # </g>
-    # </svg>
-    # '''
-    #
-    # path_lines = []
-    # for pathid, stroke in enumerate(sketch):
-    #     if len(stroke) < 5:
-    #         continue
-    #     # 构建 d 属性字符串
-    #     d = f'M {stroke[0][0]:.2f} {stroke[0][1]:.2f}'
-    #     d += ''.join(f' L {x:.2f} {y:.2f}' for x, y in stroke[1:])
-    #     path_line = f'<path pathid="{pathid}" d="{d}"/>\n'
-    #     path_lines.append(path_line)
-    #
-    # # 写入文件
-    # with open(svg_file, 'w') as f:
-    #     f.write(header)
-    #     f.writelines(path_lines)
-    #     f.write(footer)
-    #
-    # print(f"已生成 SVG 文件：{svg_file}")
 
     # 提取所有点
     all_points = np.vstack([s for s in sketch if len(s) > 0])
@@ -216,7 +134,7 @@ def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_de
     header = f'''<?xml version="1.0" encoding="utf-8"?>
     <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
     <svg viewBox="0 0 {canvas_size} {canvas_size}" preserveAspectRatio="xMinYMin meet" xmlns="http://www.w3.org/2000/svg" version="1.1">
-    <g fill="none" stroke="black" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8481">
+    <g fill="none" stroke="{stroke_color}" stroke-linecap="round" stroke-linejoin="round" stroke-width="{stroke_width}">
     <g transform="translate({trans_x:.4f},{trans_y:.4f}) scale({scale_factor:.4f}) translate({-min_x:.4f},{-max_y:.4f})">
     '''
 
@@ -580,13 +498,13 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
         )
 
 
-def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter):
+def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter, is_order_stk):
     idx, c_skh = idx_skh
 
     try:
         c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
 
-        target_skh_STK = preprocess_func(c_skh, is_order_stk=True)
+        target_skh_STK = preprocess_func(c_skh, is_order_stk=is_order_stk)
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
@@ -598,7 +516,7 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter):
         print(f'error occurred, skip instance: {idx}')
 
 
-def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=',', workers=4):
+def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=',', workers=4, is_order_stk=True):
     """
     将npz文件转化为stk草图并保存
     :param npz_file:
@@ -606,10 +524,18 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     :param n_stk:
     :param n_stk_pnt:
     :param preprocess_func:
+    :param delimiter:
+    :param workers:
+    :param is_order_stk:
     :return:
     """
     class_name = os.path.basename(npz_file).split('.')[0]
-    stk_root_inner = os.path.join(stk_root, f'{class_name}_order_stk_{n_stk}_{n_stk_pnt}')
+
+    if is_order_stk:
+        stk_root_inner = os.path.join(stk_root, f'{class_name}_order_stk_{n_stk}_{n_stk_pnt}')
+    else:
+        stk_root_inner = os.path.join(stk_root, f'{class_name}_stk_{n_stk}_{n_stk_pnt}')
+
     os.makedirs(stk_root_inner, exist_ok=True)
 
     skh_all = fr.npz_read(npz_file, 'train')[0]
@@ -617,7 +543,8 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     worker_func = partial(npz_to_stk_ass,
                           stk_root_inner=stk_root_inner,
                           preprocess_func=preprocess_func,
-                          delimiter=delimiter
+                          delimiter=delimiter,
+                          is_order_stk=is_order_stk
                           )
 
     param_input = list(enumerate(skh_all))
@@ -647,10 +574,10 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
 
 if __name__ == '__main__':
-    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
-    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz',
+                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
-    txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
+    # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
 
     pass
 
