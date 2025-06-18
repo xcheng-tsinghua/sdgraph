@@ -4,7 +4,7 @@
 
 
 # 每个草图中的笔划数
-n_stk = 13  # 自建机械草图
+n_stk = 5  # 自建机械草图
 # n_stk = 30  # 自建机械草图
 # n_stk = 5  # quickdraw apple
 # n_stk = 4  # quickdraw apple
