@@ -518,6 +518,28 @@ def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dat
         print('save incorrect cls instance: ', save_path)
 
 
+def sequence_extend(seq, side_extend):
+    """
+
+    :param seq: [bs, emb, seq_len]
+    :param side_extend:
+    :return: [bs, emb, len_seq + 2 * n_extend]
+    """
+    if isinstance(seq, np.ndarray):
+        seq = torch.from_numpy(seq)
+
+    former_n = seq[:, :, :side_extend]
+    later_n = seq[:, :, seq.size(2) - side_extend:]
+
+    # 反转末端
+    later_n = torch.flip(later_n, [2])
+
+    # 数组拼接 -> [bs, emb, len_seq + 2 * n_extend]
+    seq_extend = torch.cat([later_n, seq, former_n], dim=2)
+
+    return seq_extend
+
+
 if __name__ == '__main__':
 
     asdasdas = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bolt\0a016b5f95eae21eaa9b95e7571d5bb3_1.txt'
