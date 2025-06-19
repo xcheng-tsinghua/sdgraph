@@ -647,7 +647,13 @@ if __name__ == '__main__':
     # for c_sketch in sketch_all:
     #     vis_sketch_data(c_sketch)
 
-    # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\laptop.full.npz')
+    # 有效草图
+    # car
+    # cat
+    # coffee cup
+    # leaf
+    #
+    vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
 
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
@@ -658,7 +664,7 @@ if __name__ == '__main__':
 
     # vis_sketch_unified(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
 
-    show_color(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
+    # show_color(r'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_7_16\0.txt', 7, 16)
 
     pass
 

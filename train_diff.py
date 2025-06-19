@@ -29,7 +29,7 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--category', default='apple', type=str, help='training diffusion category')
-    parser.add_argument('--is_stk_sample', default='True', type=str, choices=['True', 'False'], help='using stroke sample model?')
+    parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
@@ -116,7 +116,7 @@ def main(args):
             eps=1e-08,
             weight_decay=1e-4
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.7)
 
         '''训练'''
         for epoch_idx in range(args.epoch):

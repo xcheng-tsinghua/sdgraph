@@ -67,8 +67,8 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         # 按点状态标志位分割笔划
         sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
-        # 删除点数小于某个点数的笔划
-        sketch_data = ft.stk_pnt_num_filter(sketch_data, 4)
+        # 删除点数小于某个点数的笔划，可能删除比较长但是点数较少的笔划
+        # sketch_data = ft.stk_pnt_num_filter(sketch_data, 4)
 
         # 重采样，使点之间距离尽量相等
         sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.01)
