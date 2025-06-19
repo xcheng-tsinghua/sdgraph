@@ -4,6 +4,7 @@ import os
 import argparse
 from colorama import Fore, Back, init
 from datetime import datetime
+import shutil
 
 # 自建模块
 import global_defs
@@ -68,6 +69,12 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
+    # 先清空 imgs_gen 文件夹的内容，否则会一直累积在该文件夹
+    try:
+        shutil.rmtree('imgs_gen/')
+    except FileNotFoundError:
+        print('imgs_gen/ 文件夹不存在，跳过删除。')
+
     os.makedirs('model_trained/', exist_ok=True)
     os.makedirs('imgs_gen/', exist_ok=True)
     os.makedirs('log/', exist_ok=True)
