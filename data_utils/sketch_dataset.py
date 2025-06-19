@@ -681,7 +681,8 @@ class DiffDataset(Dataset):
                  back_mode='STK',
                  coor_mode='ABS',
                  n_max_len=200,
-                 is_stk_processed=False
+                 is_stk_processed=False,
+                 scale=1.
                  ):
         """
         :param root:
@@ -690,6 +691,7 @@ class DiffDataset(Dataset):
         :param coor_mode: ['ABS', 'REL']
         :param n_max_len:
         :param is_stk_processed: 数据集是否已处理成 STK 格式
+        :param scale: 输出的草图范围在 [-scale, scale] 之间
         """
         print(f'diffusion dataset, from: {root}')
 
@@ -697,6 +699,7 @@ class DiffDataset(Dataset):
         self.coor_mode = coor_mode
         self.n_max_len = n_max_len
         self.is_stk_processed = is_stk_processed
+        self.scale = scale
 
         self.datapath = du.get_allfiles(root, suffix)
 
@@ -721,7 +724,7 @@ class DiffDataset(Dataset):
         else:
             raise TypeError('error back mode')
 
-        sketch_cube = 100 * sketch_cube
+        sketch_cube = self.scale * sketch_cube
         return sketch_cube, mask
 
     def __len__(self):

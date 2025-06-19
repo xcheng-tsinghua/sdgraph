@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=100, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
+    parser.add_argument('--scale', default=100, type=float, help='sketch bonding box is within [-scale, scale]')
 
     parser.add_argument('--category', default='apple', type=str, help='training diffusion category')
     parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
@@ -104,7 +105,7 @@ def main(args):
 
         else:
             data_root = os.path.join(data_root, f'{args.category}_order_stk_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
-            train_dataset = DiffDataset(root=data_root, is_stk_processed=True)
+            train_dataset = DiffDataset(root=data_root, is_stk_processed=True, scale=args.scale)
 
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
@@ -116,7 +117,7 @@ def main(args):
             eps=1e-08,
             weight_decay=1e-4
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.7)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.7)
 
         '''训练'''
         for epoch_idx in range(args.epoch):
@@ -152,7 +153,7 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png', is_near_merge=True, side_retreat=1, merge_dist=args.scale * 0.05)
                 gen_idx += 1
 
 
