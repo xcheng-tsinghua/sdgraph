@@ -161,12 +161,10 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
+                # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png',
+                                   is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.15)
 
-                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}_1_0_.png',
-                                   is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.1)
-                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}_1_1_.png',
-                                   is_near_merge=True, retreat=(1, 1), merge_dist=args.scale * 0.1)
                 gen_idx += 1
 
 
