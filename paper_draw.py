@@ -600,6 +600,7 @@ if __name__ == '__main__':
 
     # draw_main_fig()
     # show_fig1()
+    show_fig3()
 
     # show_points()
 
@@ -607,7 +608,7 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Plug\8d3fe8a25838031b3321b480176926db_3.txt'
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
-    add_noise2()
+    # add_noise2()
 
     # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 

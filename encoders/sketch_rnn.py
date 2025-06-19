@@ -27,9 +27,10 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+    parser.add_argument('--n_skh_gen', default=1000, type=int, help='---')
 
     parser.add_argument('--category', type=str, default='shark', help='diffusion category')
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
@@ -567,7 +568,7 @@ class Sampler(object):
         plt.savefig(save_root)
 
 
-def main():
+def main(category):
     args = parse_args()
 
     if args.local == 'True':
@@ -575,7 +576,8 @@ def main():
     else:
         root = args.root_sever
 
-    npz_root = os.path.join(root, f'{args.category}.full.npz')
+    # npz_root = os.path.join(root, f'{args.category}.full.npz')
+    npz_root = os.path.join(root, f'{category}.full.npz')
     print(f'loading npz file from: {npz_root}')
 
     '''定义数据集'''
@@ -587,7 +589,7 @@ def main():
     '''定义模型'''
     encoder = EncoderRNN().cuda()
     decoder = DecoderRNN().cuda()
-    sampler = Sampler(encoder, decoder)
+    # sampler = Sampler(encoder, decoder)
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
@@ -631,10 +633,13 @@ def main():
 
         scheduler.step()
 
-        '''生成草图'''
-        with torch.no_grad():
+    '''生成草图'''
+    with torch.no_grad():
+
+        for _ in range(args.n_skh_gen):
             encoder = encoder.eval()
             decoder = decoder.eval()
+            sampler = Sampler(encoder, decoder)
 
             # Randomly pick a sample from validation dataset to encoder
             data, *_ = valid_dataset[np.random.choice(len(valid_dataset))]
@@ -643,12 +648,16 @@ def main():
             data = data.unsqueeze(1).cuda()
 
             # Sample
-            sampler.sample(data, args.category, skh_gen_idx)
-            skh_gen_idx += 1
+            sampler.sample(data, category, skh_gen_idx)
+
+        skh_gen_idx += 1
 
 
 if __name__ == "__main__":
-    main()
+    categories = ['moon', 'book', 'shark', 'angel', 'bicycle']
+
+    for c_cat in categories:
+        main(c_cat)
 
 
 
