@@ -250,7 +250,7 @@ def vis_sketch_list(strokes, show_dot=False, title=None):
     plt.show()
 
 
-def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, side_retreat=0):
+def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0)):
     """
     保存设定格式的草图
     :param sketch_points: [n_stk, n_stk_pnt, 2]
@@ -258,7 +258,7 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
     :param is_smooth: 是否保存光顺后的草图
     :param is_near_merge:
     :param merge_dist: 笔划之间距离小于该值，合并笔划
-    :param side_retreat: 合并之前将每个笔划左右各向内删减的点数
+    :param retreat: 合并之前将每个笔划左右各向内删减的点数
     :return:
     """
     def curve_smooth(x, y):
@@ -271,8 +271,8 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
     sketch_points = sketch_points.detach().cpu().numpy()
 
     # 每个笔划左右各向内缩减指定数量的点
-    if side_retreat > 0:
-        sketch_points = sketch_points[:, 1: -1, :]
+    if retreat != (0, 0):
+        sketch_points = sketch_points[:, retreat[0]:, :] if retreat[1] == 0 else sketch_points[:, retreat[0]: -retreat[1], :]
 
     # 将过近的笔划合并
     stroke_list = []
