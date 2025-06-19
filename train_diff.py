@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
-    parser.add_argument('--n_skh_gen', default=100, type=int, help='---')
+    parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
     parser.add_argument('--scale', default=100, type=float, help='sketch bonding box is within [-scale, scale]')
 
