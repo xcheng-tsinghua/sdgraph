@@ -4,7 +4,7 @@ conda activate dp
 
 ## 同步到云端
 # 查看当前状态
-git status
+git statusconda activate dp
 
 # 将修改添加到暂存区
 git add .
@@ -186,3 +186,9 @@ D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\camouflage
 D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\rain_full （998 文件）
 D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\snowflake_full （999 文件）
 D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\valid\stitches_full （99 文件）
+
+# sketchrnn 生成草图
+python sketch_rnn.py --category=moon && python sketch_rnn.py --category=book && python sketch_rnn.py --category=shark && python sketch_rnn.py --category=angel && python sketch_rnn.py --category=bicycle
+
+
+

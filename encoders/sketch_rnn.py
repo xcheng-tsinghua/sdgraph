@@ -559,7 +559,7 @@ class Sampler(object):
         # global gen_idx
         c_root = Path(__file__).resolve()
         parent_dir = c_root.parent.parent
-        save_dir = os.path.join(parent_dir, 'imgs_gen', 'sketchrnn', category)
+        save_dir = os.path.join(parent_dir, 'log', 'sketchrnn', category)
         os.makedirs(save_dir, exist_ok=True)
         save_root = os.path.join(save_dir, f'{plot_idx}.png')
 
