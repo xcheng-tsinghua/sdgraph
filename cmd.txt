@@ -188,7 +188,8 @@ D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\train\snowflake_
 D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\valid\stitches_full （99 文件）
 
 # sketchrnn 生成草图
-nohup python sketch_rnn.py --category=moon && nohup python sketch_rnn.py --category=book && nohup python sketch_rnn.py --category=shark && nohup python sketch_rnn.py --category=angel && nohup python sketch_rnn.py --category=bicycle
+nohup bash -c 'python sketch_rnn.py --category=apple && python sketch_rnn.py --category=moon && python sketch_rnn.py --category=book && python sketch_rnn.py --category=shark && python sketch_rnn.py --category=angel && python sketch_rnn.py --category=bicycle'
+
 
 
 

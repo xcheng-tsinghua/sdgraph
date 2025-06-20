@@ -568,7 +568,7 @@ class Sampler(object):
         plt.savefig(save_root)
 
 
-def main(category):
+def main():
     args = parse_args()
 
     if args.local == 'True':
@@ -577,7 +577,7 @@ def main(category):
         root = args.root_sever
 
     # npz_root = os.path.join(root, f'{args.category}.full.npz')
-    npz_root = os.path.join(root, f'{category}.full.npz')
+    npz_root = os.path.join(root, f'{args.category}.full.npz')
     print(f'loading npz file from: {npz_root}')
 
     '''定义数据集'''
@@ -607,7 +607,7 @@ def main(category):
         encoder = encoder.train()
         decoder = decoder.train()
 
-        for batch_id, batch in tqdm(enumerate(train_loader, 0), total=len(train_loader)):
+        for batch_id, batch in tqdm(enumerate(train_loader, 0), total=len(train_loader), desc=f'epoch: {epoch} / {args.epoch}'):
             optimizer.zero_grad()
 
             data = batch[0].transpose(0, 1).cuda()
@@ -648,16 +648,18 @@ def main(category):
             data = data.unsqueeze(1).cuda()
 
             # Sample
-            sampler.sample(data, category, skh_gen_idx)
+            sampler.sample(data, args.category, skh_gen_idx)
 
         skh_gen_idx += 1
 
 
 if __name__ == "__main__":
-    categories = ['moon', 'book', 'shark', 'angel', 'bicycle']
+    # categories = ['moon', 'book', 'shark', 'angel', 'bicycle']
+    #
+    # for c_cat in categories:
+    #     main(c_cat)
 
-    for c_cat in categories:
-        main(c_cat)
+    main()
 
 
 
