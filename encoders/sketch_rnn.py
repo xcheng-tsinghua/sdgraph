@@ -26,7 +26,7 @@ def parse_args():
     # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=500, help='batch size in training')
     parser.add_argument('--epoch', default=100, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -636,7 +636,7 @@ def main():
     '''生成草图'''
     with torch.no_grad():
 
-        for _ in range(args.n_skh_gen):
+        for _ in tqdm(range(args.n_skh_gen), total=args.n_skh_gen, desc='generate sketches'):
             encoder = encoder.eval()
             decoder = decoder.eval()
             sampler = Sampler(encoder, decoder)
