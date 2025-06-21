@@ -165,7 +165,7 @@ def main(args):
                 # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
                 save_format_sketch(sampled_images[batch_fig_idx], skh_save_name,
-                                   is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.15)
+                                   is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.10)
 
                 gen_idx += 1
 
