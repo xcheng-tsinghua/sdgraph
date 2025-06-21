@@ -23,7 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=70, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
@@ -126,7 +126,7 @@ def main(args):
             eps=1e-08,
             weight_decay=1e-4
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.7)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
 
         '''训练'''
         for epoch_idx in range(args.epoch):
