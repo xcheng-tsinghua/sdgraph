@@ -70,14 +70,15 @@ def main(args):
 
     '''创建文件夹'''
     # 先清空 imgs_gen 文件夹的内容，否则会一直累积在该文件夹
-    try:
-        print('delete folder: imgs_gen/')
-        shutil.rmtree('imgs_gen/')
-    except FileNotFoundError:
-        print('imgs_gen/ 文件夹不存在，跳过删除。')
-
+    # try:
+    #     print('delete folder: imgs_gen/')
+    #     shutil.rmtree('imgs_gen/')
+    # except FileNotFoundError:
+    #     print('imgs_gen/ 文件夹不存在，跳过删除。')
+    skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    print('sketch save to: ', os.path.abspath(skh_save_folder))
+    os.makedirs(skh_save_folder, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
-    os.makedirs('imgs_gen/', exist_ok=True)
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
@@ -162,7 +163,8 @@ def main(args):
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
                 # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
-                save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png',
+                skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
+                save_format_sketch(sampled_images[batch_fig_idx], skh_save_name,
                                    is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.15)
 
                 gen_idx += 1
