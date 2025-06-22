@@ -560,7 +560,7 @@ class Sampler(object):
         # global gen_idx
         c_root = Path(__file__).resolve()
         parent_dir = c_root.parent.parent
-        save_dir = os.path.join(parent_dir, 'log', 'sketchrnn', category)
+        save_dir = os.path.join(parent_dir, 'imgs_gen', 'sketchrnn', category)
         os.makedirs(save_dir, exist_ok=True)
         save_root = os.path.join(save_dir, f'{plot_idx}.png')
 
@@ -649,8 +649,7 @@ def main():
 
             # Sample
             sampler.sample(data, args.category, skh_gen_idx)
-
-        skh_gen_idx += 1
+            skh_gen_idx += 1
 
 
 if __name__ == "__main__":
