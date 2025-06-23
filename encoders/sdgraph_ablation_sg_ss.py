@@ -366,31 +366,46 @@ class SDGraphEncoder(nn.Module):
     """
     def __init__(self,
                  sparse_in, sparse_out,
-                 sp_near=2,
+                 n_stk,
+                 n_stk_center,
+                 sp_near=2, dn_near=10,
                  dropout=0.2
                  ):
         """
         :param sparse_in: 输入维度
         :param sparse_out: 输出维度
+        :param n_stk: 笔划数
+        :param n_stk_center: 笔划下采样过程中的笔划采样点数
         :param sp_near: 更新 sgraph 时个GCN中邻近点数目
+        :param dn_near: 更新 dgraph 时个GCN中邻近点数目
         :param dropout:
         """
         super().__init__()
+        self.n_stk = n_stk
+        self.n_stk_center = n_stk_center
 
         self.sparse_update = SparseUpdate(sparse_in, sparse_out, sp_near)
+        self.sample = DownSample(sparse_out, sparse_out, self.n_stk, dropout=dropout)
 
-    def forward(self, sparse_fea):
+    def forward(self, sparse_fea, stk_coor=None):
         """
         :param sparse_fea: [bs, emb, n_stk]
+        :param stk_coor: 笔划坐标 [bs, n_stk, emb]
         :return:
         """
 
         bs, emb, n_stk = sparse_fea.size()
+        assert n_stk == self.n_stk
 
         # 信息更新
         union_sparse = self.sparse_update(sparse_fea)
 
-        return union_sparse
+        # 采样
+        union_sparse, stk_coor_sampled = self.sample(union_sparse, stk_coor, self.n_stk_center)
+        if stk_coor_sampled is not None:
+            assert stk_coor_sampled.size(0) == bs and (stk_coor_sampled.size(1) == self.n_stk_center or stk_coor_sampled.size(1) == self.n_stk * 2)
+
+        return union_sparse, stk_coor_sampled
 
 
 class SDGraphCls(nn.Module):
@@ -399,7 +414,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('sdgraph cls with stk sample, ablation SG')
+        print('sdgraph cls with stk sample, ablation SG_SS')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
@@ -410,15 +425,23 @@ class SDGraphCls(nn.Module):
         sparse_l1 = 128 + 64
         sparse_l2 = 512 + 256
 
+        # 生成笔划坐标
+        self.point_to_stk_coor = PointToSparse(channel_in, sparse_l0)
+
         # 生成初始 sdgraph
         self.point_to_sparse = PointToSparse(channel_in, sparse_l0)
 
         # 利用 sdgraph 更新特征
+        d_down_stk = (self.n_stk - 3) // 2
         self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1,
+                                  self.n_stk,
+                                  self.n_stk - d_down_stk,
                                   dropout=dropout
                                   )
 
         self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2,
+                                  self.n_stk - d_down_stk,
+                                  self.n_stk - d_down_stk * 2,
                                   dropout=dropout
                                   )
 
@@ -445,13 +468,16 @@ class SDGraphCls(nn.Module):
         bs, n_stk, n_stk_pnt, channel = xy.size()
         assert n_stk == self.n_stk and n_stk_pnt == self.n_stk_pnt and channel == self.channel_in
 
+        # 生成笔划坐标
+        stk_coor0 = self.point_to_stk_coor(xy).permute(0, 2, 1)  # [bs, n_stk, emb]
+
         # 生成初始 sparse graph
         sparse_graph0 = self.point_to_sparse(xy)  # [bs, emb, n_stk]
         assert sparse_graph0.size()[2] == self.n_stk
 
         # 交叉更新数据
-        sparse_graph1 = self.sd1(sparse_graph0)
-        sparse_graph2 = self.sd2(sparse_graph1)
+        sparse_graph1, stk_coor1 = self.sd1(sparse_graph0, stk_coor=stk_coor0)
+        sparse_graph2, stk_coor2 = self.sd2(sparse_graph1, stk_coor=stk_coor1)
 
         # 提取全局特征
         sparse_glo0 = sparse_graph0.max(2)[0]

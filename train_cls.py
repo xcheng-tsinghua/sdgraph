@@ -6,12 +6,13 @@ import argparse
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import os
+import time
 
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
 # from encoders.sdgraph_stk_samp import SDGraphCls
 # from encoders.sdgraph import SDGraphCls
-from encoders.sdgraph_ablation_sg import SDGraphCls
+from encoders.sdgraph_ablation_sg_ss import SDGraphCls
 from encoders.sketch_transformer import SketchTransformerCls
 from encoders.sketch_rnn import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -60,7 +61,7 @@ def parse_args():
 
 def main(args):
     if args.model == 'SDGraph':
-        save_str = f'{args.model.lower()}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+        save_str = f'{args.model.lower()}_SG_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
     else:
         save_str = args.model.lower()
 
@@ -126,6 +127,7 @@ def main(args):
 
     '''训练'''
     best_instance_accu = -1.0
+    time_all = []
     for epoch in range(args.epoch):
         logstr_epoch = f'Epoch({epoch}/{args.epoch}):'
         all_preds = []
@@ -167,6 +169,7 @@ def main(args):
 
             classifier = classifier.eval()
             dataset.eval()
+            start_time = time.time()
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
@@ -177,6 +180,9 @@ def main(args):
 
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
+            end_time = time.time()
+            avg_time = (end_time - start_time) / len(dataloader)
+            time_all.append(avg_time)
 
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
@@ -184,7 +190,7 @@ def main(args):
 
             # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
-            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
+            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, cinfer_time: {avg_time}, all_infer_time: {sum(time_all) / len(time_all)}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:
