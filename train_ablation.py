@@ -72,7 +72,7 @@ def parse_args():
 
 def main(args):
 
-    save_str = f'{args.model.lower()}_{args.ablation}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+    save_str = f'{args.ablation}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
