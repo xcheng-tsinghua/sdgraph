@@ -14,6 +14,7 @@ from functools import partial
 import random
 import einops
 import svgwrite
+import matplotlib.pyplot as plt
 
 from data_utils import sketch_utils as du
 from data_utils import sketch_file_read as fr
@@ -377,6 +378,38 @@ def quickdraw_to_mgt_batched(root_npz, root_target, is_random_select=True, worke
     #     quickdraw_to_mgt(c_npz, root_target, is_random_select=is_random_select)
 
 
+def quickdraw_to_png(npz_file, save_root, n_save, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
+    """
+    用于将quickdraw的npz文件转化为png图片
+    :param npz_file:
+    :param n_save:
+    :param save_root: 保存目录
+    :return:
+    """
+    skh_all = fr.npz_read(npz_file, 'train')[0]
+
+    # 随机选取一些样本
+    # skh_sel = np.random.choice(skh_all, size=n_save, replace=False)
+    skh_sel = random.sample(skh_all, k=n_save)
+    # 保存
+
+    for idx, c_std_skh in tqdm(enumerate(skh_sel), total=n_save):
+        # 最后一行最后一个数改为17，防止出现空数组
+        c_std_skh[-1, 2] = pen_down
+
+        # split all strokes
+        strokes = np.split(c_std_skh, np.where(c_std_skh[:, 2] == pen_up)[0] + 1)
+
+        for s in strokes:
+            plt.plot(s[:, 0], -s[:, 1])
+
+        plt.axis('equal')
+        plt.axis('off')
+        plt.savefig(os.path.join(save_root, f'{idx}.png'))
+        plt.clf()
+        plt.close()
+
+
 def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
     """
     将 STD 草图转化为 Tensor 图片
@@ -574,23 +607,29 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
 
 
 if __name__ == '__main__':
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    #
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    #
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    #
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    #
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
-
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
-
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
-
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\apple', 1000)
 
 
-
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\moon', 1000)
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\book', 1000)
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\shark', 1000)
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\angel', 1000)
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\bicycle', 1000)
 
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')

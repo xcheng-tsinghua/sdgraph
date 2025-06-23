@@ -193,3 +193,11 @@ nohup bash -c 'python sketch_rnn.py --category=apple && python sketch_rnn.py --c
 
 nohup bash -c 'python train_diff.py --category=apple && python train_diff.py --category=moon && python train_diff.py --category=book && python train_diff.py --category=shark && python train_diff.py --category=angel'
 
+
+python train_diff.py --category=apple --n_skh_gen=1000 --epoch=0 &&
+python train_diff.py --category=moon --n_skh_gen=1000 --epoch=0 &&
+python train_diff.py --category=book --n_skh_gen=1000 --epoch=0 &&
+python train_diff.py --category=shark --n_skh_gen=1000 --epoch=0 &&
+python train_diff.py --category=bicycle --n_skh_gen=1000 --epoch=0
+
+python train_diff.py --category=angel --n_skh_gen=1000 --epoch=0
