@@ -12,7 +12,7 @@ import time
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
 # from encoders.sdgraph_stk_samp import SDGraphCls
 # from encoders.sdgraph import SDGraphCls
-from encoders.sdgraph_ablation_sg_ss import SDGraphCls
+from encoders.sdgraph_ablation_sg import SDGraphCls
 from encoders.sketch_transformer import SketchTransformerCls
 from encoders.sketch_rnn import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
