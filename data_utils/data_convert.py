@@ -378,7 +378,7 @@ def quickdraw_to_mgt_batched(root_npz, root_target, is_random_select=True, worke
     #     quickdraw_to_mgt(c_npz, root_target, is_random_select=is_random_select)
 
 
-def quickdraw_to_png(npz_file, save_root, n_save, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
+def quickdraw_to_png(npz_file, save_root, n_save, linewidth=5, npz_tag='test', pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
     """
     用于将quickdraw的npz文件转化为png图片
     :param npz_file:
@@ -386,7 +386,9 @@ def quickdraw_to_png(npz_file, save_root, n_save, pen_up=global_defs.pen_up, pen
     :param save_root: 保存目录
     :return:
     """
-    skh_all = fr.npz_read(npz_file, 'train')[0]
+    os.makedirs(save_root, exist_ok=True)
+
+    skh_all = fr.npz_read(npz_file, npz_tag)[0]
 
     # 随机选取一些样本
     # skh_sel = np.random.choice(skh_all, size=n_save, replace=False)
@@ -401,7 +403,7 @@ def quickdraw_to_png(npz_file, save_root, n_save, pen_up=global_defs.pen_up, pen
         strokes = np.split(c_std_skh, np.where(c_std_skh[:, 2] == pen_up)[0] + 1)
 
         for s in strokes:
-            plt.plot(s[:, 0], -s[:, 1])
+            plt.plot(s[:, 0], -s[:, 1], linewidth=linewidth)
 
         plt.axis('equal')
         plt.axis('off')
@@ -622,9 +624,7 @@ if __name__ == '__main__':
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
-    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\apple', 1000)
-
-
+    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\apple', 1000)
     quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\moon', 1000)
     quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\book', 1000)
     quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\shark', 1000)

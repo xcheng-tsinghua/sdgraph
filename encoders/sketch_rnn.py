@@ -538,7 +538,7 @@ class Sampler(object):
         return stroke
 
     @staticmethod
-    def plot(seq: torch.Tensor, category: str, plot_idx: int):
+    def plot(seq: torch.Tensor, category: str, plot_idx: int, linewidth=5):
         # Take the cumulative sums of $(\Delta x, \Delta y)$ to get $(x, y)$
         seq[:, 0:2] = torch.cumsum(seq[:, 0:2], dim=0)
         # Create a new numpy array of the form $(x, y, q_2)$
@@ -552,7 +552,7 @@ class Sampler(object):
         # Plot each sequence of strokes
         plt.clf()
         for s in strokes:
-            plt.plot(s[:, 0], -s[:, 1])
+            plt.plot(s[:, 0], -s[:, 1], linewidth=linewidth)
         # Don't show axes
         plt.axis('off')
         # Show the plot

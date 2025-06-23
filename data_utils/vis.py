@@ -250,7 +250,7 @@ def vis_sketch_list(strokes, show_dot=False, title=None):
     plt.show()
 
 
-def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0)):
+def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0), linewidth=5):
     """
     保存设定格式的草图
     :param sketch_points: [n_stk, n_stk_pnt, 2]
@@ -297,7 +297,7 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
         for stk_idx in range(n_stk):
             c_stk = sketch_points[stk_idx, :, :]
             fit_x, fit_y = curve_smooth(c_stk[:, 0], c_stk[:, 1])
-            plt.plot(fit_x, -fit_y)
+            plt.plot(fit_x, -fit_y, linewidth=linewidth)
             # plt.scatter(s[:, 0], -s[:, 1])
 
         plt.axis('off')
