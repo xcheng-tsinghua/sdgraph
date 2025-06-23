@@ -9,8 +9,9 @@ import os
 
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
-from encoders.sdgraph_stk_samp import SDGraphCls
+# from encoders.sdgraph_stk_samp import SDGraphCls
 # from encoders.sdgraph import SDGraphCls
+from encoders.sdgraph_ablation_sg import SDGraphCls
 from encoders.sketch_transformer import SketchTransformerCls
 from encoders.sketch_rnn import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -20,8 +21,8 @@ import global_defs
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=450, help='batch size in training')
-    parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
+    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--epoch', default=150, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
@@ -58,7 +59,11 @@ def parse_args():
 
 
 def main(args):
-    save_str = args.save_str
+    if args.model == 'SDGraph':
+        save_str = f'{args.model.lower()}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+    else:
+        save_str = args.model.lower()
+
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
