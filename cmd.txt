@@ -190,17 +190,18 @@ D:\document\DeepLearning\DataSet\quickdraw\MGT_stk_9_stk_pnt_32\valid\stitches_f
 # sketchrnn 生成草图
 nohup bash -c 'python sketch_rnn.py --category=apple && python sketch_rnn.py --category=moon && python sketch_rnn.py --category=book && python sketch_rnn.py --category=shark && python sketch_rnn.py --category=angel && python sketch_rnn.py --category=bicycle'
 
-
+# sdgraph 生成草图
 nohup bash -c 'python train_diff.py --category=apple && python train_diff.py --category=moon && python train_diff.py --category=book && python train_diff.py --category=shark && python train_diff.py --category=angel'
 
+python train_diff.py --category=apple --epoch=0 &&
+python train_diff.py --category=moon --epoch=0 &&
+python train_diff.py --category=book --epoch=0 &&
+python train_diff.py --category=shark --epoch=0 &&
+python train_diff.py --category=bicycle --epoch=0 &&
+python train_diff.py --category=angel --epoch=0
 
-python train_diff.py --category=apple --n_skh_gen=1000 --epoch=0 &&
-python train_diff.py --category=moon --n_skh_gen=1000 --epoch=0 &&
-python train_diff.py --category=book --n_skh_gen=1000 --epoch=0 &&
-python train_diff.py --category=shark --n_skh_gen=1000 --epoch=0 &&
-python train_diff.py --category=bicycle --n_skh_gen=1000 --epoch=0
 
-python train_diff.py --category=angel --n_skh_gen=1000 --epoch=0
+python train_diff.py --category=apple --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=moon --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=book --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=shark --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=bicycle --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=angel --n_skh_gen=1000 --epoch=0
 
 # 消融实验
 python train_ablation.py --ablation=ABL_DG && python train_ablation.py --ablation=ABL_DG_PS && python train_ablation.py --ablation=ABL_SG_DG && python train_ablation.py --ablation=ABL_SG_SS_DG && python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF &&

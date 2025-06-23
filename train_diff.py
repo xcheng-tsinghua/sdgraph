@@ -69,12 +69,6 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
-    # 先清空 imgs_gen 文件夹的内容，否则会一直累积在该文件夹
-    # try:
-    #     print('delete folder: imgs_gen/')
-    #     shutil.rmtree('imgs_gen/')
-    # except FileNotFoundError:
-    #     print('imgs_gen/ 文件夹不存在，跳过删除。')
     skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     print('sketch save to: ', os.path.abspath(skh_save_folder))
     os.makedirs(skh_save_folder, exist_ok=True)
