@@ -204,7 +204,7 @@ python train_diff.py --category=angel --epoch=0
 python train_diff.py --category=apple --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=moon --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=book --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=shark --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=bicycle --n_skh_gen=1000 --epoch=0 && python train_diff.py --category=angel --n_skh_gen=1000 --epoch=0
 
 # 消融实验
-python train_ablation.py --ablation=ABL_DG && python train_ablation.py --ablation=ABL_DG_PS && python train_ablation.py --ablation=ABL_SG_DG && python train_ablation.py --ablation=ABL_SG_SS_DG && python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF &&
+nohup bash -c 'python train_ablation.py --ablation=ABL_DG && python train_ablation.py --ablation=ABL_DG_PS && python train_ablation.py --ablation=ABL_SG_DG && python train_ablation.py --ablation=ABL_SG_SS_DG && python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF'
 
 
 
