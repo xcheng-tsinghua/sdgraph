@@ -286,7 +286,7 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
     plt.clf()
     for stk_idx in range(len(stroke_list)):
         c_stk = stroke_list[stk_idx]
-        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+        plt.plot(c_stk[:, 0], -c_stk[:, 1], linewidth=linewidth)
         # plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
