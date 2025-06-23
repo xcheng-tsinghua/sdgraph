@@ -116,7 +116,7 @@ def main(args):
             data_root = os.path.join(data_root, f'{args.category}_order_stk_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
             train_dataset = DiffDataset(root=data_root, is_stk_processed=True, scale=args.scale)
 
-        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
+        train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4, drop_last=True)
 
         '''优化器'''
         optimizer = torch.optim.Adam(
