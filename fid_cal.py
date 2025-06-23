@@ -42,11 +42,11 @@ if __name__ == "__main__":
     for c_cat in cats:
 
         # 设置你的目录路径
-        real_images_path = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\{cats}'
+        real_images_path = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\{c_cat}'
 
-        fake_images_path_sdgraph = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sdgraph\{cats}_11_16'
-        fake_images_path_sketchknitter = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchknitter\{cats}'
-        fake_images_path_sketchrnn = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchrnn\{cats}'
+        fake_images_path_sdgraph = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sdgraph\{c_cat}_11_16'
+        fake_images_path_sketchknitter = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchknitter\{c_cat}'
+        fake_images_path_sketchrnn = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchrnn\{c_cat}'
 
         print(c_cat, 'sdgraph: ')
         compute_fid(real_images_path, fake_images_path_sdgraph)

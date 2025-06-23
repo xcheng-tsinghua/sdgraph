@@ -1,7 +1,7 @@
 """
 用于消融实验
-SG
-仅有 SGraph 即笔划级别的节点
+DG
+仅Dense Graph
 """
 import einops
 import torch
@@ -221,73 +221,36 @@ class DownSample(nn.Module):
     对sdgraph同时进行下采样
     该模块处理后笔划数和笔划中的点数同时降低为原来的1/2
     """
-    def __init__(self, sp_in, sp_out, n_stk, sp_near=2, dropout=0.4):
+    def __init__(self, dn_in, dn_out, dropout=0.4):
         """
-        :param sp_in:
-        :param sp_out:
-        :param n_stk:
-        :param sp_near: 在对 sparse graph 下采样过程中，获取中心点特征时邻近点的数量
+        :param dn_in:
+        :param dn_out:
         :param dropout:
         """
         super().__init__()
-        self.sp_near = sp_near
 
-        # 笔划数及单个笔划内的点数
-        self.n_stk = n_stk
+        # dense graph 下采样及特征更新
+        self.dn_downsamp = nn.Sequential(
+            nn.Conv2d(
+                in_channels=dn_in,  # 输入通道数 (RGB)
+                out_channels=dn_out,  # 输出通道数 (保持通道数不变)
+                kernel_size=(1, 3),  # 卷积核大小：1x3，仅在宽度方向上滑动
+                stride=(1, 2),  # 步幅：高度方向为1，宽度方向为2
+                padding=(0, 1)  # 填充：在宽度方向保持有效中心对齐
+            ),
+            nn.BatchNorm2d(dn_out),
+            eu.activate_func(),
+            nn.Dropout2d(dropout)
+        )
 
-        # sparse graph 特征更新层
-        self.sp_conv = eu.MLP(dimension=2,
-                              channels=(sp_in * 2, sp_out),
-                              dropout=dropout,
-                              final_proc=True)
-
-    def forward(self, sparse_fea, stk_coor, n_stk_center=None):
+    def forward(self, dense_fea):
         """
-        :param sparse_fea: [bs, emb, n_stk]
-        :param stk_coor: [bs, n_stk, emb]
-        :param n_stk_center: 笔划下采样过程中的笔划采样点数
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
         """
-        n_stk = sparse_fea.size(2)
-        assert n_stk == self.n_stk == stk_coor.size(1)
-
-        # ------- 对sgraph进行下采样 -------
-        # 使用FPS采样，获得获得中心点索引
-        fps_idx = eu.fps(stk_coor, n_stk_center)  # -> [bs, n_stk_center]
-
-        # 根据中心点索引，获取中心点特征
-        sparse_center_fea = eu.index_points(sparse_fea, fps_idx, True)
-        assert sparse_center_fea.size(2) == n_stk_center
-
-        # step1: --- 获得中心点附近的点的特征 ---
-        # 获取全局knn索引
-        knn_idx_all = eu.knn(stk_coor, self.sp_near)  # -> [bs, n_stk, self.sp_near]
-        assert knn_idx_all.size(2) == self.sp_near
-
-        # 获取中心点的附近的点索引
-        knn_idx_fps = eu.index_points(knn_idx_all, fps_idx)  # -> [bs, n_stk // 2, self.sp_near]
-        assert knn_idx_fps.size(1) == n_stk_center
-
-        # 根据附近点索引获取附近点特征
-        sparse_neighbor_fea = eu.index_points(sparse_fea, knn_idx_fps, True)  # -> [bs, emb, n_stk // 2, sp_near]
-
-        # step2: --- 获取局部区域特征 ---
-        # 获取辅助特征，即从中心点到邻近点的向量
-        sparse_assist_fea = sparse_neighbor_fea - sparse_center_fea.unsqueeze(3)  # -> [bs, emb, n_stk // 2, sp_near]
-
-        # 拼接中心特征和辅助特征
-        sparse_center_fea = einops.repeat(sparse_center_fea, 'b c s -> b c s n', n=self.sp_near)
-        sparse_fea = torch.cat([sparse_assist_fea, sparse_center_fea], dim=1)  # -> [bs, emb, n_stk // 2, sp_near]
-
-        # step3: --- 更新特征 ---
-        sparse_fea = self.sp_conv(sparse_fea)  # -> [bs, emb, n_stk // 2, sp_near]
-        sparse_fea = sparse_fea.max(3)[0]  # -> [bs, emb, n_stk // 2]
-        assert sparse_fea.size(2) == n_stk_center
-
-        # step4: --- 获取采样后的笔划坐标 ---
-        stk_coor_sampled = eu.index_points(stk_coor, fps_idx)  # -> [bs, n_stk // 2, emb]
-        assert stk_coor_sampled.size(1) == n_stk_center
-
-        return sparse_fea, stk_coor_sampled
+        # ------- 对dense fea进行下采样 -------
+        # 进行下采样
+        dense_fea = self.dn_downsamp(dense_fea)  # -> [bs, emb, n_stk // 2, n_stk_pnt // 2]
+        return dense_fea
 
 
 class SparseToDense(nn.Module):
@@ -365,52 +328,52 @@ class SDGraphEncoder(nn.Module):
     包含笔划及笔划中的点层级的下采样与上采样
     """
     def __init__(self,
-                 sparse_in, sparse_out,
-                 sp_near=2,
+                 dense_in, dense_out,
+                 dn_near=10,
                  dropout=0.2
                  ):
         """
-        :param sparse_in: 输入维度
-        :param sparse_out: 输出维度
-        :param sp_near: 更新 sgraph 时个GCN中邻近点数目
+        :param dense_in:
+        :param dense_out:
+        :param dn_near: 更新 dgraph 时个GCN中邻近点数目
         :param dropout:
         """
         super().__init__()
 
-        self.sparse_update = SparseUpdate(sparse_in, sparse_out, sp_near)
+        self.dense_update = DenseUpdate(dense_in, dense_out, dn_near, dropout)  # 此处dropout效果未测试
 
-    def forward(self, sparse_fea):
+    def forward(self, dense_fea, stk_coor=None):
         """
-        :param sparse_fea: [bs, emb, n_stk]
+        :param dense_fea: [bs, emb, n_stk, n_stk_pnt]
+        :param stk_coor: 笔划坐标 [bs, n_stk, emb]
         :return:
         """
 
-        bs, emb, n_stk = sparse_fea.size()
+        bs, _, n_stk, n_stk_pnt = dense_fea.size()
 
         # 信息更新
-        union_sparse = self.sparse_update(sparse_fea)
+        union_dense = self.dense_update(dense_fea)
 
-        return union_sparse
+        return union_dense
 
 
-class Ablation_SG_Embedding(nn.Module):
-    def __init__(self, sparse_l0, sparse_l1, sparse_l2, channel_in, dropout):
+class Ablation_DG_Embedding(nn.Module):
+    def __init__(self, dense_l0, dense_l1, dense_l2, channel_in, dropout):
         """
         :param n_class: 总类别数
         """
         super().__init__()
+
         self.channel_in = channel_in
 
-        # 生成初始 sdgraph
-        self.point_to_sparse = PointToSparse(channel_in, sparse_l0)
+        # 生成笔划坐标
+        self.point_to_dense = PointToDense(channel_in, dense_l0)
 
         # 利用 sdgraph 更新特征
-        self.sd1 = SDGraphEncoder(sparse_l0, sparse_l1,
-                                  dropout=dropout
+        self.sd1 = SDGraphEncoder(dense_l0, dense_l1,
                                   )
 
-        self.sd2 = SDGraphEncoder(sparse_l1, sparse_l2,
-                                  dropout=dropout
+        self.sd2 = SDGraphEncoder(dense_l1, dense_l2,
                                   )
 
     def forward(self, xy, mask=None):
@@ -419,19 +382,21 @@ class Ablation_SG_Embedding(nn.Module):
         :param mask: 占位用
         :return: [bs, n_classes]
         """
-        # 生成初始 sparse graph
-        sparse_graph0 = self.point_to_sparse(xy)  # [bs, emb, n_stk]
+        bs, n_stk, n_stk_pnt, channel = xy.size()
+
+        # 生成初始 dense graph
+        dense_graph0 = self.point_to_dense(xy)
 
         # 交叉更新数据
-        sparse_graph1 = self.sd1(sparse_graph0)
-        sparse_graph2 = self.sd2(sparse_graph1)
+        dense_graph1 = self.sd1(dense_graph0)
+        dense_graph2 = self.sd2(dense_graph1)
 
         # 提取全局特征
-        sparse_glo0 = sparse_graph0.max(2)[0]
-        sparse_glo1 = sparse_graph1.max(2)[0]
-        sparse_glo2 = sparse_graph2.max(2)[0]
+        dense_glo0 = dense_graph0.amax((2, 3))
+        dense_glo1 = dense_graph1.amax((2, 3))
+        dense_glo2 = dense_graph2.amax((2, 3))
 
-        all_fea = torch.cat([sparse_glo0, sparse_glo1, sparse_glo2], dim=1)
+        all_fea = torch.cat([dense_glo0, dense_glo1, dense_glo2], dim=1)
 
         return all_fea
 
@@ -442,24 +407,24 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('sdgraph ablation SG')
+        print('sdgraph ablation DG')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
         self.channel_in = channel_in
 
         # 各层特征维度
-        sparse_l0 = 32 + 16
-        sparse_l1 = 128 + 64
-        sparse_l2 = 512 + 256
+        dense_l0 = 32
+        dense_l1 = 128
+        dense_l2 = 512
 
-        self.sg_embedding = Ablation_SG_Embedding(sparse_l0, sparse_l1, sparse_l2, channel_in, dropout)
+        self.embedding = Ablation_DG_Embedding(dense_l0, dense_l1, dense_l2, channel_in, dropout)
 
         # 利用输出特征进行分类
-        sparse_glo = sparse_l0 + sparse_l1 + sparse_l2
-        out_inc = (n_class / sparse_glo) ** (1 / 3)
+        dense_glo = dense_l0 + dense_l1 + dense_l2
+        out_inc = (n_class / dense_glo) ** (1 / 3)
 
-        out_l0 = sparse_glo
+        out_l0 = dense_glo
         out_l1 = int(out_l0 * out_inc)
         out_l2 = int(out_l1 * out_inc)
         out_l3 = n_class
@@ -475,7 +440,7 @@ class SDGraphCls(nn.Module):
         :param mask: 占位用
         :return: [bs, n_classes]
         """
-        all_fea = self.sg_embedding(xy)
+        all_fea = self.embedding(xy)
 
         # 利用全局特征分类
         cls = self.linear(all_fea)

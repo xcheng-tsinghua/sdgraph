@@ -662,6 +662,9 @@ def test():
     cls12 = classifier_cls(atensor)
     print(cls12.size())
 
+    n_paras = eu.count_parameters(classifier_cls)
+    print(f'model parameter count: {n_paras}')
+
     print('---------------')
 
 

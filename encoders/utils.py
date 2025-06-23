@@ -540,6 +540,15 @@ def sequence_extend(seq, side_extend):
     return seq_extend
 
 
+def count_parameters(model):
+    """
+    统计模型的参数量
+    :param model:
+    :return:
+    """
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
 if __name__ == '__main__':
 
     asdasdas = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bolt\0a016b5f95eae21eaa9b95e7571d5bb3_1.txt'
