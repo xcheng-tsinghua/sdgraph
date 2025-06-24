@@ -71,7 +71,7 @@ class SketchDatasetCls(Dataset):
                  coor_mode='ABS',
                  max_len=200,
                  img_size=(224, 224),
-                 workers=8,
+                 workers=4,
                  is_retrieval=False,
                  is_already_divided=False,
                  is_preprocess=True,
