@@ -10,10 +10,15 @@ def resize_images(input_dir, output_dir, size=(299, 299)):
     for filename in os.listdir(input_dir):
         if not filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp')):
             continue
-        img_path = os.path.join(input_dir, filename)
-        img = Image.open(img_path).convert('RGB')
-        img = img.resize(size, Image.BILINEAR)
-        img.save(os.path.join(output_dir, filename))
+
+        try:
+            img_path = os.path.join(input_dir, filename)
+            img = Image.open(img_path).convert('RGB')
+            img = img.resize(size, Image.BILINEAR)
+            img.save(os.path.join(output_dir, filename))
+        except:
+            print(f'error file : {img_path}')
+            exit(1)
 
 
 def compute_fid(real_dir, fake_dir):
@@ -22,13 +27,16 @@ def compute_fid(real_dir, fake_dir):
     tmp_fake = tempfile.mkdtemp()
 
     try:
-        print("Resizing images...")
+        # print("Resizing images...")
         resize_images(real_dir, tmp_real)
         resize_images(fake_dir, tmp_fake)
 
-        print("Computing FID...")
+        # print("Computing FID...")
         fid_value = fid_score.calculate_fid_given_paths([tmp_real, tmp_fake], batch_size=50, device='cuda' if torch.cuda.is_available() else 'cpu', dims=2048)
-        print(f'FID: {fid_value:.4f}')
+
+        return fid_value
+        # print(f'FID: {fid_value:.4f}')
+
     finally:
         shutil.rmtree(tmp_real)
         shutil.rmtree(tmp_fake)
@@ -48,14 +56,14 @@ if __name__ == "__main__":
         fake_images_path_sketchknitter = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchknitter\{c_cat}'
         fake_images_path_sketchrnn = rf'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\sketchrnn\{c_cat}'
 
-        print(c_cat, 'sdgraph: ')
-        compute_fid(real_images_path, fake_images_path_sdgraph)
+        fid_1 = compute_fid(real_images_path, fake_images_path_sdgraph)
+        print(c_cat, f'sdgraph: {fid_1}')
 
-        print(c_cat, 'sketchknitter: ')
-        compute_fid(real_images_path, fake_images_path_sketchknitter)
+        fid_2 = compute_fid(real_images_path, fake_images_path_sketchknitter)
+        print(c_cat, f'sketchknitter: {fid_2}')
 
-        print(c_cat, 'sketchrnn: ')
-        compute_fid(real_images_path, fake_images_path_sketchrnn)
+        fid_3 = compute_fid(real_images_path, fake_images_path_sketchrnn)
+        print(c_cat, f'sketchrnn: {fid_3}')
 
 
 

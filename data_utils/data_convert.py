@@ -193,10 +193,6 @@ def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_de
         f"📐 transform = translate({trans_x:.2f},{trans_y:.2f}) scale({scale_factor:.4f}) translate({-min_x:.2f},{-max_y:.2f})")
 
 
-
-
-
-
 def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False):
     """
     将草图转换为 S5 格式，(x, y, s1, s2, s3)
@@ -224,7 +220,7 @@ def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False
         random.shuffle(stroke_list)
         data_raw = np.vstack(stroke_list)
 
-    # 多于指定点数则进行采样
+    # 多于指定点数则进行截断
     n_point_raw = len(data_raw)
     if n_point_raw > max_length:
         data_raw = data_raw[:max_length, :]
