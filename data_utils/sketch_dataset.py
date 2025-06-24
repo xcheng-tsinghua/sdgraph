@@ -69,7 +69,7 @@ class SketchDatasetCls(Dataset):
                  data_mode='train',
                  back_mode='STK',
                  coor_mode='ABS',
-                 max_len=200,
+                 max_len=40,
                  img_size=(224, 224),
                  workers=1,
                  is_retrieval=False,
@@ -95,6 +95,7 @@ class SketchDatasetCls(Dataset):
         :param is_retrieval: 是否是检索
         :param is_already_divided: 训练集与测试集是否已经划分好
         :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK，如果无需处理，说明文件里已转化好
+                对于以 S5 格式返回的草图，必须进行预处理，这里不能控制
         :param is_shuffle_stroke: 是否打乱笔划
         :return:
         """
@@ -317,7 +318,7 @@ class SketchDatasetCls(Dataset):
         else:
             raise TypeError('error dataset mode')
 
-        if not self.is_preprocess:
+        if self.back_mode == 'STK' and not self.is_preprocess:  # 以 STK 格式返回且没有预处理，说明文件里已经预处理好
             class_key, data_path = data[index]
             sketch_cube = np.loadtxt(data_path, delimiter=',')
             sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
