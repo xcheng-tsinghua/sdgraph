@@ -23,7 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=100, help='batch size in training')
-    parser.add_argument('--epoch', default=150, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=60, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
     parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/random')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
 
     r'''
@@ -214,8 +214,8 @@ def main(args):
 
 
 if __name__ == '__main__':
-    clear_log('./log')
-    clear_confusion('./data_utils/confusion')
+    # clear_log('./log')
+    # clear_confusion('./data_utils/confusion')
     init(autoreset=True)
     mp.set_start_method('spawn', force=True)
     main(parse_args())

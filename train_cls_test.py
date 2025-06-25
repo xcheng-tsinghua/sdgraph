@@ -256,8 +256,8 @@ def main(args):
 
 
 if __name__ == '__main__':
-    clear_log('./log')
-    clear_confusion('./data_utils/confusion')
+    # clear_log('./log')
+    # clear_confusion('./data_utils/confusion')
     init(autoreset=True)
     main(parse_args())
 

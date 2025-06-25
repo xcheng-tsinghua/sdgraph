@@ -662,7 +662,7 @@ if __name__ == '__main__':
     #
     # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random\test\airplane_full\0.txt')
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg\airplane\n02691156_58-1.svg')
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz'
