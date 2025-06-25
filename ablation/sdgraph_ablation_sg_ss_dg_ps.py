@@ -11,8 +11,8 @@ from einops import rearrange
 
 import global_defs
 from encoders import utils as eu
-from encoders.sdgraph_ablation_sg_ss import Ablation_SG_SS_Embedding
-from encoders.sdgraph_ablation_dg_ps import Ablation_DG_PS_Embedding
+from ablation.sdgraph_ablation_sg_ss import Ablation_SG_SS_Embedding
+from ablation.sdgraph_ablation_dg_ps import Ablation_DG_PS_Embedding
 
 
 class SDGraphCls(nn.Module):
