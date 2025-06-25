@@ -21,9 +21,6 @@ from encoders.vit import VITFinetune, create_pretrained_VIT
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
-
-
-
 def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sketch_transformer', help='---')
@@ -76,6 +73,35 @@ def constructive_loss(x, y, margin=1.0, lambda_=1.0):
     # 总损失
     loss = pos_loss + lambda_ * neg_loss
     return loss
+
+
+def nt_xent_loss(sketch_feat, image_feat, temperature=0.07):
+    """
+    计算 NT-Xent 对比损失（双向：sketch->image 和 image->sketch）
+
+    参数：
+        sketch_feat: Tensor [bs, emb] - 草图特征
+        image_feat:  Tensor [bs, emb] - 图像特征
+        temperature: 温度参数（通常为 0.07）
+
+    返回：
+        loss: scalar，对比损失值
+    """
+    # 归一化到单位球面上
+    sketch_feat = F.normalize(sketch_feat, dim=1)
+    image_feat = F.normalize(image_feat, dim=1)
+
+    # 计算相似度矩阵（bs × bs），每行表示一个 sketch 和所有 image 的相似度
+    logits_sk2im = torch.matmul(sketch_feat, image_feat.T) / temperature
+
+    # 构造 ground truth，正样本在对角线（即第 i 个 sketch 对应第 i 个 image）
+    bs = sketch_feat.size(0)
+    labels = torch.arange(bs, device=sketch_feat.device)
+
+    # 计算交叉熵损失（sketch->image 和 image->sketch）
+    loss_sk2im = F.cross_entropy(logits_sk2im, labels)
+
+    return loss_sk2im / 2
 
 
 class EmbeddingSpace(object):
@@ -200,15 +226,15 @@ def main(args):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
     '''加载模型及权重'''
-    img_encoder = create_pretrained_VIT().cuda()
+    img_encoder = VITFinetune().cuda()
     skh_encoder = SketchTransformer().cuda()
 
     skh_weight_path = f'./model_trained/retrieval_{args.save_str}.pth'
-    # img_weight_path = './model_trained/sketch_retrieval_img.pth'
+    img_weight_path = './model_trained/sketch_retrieval_img.pth'
     if args.is_load_weight == 'True':
         try:
-            # img_encoder.load_state_dict(torch.load(img_weight_path))
-            # print(Fore.GREEN + 'training image encoder from exist model: ' + img_weight_path)
+            img_encoder.load_state_dict(torch.load(img_weight_path))
+            print(Fore.GREEN + 'training image encoder from exist model: ' + img_weight_path)
 
             skh_encoder.load_state_dict(torch.load(skh_weight_path))
             print(Fore.GREEN + 'training sketch encoder from exist model: ' + skh_weight_path)
@@ -220,7 +246,7 @@ def main(args):
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        skh_encoder.parameters(),
+        list(skh_encoder.parameters()) + list(img_encoder.mlp.parameters()),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -233,7 +259,7 @@ def main(args):
     '''训练'''
     for epoch in range(args.epoch):
         skh_encoder = skh_encoder.train()
-        # img_encoder = img_encoder.train()
+        img_encoder = img_encoder.train()
         loss_all = []
 
         dataset.train()
@@ -244,10 +270,11 @@ def main(args):
             optimizer.zero_grad()
 
             skh_emb = skh_encoder(skh, mask)
-            img_emb = img_encoder(img).detach()
+            img_emb = img_encoder(img)
 
             # loss = F.mse_loss(skh_emb, img_emb)
-            loss = constructive_loss(skh_emb, img_emb)
+            # loss = constructive_loss(skh_emb, img_emb)
+            loss = nt_xent_loss(skh_emb, img_emb)
 
             # 利用loss更新参数
             loss.backward()
@@ -257,7 +284,7 @@ def main(args):
 
         scheduler.step()
         torch.save(skh_encoder.state_dict(), skh_weight_path)
-        # torch.save(img_encoder.state_dict(), img_weight_path)
+        torch.save(img_encoder.state_dict(), img_weight_path)
 
         # print(f'save sketch weights at: {skh_weight_path}')
         # print(f'save image weights at: {img_weight_path}')

@@ -32,6 +32,7 @@ class VITFinetune(nn.Module):
         self.image_encoder_pretrained = ImageEncoder_ULIP()
         try:
             self.image_encoder_pretrained.load_state_dict(torch.load(root_ckpt), strict=True)
+            self.image_encoder_pretrained.requires_grad_(False)
         except:
             raise ValueError('can not load pretrained model weight: ', root_ckpt)
 
@@ -40,14 +41,13 @@ class VITFinetune(nn.Module):
     # @torch.inference_mode()
     def forward(self, image):
         """
-
         :param image: [bs, c, w, h]
         :return:
         """
         if len(image.size()) == 3:
             image = einops.repeat(image, 'b w h -> b c w h', c=3)
 
-        self.image_encoder_pretrained = self.image_encoder_pretrained.eval()
+        self.image_encoder_pretrained.eval()
         with torch.no_grad():
             fea = self.image_encoder_pretrained(image)
 

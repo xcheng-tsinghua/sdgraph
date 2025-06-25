@@ -208,8 +208,7 @@ nohup bash -c 'python train_cls.py --is_load_weight=False --is_shuffle_stroke=Tr
 
 
 # 消融实验
-nohup bash -c 'python train_ablation.py --ablation=ABL_DG && python train_ablation.py --ablation=ABL_DG_PS && python train_ablation.py --ablation=ABL_SG_DG && python train_ablation.py --ablation=ABL_SG_SS_DG'
-nohup bash -c 'python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF'
+nohup bash -c 'python train_ablation.py --ablation=ABL_SG && python train_ablation.py --ablation=ABL_SG_SS && python train_ablation.py --ablation=ABL_DG && python train_ablation.py --ablation=ABL_DG_PS && python train_ablation.py --ablation=ABL_SG_DG && python train_ablation.py --ablation=ABL_SG_SS_DG && python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF'
 
 nohup bash -c 'python train_ablation.py --ablation=ABL_SG_SS_DG && python train_ablation.py --ablation=ABL_SG_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS && python train_ablation.py --ablation=ABL_SG_SS_DG_PS_IF'
 
