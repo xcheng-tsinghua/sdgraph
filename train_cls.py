@@ -97,7 +97,13 @@ def main(args):
     else:
         is_shuffle_stroke = False
 
-    dataset = SketchDatasetCls(data_root, back_mode=back_mode, is_already_divided=True, is_preprocess=False, is_shuffle_stroke=is_shuffle_stroke, coor_mode=args.coor_mode)
+    dataset = SketchDatasetCls(data_root,
+                               back_mode=back_mode,
+                               is_already_divided=True,
+                               is_preprocess=False,
+                               is_shuffle_stroke=is_shuffle_stroke,
+                               coor_mode=args.coor_mode
+                               )
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=0)
 
     '''加载模型及权重'''
