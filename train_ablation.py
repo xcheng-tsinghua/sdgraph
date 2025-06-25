@@ -16,16 +16,15 @@ import time
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
 
-from encoders.sdgraph_ablation_sg import SDGraphCls as ABL_SG
-from encoders.sdgraph_ablation_sg_ss import SDGraphCls as ABL_SG_SS
-from encoders.sdgraph_ablation_dg import SDGraphCls as ABL_DG
-from encoders.sdgraph_ablation_dg_ps import SDGraphCls as ABL_DG_PS
-from encoders.sdgraph_ablation_sg_dg import SDGraphCls as ABL_SG_DG
-from encoders.sdgraph_ablation_sg_ss_dg import SDGraphCls as ABL_SG_SS_DG
-from encoders.sdgraph_ablation_sg_dg_ps import SDGraphCls as ABL_SG_DG_PS
-from encoders.sdgraph_ablation_sg_ss_dg_ps import SDGraphCls as ABL_SG_SS_DG_PS
+from ablation.sdgraph_ablation_sg import SDGraphCls as ABL_SG
+from ablation.sdgraph_ablation_sg_ss import SDGraphCls as ABL_SG_SS
+from ablation.sdgraph_ablation_dg import SDGraphCls as ABL_DG
+from ablation.sdgraph_ablation_dg_ps import SDGraphCls as ABL_DG_PS
+from ablation.sdgraph_ablation_sg_dg import SDGraphCls as ABL_SG_DG
+from ablation.sdgraph_ablation_sg_ss_dg import SDGraphCls as ABL_SG_SS_DG
+from ablation.sdgraph_ablation_sg_dg_ps import SDGraphCls as ABL_SG_DG_PS
+from ablation.sdgraph_ablation_sg_ss_dg_ps import SDGraphCls as ABL_SG_SS_DG_PS
 from encoders.sdgraph_stk_samp import SDGraphCls as ABL_SG_SS_DG_PS_IF
-
 
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 import global_defs
