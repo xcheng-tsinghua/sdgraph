@@ -12,8 +12,7 @@ import multiprocessing as mp
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
 # from encoders.sdgraph_stk_samp import SDGraphCls
-# from encoders.sdgraph import SDGraphCls
-from encoders.sdgraph_ablation_sg import SDGraphCls
+from encoders.sdgraph import SDGraphCls
 from encoders.sketch_transformer import SketchTransformerCls
 from encoders.sketch_rnn import SketchRNN_Cls
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
@@ -32,7 +31,6 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--save_str', type=str, default=f'sdgraph_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/random')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
 
