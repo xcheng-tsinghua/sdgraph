@@ -660,8 +660,9 @@ if __name__ == '__main__':
     # coffee cup
     # leaf
     #
-    vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
+    # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
 
+    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\random\test\airplane_full\0.txt')
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz'

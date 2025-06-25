@@ -29,6 +29,7 @@ def parse_args():
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--is_shuffle_stroke', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
+    parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
     parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/random')
@@ -96,7 +97,7 @@ def main(args):
     else:
         is_shuffle_stroke = False
 
-    dataset = SketchDatasetCls(data_root, back_mode=back_mode, is_already_divided=True, is_preprocess=False, is_shuffle_stroke=is_shuffle_stroke)
+    dataset = SketchDatasetCls(data_root, back_mode=back_mode, is_already_divided=True, is_preprocess=False, is_shuffle_stroke=is_shuffle_stroke, coor_mode=args.coor_mode)
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=0)
 
     '''加载模型及权重'''

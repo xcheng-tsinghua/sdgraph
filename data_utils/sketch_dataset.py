@@ -94,8 +94,8 @@ class SketchDatasetCls(Dataset):
         :param workers:
         :param is_retrieval: 是否是检索
         :param is_already_divided: 训练集与测试集是否已经划分好
-        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK，如果无需处理，说明文件里已转化好
-                对于以 S5 格式返回的草图，必须进行预处理，这里不能控制
+        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK，或者处理成 S5。
+                如果无需处理，说明文件里是已转化好的STK草图，对于 S5 格式，则是在读取时转化
         :param is_shuffle_stroke: 是否打乱笔划
         :return:
         """
@@ -123,18 +123,13 @@ class SketchDatasetCls(Dataset):
             datapath_test = self.get_file_path(test_dir)
             category_path = du.get_subdirs(train_dir)
 
-        # 训练测试集已划分好
-        else:
+        else:  # 训练测试集已划分好
             print('train and test set is not divided, auto divide train and test set')
             assert not os.path.isdir(train_dir) and not os.path.isdir(test_dir)
             datapath_train, datapath_test = self.get_file_path(root, True, is_random_divide, test_ratio)
             category_path = du.get_subdirs(root)
 
-        if back_mode == 'STK' and not self.is_preprocess:
-            self.data_train = datapath_train
-            self.data_test = datapath_test
-
-        else:
+        if self.is_preprocess:
             # 数据预处理，防止后续重复处理
             worker_func = partial(self.load_data,
                                   back_mode=back_mode,
@@ -169,10 +164,13 @@ class SketchDatasetCls(Dataset):
                 for c_datapath_test in tqdm(datapath_test, total=len(datapath_test), desc='processing testing files'):
                     self.data_test.append(worker_func(c_datapath_test))
 
-            # 删除异常值
-            print('删除异常值')
+            print('删除异常值')  # 删除异常值
             self.data_train = list(filter(lambda x: x is not None, self.data_train))
             self.data_test = list(filter(lambda x: x is not None, self.data_test))
+
+        else:
+            self.data_train = datapath_train
+            self.data_test = datapath_test
 
         # 用整形 0,1,2,3 等代表具体类型‘plane','car'等，
         # 此时字典 category_path 中的值没有用到，self.classes的键为 ‘plane' 或 'car' ，值为 0, 1, 2, ...
@@ -318,21 +316,34 @@ class SketchDatasetCls(Dataset):
         else:
             raise TypeError('error dataset mode')
 
-        if self.back_mode == 'STK' and not self.is_preprocess:  # 以 STK 格式返回且没有预处理，说明文件里已经预处理好
-            class_key, data_path = data[index]
-            sketch_cube = np.loadtxt(data_path, delimiter=',')
-            sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
-
-            if self.is_shuffle_stroke:
-                np.random.shuffle(sketch_cube)
-
-            mask = 0
-
-        else:
+        if self.is_preprocess:  # 数据已预处理
             class_key, sketch_cube, mask = data[index]
 
+        else:  # 数据未预处理
+            class_key, data_path = data[index]
+
+            if self.back_mode == 'STK':  # 数据未预处理, 对于 STK 而言，未预处理表明数据已处理成 STK
+                sketch_cube = np.loadtxt(data_path, delimiter=',')
+                sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
+
+                if self.is_shuffle_stroke:
+                    np.random.shuffle(sketch_cube)
+
+                mask = 0
+
+            elif self.back_mode == 'S5':  # 对于S5而言，需要进行处理
+                sketch_cube, mask = dc.sketch_file_to_s5(data_path, self.max_len, self.coor_mode, self.is_shuffle_stroke)
+
+            elif self.back_mode == 'IMG':
+                sketch_cube = fr.img_read(data_path, self.img_size)
+                mask = 0
+
+            else:
+                raise TypeError(f'Error back mode: {self.back_mode}, [STK, S5, IMG] is supported')
+
         if self.is_retrieval:
-            return class_key, sketch_cube, mask
+            img_tensor = dc.std_to_tensor_img(sketch_cube.numpy())
+            return img_tensor, sketch_cube, mask
 
         else:
             cls = self.classes[class_key]  # 表示类别的整形数字
