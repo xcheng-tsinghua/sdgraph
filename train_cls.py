@@ -117,7 +117,7 @@ def main(args):
             classifier.load_state_dict(torch.load(model_savepth))
             print(Fore.GREEN + 'training from exist model: ' + model_savepth)
         except:
-            print(Fore.GREEN + 'no existing model, training from scratch')
+            print(Fore.RED + 'no existing model, training from scratch')
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 

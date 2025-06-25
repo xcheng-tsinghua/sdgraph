@@ -214,7 +214,7 @@ def main(args):
             print(Fore.GREEN + 'training sketch encoder from exist model: ' + skh_weight_path)
 
         except:
-            print(Fore.GREEN + 'no existing model, training from scratch')
+            print(Fore.RED + 'no existing model, training from scratch')
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
