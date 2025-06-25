@@ -183,19 +183,20 @@ def main(args):
 
             classifier = classifier.eval()
             dataset.eval()
-            start_time = time.time()
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
                 points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
+                batch_rec_start = time.time()
                 pred = classifier(points, mask)
+                batch_rec_end = time.time()
+                avg_time = (batch_rec_end - batch_rec_start) / points.size(0)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
 
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
-            end_time = time.time()
-            avg_time = (end_time - start_time) / len(dataloader)
+
             time_all.append(avg_time)
 
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
