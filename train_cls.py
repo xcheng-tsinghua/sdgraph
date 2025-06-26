@@ -112,7 +112,7 @@ def main(args):
     dataset = SketchDatasetCls(data_root,
                                back_mode=back_mode,
                                is_already_divided=True,
-                               is_preprocess=False,
+                               is_preprocess=True,
                                is_shuffle_stroke=is_shuffle_stroke,
                                coor_mode=args.coor_mode
                                )
