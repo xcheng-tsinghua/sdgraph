@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
+    parser.add_argument('--is_preprocess', type=str, default='True', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
     parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
@@ -112,7 +113,7 @@ def main(args):
     dataset = SketchDatasetCls(data_root,
                                back_mode=back_mode,
                                is_already_divided=True,
-                               is_preprocess=True,
+                               is_preprocess=eval(args.is_preprocess),
                                is_shuffle_stroke=is_shuffle_stroke,
                                coor_mode=args.coor_mode
                                )
@@ -202,6 +203,7 @@ def main(args):
                 pred = classifier(points, mask)
                 batch_rec_end = time.time()
                 avg_time = (batch_rec_end - batch_rec_start) / points.size(0)
+                time_all.append(avg_time)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
@@ -209,15 +211,13 @@ def main(args):
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
-            time_all.append(avg_time)
-
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
             # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
-            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, cinfer_time: {avg_time}, all_infer_time: {sum(time_all) / len(time_all)}')
+            print(f'{save_str + log_latter}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {sum(time_all) / len(time_all)}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:
