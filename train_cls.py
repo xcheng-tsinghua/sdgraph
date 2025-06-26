@@ -22,7 +22,7 @@ import global_defs
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=100, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=5000, help='batch size in training')
     parser.add_argument('--epoch', default=60, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
@@ -112,7 +112,7 @@ def main(args):
     dataset = SketchDatasetCls(data_root,
                                back_mode=back_mode,
                                is_already_divided=True,
-                               is_preprocess=True,
+                               is_preprocess=False,
                                is_shuffle_stroke=is_shuffle_stroke,
                                coor_mode=args.coor_mode
                                )
