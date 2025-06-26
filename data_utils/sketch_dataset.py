@@ -161,7 +161,8 @@ class SketchDatasetCls(Dataset):
                     self.data_train.append(worker_func(c_datapath_train))
 
                 self.data_test = []
-                for c_datapath_test in tqdm(datapath_test, total=len(datapath_test), desc='processing testing files'):
+                for c_datapath_test in tqdm(datapath_test, total=len(datapath_test),
+                                            desc='processing testing files'):
                     self.data_test.append(worker_func(c_datapath_test))
 
             print('删除异常值')  # 删除异常值
@@ -169,6 +170,7 @@ class SketchDatasetCls(Dataset):
             self.data_test = list(filter(lambda x: x is not None, self.data_test))
 
         else:
+            print('sketch files are not pre-processed, will process in __getitem__')
             self.data_train = datapath_train
             self.data_test = datapath_test
 

@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--bs', type=int, default=3, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_retrieval')

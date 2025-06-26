@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'])
-    parser.add_argument('--is_shuffle_stroke', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
     parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
@@ -70,6 +70,18 @@ def main(args):
 
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
+    log_latter = args.coor_mode
+
+    if args.is_load_weight == 'True':
+        log_latter += '_LW'
+    else:
+        log_latter += '_NLW'
+
+    if args.is_shuffle_stroke == 'True':
+        log_latter += '_SS'
+    else:
+        log_latter += '_NSS'
+
     '''创建文件夹'''
     confusion_dir = save_str + '-' + datetime.now().strftime("%Y-%m-%d %H-%M-%S")
     confusion_dir = os.path.join('data_utils', 'confusion', confusion_dir)
@@ -100,7 +112,7 @@ def main(args):
     dataset = SketchDatasetCls(data_root,
                                back_mode=back_mode,
                                is_already_divided=True,
-                               is_preprocess=False,
+                               is_preprocess=True,
                                is_shuffle_stroke=is_shuffle_stroke,
                                coor_mode=args.coor_mode
                                )
