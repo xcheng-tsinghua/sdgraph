@@ -7,7 +7,6 @@ from tqdm import tqdm
 from colorama import Fore, Back, init
 import os
 import time
-import multiprocessing as mp
 
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
@@ -229,6 +228,5 @@ if __name__ == '__main__':
     # clear_log('./log')
     # clear_confusion('./data_utils/confusion')
     init(autoreset=True)
-    mp.set_start_method('spawn', force=True)
     main(parse_args())
 
