@@ -581,6 +581,50 @@ def add_noise2():
     plt.show()
 
 
+def plot_ordered_points(points):
+    """
+    绘制按顺序连接的点并在每个点附近显示行索引
+
+    参数:
+    points -- 形状为(n,2)的numpy数组，表示平面上的n个点
+    """
+    # 创建图形和坐标轴
+    fig, ax = plt.subplots()
+
+    # 绘制连接线（蓝色实线）
+    ax.plot(points[:, 0], points[:, 1], 'b-o', linewidth=2, markersize=8,
+            markerfacecolor='red', markeredgecolor='black')
+
+    # 添加每个点的行索引标签
+    for i, (x, y) in enumerate(points):
+        # 计算偏移量（避免文本重叠在点上）
+        offset_x = 0.03 * (ax.get_xlim()[1] - ax.get_xlim()[0])
+        offset_y = 0.03 * (ax.get_ylim()[1] - ax.get_ylim()[0])
+
+        # 添加带背景框的文本标签
+        ax.text(x + offset_x, y + offset_y, str(i),
+                fontsize=12, weight='bold',
+                bbox=dict(facecolor='yellow', alpha=0.7, boxstyle='round,pad=0.3'))
+
+    # 设置图形属性
+    ax.set_title("Ordered Points Connection", fontsize=14)
+    ax.set_xlabel("X Coordinate", fontsize=12)
+    ax.set_ylabel("Y Coordinate", fontsize=12)
+    ax.grid(True, linestyle='--', alpha=0.7)
+    ax.axhline(0, color='black', linewidth=0.5)
+    ax.axvline(0, color='black', linewidth=0.5)
+
+    # 自动调整坐标轴范围（增加10%的边界留白）
+    x_padding = 0.1 * (np.max(points[:, 0]) - np.min(points[:, 0]))
+    y_padding = 0.1 * (np.max(points[:, 1]) - np.min(points[:, 1]))
+    ax.set_xlim(np.min(points[:, 0]) - x_padding, np.max(points[:, 0]) + x_padding)
+    ax.set_ylim(np.min(points[:, 1]) - y_padding, np.max(points[:, 1]) + y_padding)
+
+    # 显示图形
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == '__main__':
 
     # # data_root = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all'
@@ -597,11 +641,6 @@ if __name__ == '__main__':
 
     # sketch_processed = preprocess.preprocess_outlier_resamp_seg(fig_file)
     # vis.vis_sketch_list(sketch_processed, show_dot=True)
-
-    # draw_main_fig()
-    # show_fig1()
-    show_fig3()
-
     # show_points()
 
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e0aa70a1d95a7e426cc6522eeddaa713_3.txt'  # 有效齿轮
@@ -613,6 +652,22 @@ if __name__ == '__main__':
     # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     # traverse_folder()
+
+    # draw_main_fig()
+    # show_fig1()
+    # show_fig3()
+
+    npz_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
+    c_sketch = fr.npz_read(npz_file)[0][0]
+
+    # plot_ordered_points(c_sketch[:, :2])
+
+    sketch_resample = prep.preprocess_orig(c_sketch)
+    sketch_resample = sketch_resample.reshape([-1, 2])
+
+    plot_ordered_points(sketch_resample)
+
+
 
     pass
 

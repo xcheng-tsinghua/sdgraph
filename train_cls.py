@@ -69,19 +69,19 @@ def main(args):
     else:
         save_str = args.model.lower()
 
-    print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
-
-    log_latter = args.coor_mode
+    save_str = save_str + '_' + args.coor_mode
 
     if args.is_load_weight == 'True':
-        log_latter += '_LW'
+        save_str += '_LW'
     else:
-        log_latter += '_NLW'
+        save_str += '_NLW'
 
     if args.is_shuffle_stroke == 'True':
-        log_latter += '_SS'
+        save_str += '_SS'
     else:
-        log_latter += '_NSS'
+        save_str += '_NSS'
+
+    print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
     confusion_dir = save_str + '-' + datetime.now().strftime("%Y-%m-%d %H-%M-%S")
@@ -217,7 +217,7 @@ def main(args):
 
             # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
-            print(f'{save_str + log_latter}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {sum(time_all) / len(time_all)}')
+            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {sum(time_all) / len(time_all)}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:

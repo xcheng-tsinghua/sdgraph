@@ -47,6 +47,7 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
     """
     最初始的版本
     通过反复合并、拆分，使得笔划长度尽量相等
+    可能导致笔划顺序乱掉
     :return: [n_stk, n_stk_pnt, xy]
     """
     try:
