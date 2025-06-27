@@ -549,9 +549,50 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
+def shuffle_along_dim(x, dim):
+    """
+    将一个pytorch的Tensor在指定维度打乱
+    :param x:
+    :param dim: 需要打乱的维度
+    :return:
+    """
+    idx = torch.randperm(x.size(dim))
+    return x.index_select(dim, idx), idx
+
+
+def recover_along_dim(x_shuffled: torch.Tensor, idx: torch.Tensor, dim: int):
+    """
+    还原在某一维度 dim 上被打乱的张量。输入的打乱 idx 需要是 shuffle_along_dim 函数输出的 idx
+
+    参数:
+        x_shuffled: 被打乱后的张量
+        idx: 打乱使用的索引（即 torch.randperm 得到的）
+        dim: 被打乱的维度
+
+    返回:
+        x_recovered: 还原后的张量
+    """
+    # 构造反向索引
+    inv_idx = torch.empty_like(idx)
+    inv_idx[idx] = torch.arange(len(idx), device=idx.device)
+
+    # 使用 index_select 进行还原
+    x_recovered = torch.index_select(x_shuffled, dim, inv_idx)
+    return x_recovered
+
+
 if __name__ == '__main__':
 
-    asdasdas = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bolt\0a016b5f95eae21eaa9b95e7571d5bb3_1.txt'
+    test_tensor = torch.arange(10)
+    test_tensor = test_tensor.view(2, 5)
+    print(test_tensor)
+
+    shuffle_tensor, idx__ = shuffle_along_dim(test_tensor, 1)
+    print(shuffle_tensor)
+    print(recover_along_dim(shuffle_tensor, idx__, 1))
+
+
+    # asdasdas = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bolt\0a016b5f95eae21eaa9b95e7571d5bb3_1.txt'
     # std_to_tensor_img(np.loadtxt(asdasdas, delimiter=','))
 
     #
@@ -605,6 +646,6 @@ if __name__ == '__main__':
 
     # vis_log_comp(r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-27 11-46-11.txt', r'C:\Users\ChengXi\Desktop\cad_dsample-2025-03-28 02-11-56.txt')
 
-    vis_cls_log(r'C:\Users\ChengXi\Desktop\sd_qw_valid2.txt', 0, 1)
+    # vis_cls_log(r'C:\Users\ChengXi\Desktop\sd_qw_valid2.txt', 0, 1)
 
     pass

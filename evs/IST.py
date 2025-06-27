@@ -1,5 +1,7 @@
 """
-用于消融实验
+用于验证提出的目标学习内容是否有效
+IST：intra stroke temporal
+在形成初始笔划特征和信息交换的temporal encoding时，使用随机的邻近点
 """
 import einops
 import torch
@@ -126,8 +128,14 @@ class PointToSparse(nn.Module):
         # -> [bs, emb, n_stk, n_stk_pnt]
         xy = xy.permute(0, 3, 1, 2)
 
+        # 打乱笔划内的点顺序，使笔划内的点时序不起作用
+        xy, s_idx = eu.shuffle_along_dim(xy, 2)
+
         # -> [bs, emb, n_stk, n_stk_pnt]
         xy = self.point_increase(xy)
+
+        # 还原打乱的Tensor，以免对后续过程产生影响
+        xy = eu.recover_along_dim(xy, s_idx, 2)
 
         # -> [bs, emb, n_stk]
         xy = torch.max(xy, dim=3)[0]
@@ -397,8 +405,14 @@ class DenseToSparse(nn.Module):
         :param sparse_fea: [bs, emb, n_stk]
         :return: [bs, emb, n_stk]
         """
+        # 先打乱顺序，使其笔划内时序不起作用
+        dense_fea, s_idx = eu.shuffle_along_dim(dense_fea, 2)
+
         # -> [bs, emb, n_stk, n_stk_pnt]
         dense_fea = self.temporal_encoder(dense_fea)
+
+        # 还原原本顺序，以免对后续过程产生影响
+        dense_fea = eu.recover_along_dim(dense_fea, s_idx, 2)
 
         # -> [bs, emb, n_stk]
         sparse_feas_from_dense = dense_fea.max(3)[0]
@@ -483,7 +497,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('sdgraph cls with stk sample')
+        print('sdgraph evaluate the efficient of Intra Stroke Temporal information, using random neighbor when generate the initial SGraph features and temporal encoding in information fusion')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt

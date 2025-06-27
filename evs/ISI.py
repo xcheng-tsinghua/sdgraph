@@ -1,5 +1,7 @@
 """
-用于消融实验
+用于验证提出的目标学习内容是否有效
+ISI：inter stroke information
+通过断开 SGraph 中的节点连接
 """
 import einops
 import torch
@@ -166,7 +168,7 @@ class SparseUpdate(nn.Module):
     """
     def __init__(self, sp_in, sp_out, n_near=2):
         super().__init__()
-        self.encoder = GCNEncoder(sp_in, sp_out, n_near)
+        self.encoder = eu.MLP(1, (sp_in, int((sp_in * sp_out) ** 0.5), sp_out))
 
     def forward(self, sparse_fea):
         """
@@ -483,7 +485,7 @@ class SDGraphCls(nn.Module):
         :param n_class: 总类别数
         """
         super().__init__()
-        print('sdgraph cls with stk sample')
+        print('sdgraph evaluate the efficient of Inter Stroke Information, removed the connection when SGraph update')
 
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt

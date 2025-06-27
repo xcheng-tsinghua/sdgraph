@@ -25,6 +25,8 @@ from ablation.sdgraph_ablation_sg_ss_dg import SDGraphCls as ABL_SG_SS_DG
 from ablation.sdgraph_ablation_sg_dg_ps import SDGraphCls as ABL_SG_DG_PS
 from ablation.sdgraph_ablation_sg_ss_dg_ps import SDGraphCls as ABL_SG_SS_DG_PS
 from encoders.sdgraph_stk_samp import SDGraphCls as ABL_SG_SS_DG_PS_IF
+from evs.ISI import SDGraphCls as EVS_ISI
+from evs.IST import SDGraphCls as EVS_IST
 
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 import global_defs
@@ -39,7 +41,9 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--ablation', default='ABL_SG', type=str)
+    parser.add_argument('--ablation', default='ABL_SG', type=str,
+                        choices=['ABL_SG', 'ABL_SG_SS', 'ABL_DG', 'ABL_DG_PS', 'ABL_SG_DG', 'ABL_SG_SS_DG', 'ABL_SG_DG_PS', 'ABL_SG_SS_DG_PS', 'ABL_SG_SS_DG_PS_IF',
+                                 'EVS_ISI', 'EVS_IST'])
 
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
