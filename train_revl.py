@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--bs', type=int, default=3, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
+    parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_retrieval')
@@ -110,9 +110,10 @@ class EmbeddingSpace(object):
     """
     def __init__(self,
                  img_encoder: Module,
+                 skh_img_dataset,
                  skh_img_loader: DataLoader
                  ):
-
+        skh_img_dataset.eval()
         img_encoder = img_encoder.eval()
 
         self.embeddings = []
@@ -159,7 +160,7 @@ class EmbeddingSpace(object):
 
 def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
     skh_img_dataset.img()
-    emb_space = EmbeddingSpace(img_encoder, skh_img_loader)
+    emb_space = EmbeddingSpace(img_encoder, skh_img_dataset, skh_img_loader)
 
     c_correct_1 = 0
     c_correct_5 = 0
@@ -168,9 +169,9 @@ def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
 
     skh_img_dataset.eval()
     skh_encoder = skh_encoder.eval()
-    save_idx = 0
+    # save_idx = 0
     for idx_batch, data in tqdm(enumerate(skh_img_loader), total=len(skh_img_loader), desc='evaluate'):
-        sketch, mask, v_index = data[0].float().cuda(), data[1].float().cuda(), data[3].long().cuda()
+        sketch, mask, img, v_index = data[0].float().cuda(), data[1].float().cuda(), data[2].float().cuda(), data[3].long().cuda()
 
         # for i in range(sketch.size(0)):
         #     c_skh = sketch[i]
@@ -180,7 +181,11 @@ def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
             # [bs, emb]
             skh_embedding = skh_encoder(sketch, mask)
 
-            vis_tensor_map(skh_embedding[:, ::10], is_show=False, save_root=f'./imgs_gen/sketch_emb_{save_idx}.png')
+            ####################
+            # img_embedding = img_encoder(img)
+            # skh_embedding = img_embedding
+
+            # vis_tensor_map(skh_embedding[:, ::10], is_show=False, save_root=f'./imgs_gen/sketch_emb_{save_idx}.png')
             # save_idx += 1
 
             # [bs, k]
