@@ -210,13 +210,14 @@ def main(args):
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
+            infer_time = sum(time_all) / len(time_all)
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
-            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
+            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}\tinfer_time\t{infer_time}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
 
             # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
-            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {sum(time_all) / len(time_all)}')
+            print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {infer_time}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:
