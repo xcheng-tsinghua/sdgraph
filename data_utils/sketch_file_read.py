@@ -1,9 +1,11 @@
-from svgpathtools import svg2paths2
+from svgpathtools import svg2paths
 import numpy as np
 import os
 import torch
 from torchvision import transforms
 from PIL import Image
+import re
+import xml.etree.ElementTree as ET
 
 from data_utils import sketch_utils as du
 import global_defs
@@ -42,38 +44,46 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
     :param pen_up:
     :return: [n, 3] (x, y, s)
     """
-    paths, attributes, svg_attributes = svg2paths2(svg_path)
+
+    def _filter_and_sort(_paths, _attributes):
+        _filtered = []
+        _pattern = re.compile(r'^svg_(\d+)$')
+
+        for _idx, _attr in enumerate(_attributes):
+            if isinstance(_attr, dict) and 'id' in _attr:
+                _match = _pattern.fullmatch(_attr['id'])
+                if _match:
+                    num = int(_match.group(1))
+                    _filtered.append((num, _idx))
+
+        # 按 NUM 升序排序
+        _filtered.sort()
+
+        # 提取排序后的索引
+        _sorted_indices = [_idx for _, _idx in _filtered]
+
+        # 根据索引提取对应元素
+        _sorted_attributes = [_attributes[_i] for _i in _sorted_indices]
+        _sorted_paths = [_paths[_i] for _i in _sorted_indices]
+
+        return _sorted_paths, _sorted_attributes
+
+    paths, attributes = svg2paths(svg_path)
+    paths, attributes = _filter_and_sort(paths, attributes)
 
     strokes = []
-    for path, attr in zip(paths, attributes):
+    for path in paths:
         if len(path) == 0:
             continue
 
-        # 分割子路径（处理M/m移动命令）
-        subpaths = []
-        current_subpath = []
+        c_start = path[0].start
+        c_stk = [(c_start.real, c_start.imag)]
 
         for segment in path:
-            if segment.start != (current_subpath[-1].end if current_subpath else None):
-                if current_subpath:
-                    subpaths.append(current_subpath)
-                current_subpath = []
-            current_subpath.append(segment)
+            c_end = segment.end
+            c_stk.append((c_end.real, c_end.imag))
 
-        if current_subpath:
-            subpaths.append(current_subpath)
-
-        # 处理每个子路径
-        for subpath in subpaths:
-            points = []
-            # 添加第一个线段的起点
-            points.append((subpath[0].start.real, subpath[0].start.imag))
-
-            # 添加所有线段的终点
-            for segment in subpath:
-                points.append((segment.end.real, segment.end.imag))
-
-            strokes.append(points)
+        strokes.append(c_stk)
 
     stroke_list_np = []
     for c_stk in strokes:

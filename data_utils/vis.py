@@ -125,6 +125,7 @@ def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs
             plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
+    plt.axis('equal')
     plt.title(title)
     plt.show()
 

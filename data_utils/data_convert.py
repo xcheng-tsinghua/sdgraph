@@ -13,7 +13,6 @@ from multiprocessing import Pool
 from functools import partial
 import random
 import einops
-import svgwrite
 import matplotlib.pyplot as plt
 
 from data_utils import sketch_utils as du
@@ -24,57 +23,7 @@ import global_defs
 
 def svg_to_txt(svg_path, txt_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
     svg_data = fr.svg_read(svg_path, pen_down, pen_up)
-    # np.savetxt(txt_path, svg_data, fmt="%.5f", delimiter=delimiter)
     np.savetxt(txt_path, svg_data, delimiter=delimiter)
-
-    # paths, attributes, svg_attributes = svg2paths2(svg_path)
-    # strokes = []
-    #
-    # for path, attr in zip(paths, attributes):
-    #     if len(path) == 0:
-    #         continue
-    #
-    #     # 分割子路径（处理M/m移动命令）
-    #     subpaths = []
-    #     current_subpath = []
-    #
-    #     for segment in path:
-    #         if segment.start != (current_subpath[-1].end if current_subpath else None):
-    #             if current_subpath:
-    #                 subpaths.append(current_subpath)
-    #             current_subpath = []
-    #         current_subpath.append(segment)
-    #
-    #     if current_subpath:
-    #         subpaths.append(current_subpath)
-    #
-    #     # 处理每个子路径
-    #     for subpath in subpaths:
-    #         points = []
-    #         # 添加第一个线段的起点
-    #         points.append((subpath[0].start.real, subpath[0].start.imag))
-    #
-    #         # 添加所有线段的终点
-    #         for segment in subpath:
-    #             points.append((segment.end.real, segment.end.imag))
-    #
-    #         strokes.append(points)
-    #
-    # # for c_stk in strokes:
-    # #     c_stk = np.array(c_stk)
-    # #     plt.plot(c_stk[:, 0], -c_stk[:, 1])
-    # #
-    # # plt.axis('equal')
-    # # plt.show()
-    #
-    # with open(txt_path, 'w') as f:
-    #     for stroke_idx, stroke in enumerate(strokes):
-    #         for i, (x, y) in enumerate(stroke):
-    #             # 笔划状态判断（当前笔划的最后一个点标记s=0）
-    #             s = 0 if (i == len(stroke) - 1) and (stroke_idx != len(strokes) - 1) else 1
-    #
-    #             # 写入文件，保留3位小数
-    #             f.write(f"{round(x, 3):.3f},{round(y, 3):.3f},{s}\n")
 
 
 def svg_to_txt_batched(source_dir, target_dir):
