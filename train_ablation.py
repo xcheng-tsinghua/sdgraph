@@ -123,7 +123,6 @@ def main(args):
 
     '''训练'''
     best_instance_accu = -1.0
-    time_all = []
     for epoch in range(args.epoch):
         logstr_epoch = f'Epoch({epoch}/{args.epoch}):'
         all_preds = []
@@ -161,6 +160,7 @@ def main(args):
         with torch.no_grad():
             all_preds = []
             all_labels = []
+            all_infer_time = []
             # all_indexes = []
 
             classifier = classifier.eval()
@@ -172,7 +172,7 @@ def main(args):
                 pred = classifier(points, mask)
                 batch_rec_end = time.time()
                 avg_time = (batch_rec_end - batch_rec_start) / points.size(0)
-                time_all.append(avg_time)
+                all_infer_time.append(avg_time)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
@@ -180,7 +180,7 @@ def main(args):
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
-            infer_time = sum(time_all) / len(time_all)
+            infer_time = sum(all_infer_time) / len(all_infer_time)
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
             accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}\tinfer_time\t{infer_time}'
             logger.info(logstr_epoch + logstr_trainaccu + accustr)
