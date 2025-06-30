@@ -556,7 +556,7 @@ def shuffle_along_dim(x, dim):
     :param dim: 需要打乱的维度
     :return:
     """
-    idx = torch.randperm(x.size(dim))
+    idx = torch.randperm(x.size(dim)).to(x.device)
     return x.index_select(dim, idx), idx
 
 
