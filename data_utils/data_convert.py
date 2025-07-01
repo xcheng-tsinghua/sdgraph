@@ -496,7 +496,7 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter, is_order
         print(f'error occurred, skip instance: {idx}')
 
 
-def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_orig, delimiter=',', workers=4, is_order_stk=True):
+def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, is_order_stk=True):
     """
     将npz文件转化为stk草图并保存
     :param npz_file:

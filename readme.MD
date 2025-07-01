@@ -1,6 +1,7 @@
 ## 定义
-### 1. std sketch
-保存为 .txt 文件，每行记录一个点，数据之间以英文逗号分隔，如下所示。
+### 1. STK sketch
+在 np.ndarray 中保存时，大小为 [n_stk, n_stk_pnt, 2]。
+保存为 .txt 文件时，每行记录一个点，数据之间以英文逗号分隔，如下所示。
 
 x, y, s
 
@@ -10,12 +11,22 @@ x, y, s
 
 x, y, s
 
-草图质心在(0, 0)，范围在[-1, 1]^2。std草图中不同草图的笔划数及笔划上的点数可能不同。
+s = global_defs.pen_up or global_defs.pen_down
+数据的行数为 n_stk * n_stk_pnt
+草图质心在(0, 0)，范围在[-1, 1]^2。
 
-### 2. unified_std sketch
-保存方式与 std 草图类似，不同点在于 unified_std 草图中不同草图的笔划数及笔划上的点数相同。
+### 2. S5 sketch
+在 np.ndarray 中保存时，大小为 [n_pnt, 5]。
 
-SDGraph 类的输入需要是 unified_std sketch。
+每行数据为 x, y, p1, p2, p3
+
+其中 (p1, p2, p3) 为 one-hot vector，
+
+p1 = 1: 该点下一个点属于另一个笔划
+
+p2 = 1: 该点下一个点仍属于当前笔划
+
+p3 = 1: 该点为草图最后一个点
 
 ---------------------
 

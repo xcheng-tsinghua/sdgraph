@@ -20,18 +20,12 @@ import math
 from torch.utils.data import Dataset
 import os
 from tqdm import tqdm
-from PIL import Image
-from torchvision import transforms
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
-from data_utils.vis import vis_sketch_orig, vis_s5_data
 
 import global_defs
-# from data_utils.preprocess import preprocess_force_seg_merge as prep
-# from data_utils.preprocess import preprocess_split_merge_until as prep
-# from data_utils.preprocess import resample_stake as prep
-from data_utils.preprocess import preprocess_orig as prep
+from data_utils.preprocess import preprocess_stk as prep
 from data_utils import sketch_utils as du
 from data_utils import sketch_file_read as fr
 from data_utils import data_convert as dc

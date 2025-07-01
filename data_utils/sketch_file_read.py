@@ -5,7 +5,6 @@ import torch
 from torchvision import transforms
 from PIL import Image
 import re
-import xml.etree.ElementTree as ET
 
 from data_utils import sketch_utils as du
 import global_defs
@@ -273,10 +272,4 @@ def img_read(img_root, img_size=(224, 224)):
     tensor_image = transform(image)
 
     return tensor_image
-
-
-
-
-
-
 

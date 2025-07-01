@@ -13,26 +13,6 @@ import encoders.spline as sp
 from data_utils import sketch_file_read as fr
 
 
-def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3):
-    files_all = get_allfiles(root)
-    if shuffle:
-        random.shuffle(files_all)
-
-    for c_file in files_all:
-        print(c_file)
-        vis_sketch_orig(c_file, show_dot=show_dot, dot_gap=dot_gap)
-
-    # classes = get_subdirs(root)
-    # for c_class in classes:
-    #     c_dir = os.path.join(root, c_class)
-    #     c_files = get_allfiles(c_dir)
-    #
-    #     for idx in range(3):
-    #         c_file_show = c_files[idx]
-    #         print(c_file_show)
-    #         vis_sketch_orig(c_file_show, show_dot=show_dot, dot_gap=dot_gap)
-
-
 def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, delimiter=','):
     """
     显示草图，支持 [n, 3]的 ndarray，[n_stk, n_stk_pnt, 2]的 ndarray， svg文件，txt文件
@@ -46,56 +26,27 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
     :param delimiter:
     :return:
     """
+    is_list = False
     if isinstance(data, str):  # 是文件路径的情况
-        sketch_data = fr.load_sketch_file(data, delimiter=delimiter)
+        sketch = fr.load_sketch_file(data, delimiter=delimiter)
+    elif isinstance(data, np.ndarray):
+        sketch = data
+    elif isinstance(data, list):
+        is_list = True
+        sketch = data
+    else:
+        raise TypeError(f'Only str, list, np.ndarray is supported, but input {type(data)}')
 
+    if not is_list:
+        sketch_dims = len(sketch.shape)
+        if sketch_dims == 2:  # 需要进行分割处理
+            sketch = du.sketch_split(sketch, pen_up, pen_down)
+        elif sketch_dims == 3:  # 直接就是 STK 格式
+            sketch = [sketch[i] for i in range(len(sketch))]
+        else:
+            raise ValueError('Error input data dims')
 
-
-
-
-def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1):
-    """
-    显示原始采集的机械草图
-    存储的每行应该为： [x, y, state]
-    :param root:
-    :param pen_up: 抬笔指令
-    :param pen_down: 落笔指令
-    :param title: 落笔指令
-    :param show_dot:
-    :param show_axis:
-    :return:
-    """
-    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = fr.load_sketch_file(root, delimiter=',')
-
-    # 2D coordinates
-    coordinates = sketch_data[:, :2]
-
-    # sketch mass move to (0, 0), x y scale to [-1, 1]
-    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-    coordinates = coordinates / dist
-
-    sketch_data[:, :2] = coordinates
-
-    # 最后一行最后一个数改为17，防止出现空数组
-    sketch_data[-1, 2] = pen_down
-
-    # -------------------------------
-    # 去掉点数过少的笔划
-    # sketch_data = sp.stk_pnt_num_filter(sketch_data, 4)
-
-    # split all strokes
-    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
-
-    # 重采样，使得点之间的距离近似相等
-    # strokes = sp.batched_spline_approx(
-    #     point_list=strokes,
-    #     median_ratio=0.1,
-    #     approx_mode='uni-arclength'
-    # )
-
-    for s in strokes:
+    for s in sketch:
         plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
 
         if show_dot:
@@ -109,166 +60,14 @@ def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_do
     plt.show()
 
 
-def vis_sketch_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, is_scale=False, show_dot=False):
-    """
-    显示原始采集的机械草图
-    存储的每行应该为： [x, y, state]
-    :param sketch_data:
-    :param pen_up: 抬笔指令
-    :param pen_down: 落笔指令
-    :param title:
-    :param is_scale: 是否将质心平移到 (0, 0)，且将草图大小缩放到 [-1, 1]^2
-    :param show_dot:
-    :return:
-    """
-    # 2D coordinates
-    coordinates = sketch_data[:, :2]
+def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3):
+    files_all = get_allfiles(root)
+    if shuffle:
+        random.shuffle(files_all)
 
-    if is_scale:
-        # sketch mass move to (0, 0), x y scale to [-1, 1]
-        coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-        dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-        coordinates = coordinates / dist
-
-    sketch_data[:, :2] = coordinates
-
-    # 最后一行最后一个数改为17，防止出现空数组
-    sketch_data[-1, 2] = pen_down
-
-    # split all strokes
-    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
-
-    for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
-
-        if show_dot:
-            plt.scatter(s[:, 0], -s[:, 1])
-
-    plt.axis('off')
-    plt.axis('equal')
-    plt.title(title)
-    plt.show()
-
-
-def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
-    # 最后一行最后一个数改为17，防止出现空数组
-    sketch_data[-1, 2] = pen_down
-
-    # split all strokes
-    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
-
-    for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
-
-    plt.axis('off')
-    plt.show()
-
-
-def vis_sketch_unified(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False):
-    """
-    显示笔划与笔划点归一化后的草图
-    """
-    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = np.loadtxt(root, delimiter=',')
-
-    # 2D coordinates
-    coordinates = sketch_data[:, :2]
-
-    # sketch mass move to (0, 0), x y scale to [-1, 1]
-    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-    coordinates = coordinates / dist
-    coordinates = coordinates.reshape([n_stroke, n_stk_pnt, 2])
-
-    for i in range(n_stroke):
-        plt.plot(coordinates[i, :, 0], -coordinates[i, :, 1])
-
-        if show_dot:
-            plt.scatter(coordinates[i, :, 0], -coordinates[i, :, 1])
-
-    # plt.axis('off')
-    plt.show()
-
-
-def show_color(root, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt):
-    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
-    sketch_data = np.loadtxt(root, delimiter=',')
-
-    # 2D coordinates
-    coordinates = sketch_data[:, :2]
-
-    # sketch mass move to (0, 0), x y scale to [-1, 1]
-    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-    stroke = coordinates / dist
-    stroke = stroke.reshape([n_stroke, n_stk_pnt, 2])
-
-    stroke = [stroke[i] for i in range(stroke.shape[0])]
-
-    stroke = du.order_strokes(stroke)
-    stroke = np.vstack(stroke)
-
-    # 获取点的数量
-    n = stroke.shape[0]
-
-    # 创建颜色映射，使用索引作为颜色值
-    colors = np.linspace(0, 1, n)
-
-    # 绘制笔划并为每个点上色
-    plt.figure(figsize=(6, 4))
-    scatter = plt.scatter(stroke[:, 0], -stroke[:, 1], c=colors, cmap='viridis', s=50)
-
-    # 可选：连接相邻点形成笔划路径
-    plt.plot(stroke[:, 0], -stroke[:, 1], color='gray', linestyle='--', alpha=0.5)
-
-    # 添加颜色条以显示索引颜色映射
-    plt.colorbar(scatter, label='Index')
-
-    # 设置图形显示
-    plt.title("Stroke Colored by Index")
-    plt.axis('equal')
-    plt.grid(True)
-    plt.show()
-
-
-def vis_unified_sketch_data(sketch_data, n_stroke=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, show_dot=False, title=None):
-    """
-    显示笔划与笔划点归一化后的草图
-    """
-    # 2D coordinates
-    coordinates = sketch_data[:, :2]
-
-    # sketch mass move to (0, 0), x y scale to [-1, 1]
-    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
-    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
-    coordinates = coordinates / dist
-
-    coordinates = torch.from_numpy(coordinates)
-    coordinates = coordinates.view(n_stroke, n_stk_pnt, 2)
-
-    for i in range(n_stroke):
-        plt.plot(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
-
-        if show_dot:
-            plt.scatter(coordinates[i, :, 0].numpy(), -coordinates[i, :, 1].numpy())
-
-    # plt.axis('off')
-    plt.axis('equal')
-    plt.title(title)
-    plt.show()
-
-
-def vis_sketch_list(strokes, show_dot=False, title=None):
-    for s in strokes:
-        plt.plot(s[:, 0], -s[:, 1])
-
-        if show_dot:
-            plt.scatter(s[:, 0], -s[:, 1])
-
-    # plt.axis('off')
-    plt.axis("equal")
-    plt.title(title)
-    plt.show()
+    for c_file in files_all:
+        print(c_file)
+        vis_sketch(c_file, show_dot=show_dot, dot_gap=dot_gap)
 
 
 def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0), linewidth=5):
@@ -361,10 +160,15 @@ def vis_false_log(log_root: str) -> None:
             c_file_show = c_line.replace('/opt/data/private/data_set', 'D:/document/DeepLearning/DataSet')
             print(c_line.split('/')[-2])
             print(c_file_show)
-            vis_sketch_unified(c_file_show)
+            vis_sketch(c_file_show)
 
 
 def vis_seg_imgs(npz_root=r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSeg-150K'):
+    """
+    显示草图分割
+    :param npz_root:
+    :return:
+    """
     def canvas_size(sketch, padding: int = 30):
         """
         :param sketch: n*3 or n*4
@@ -486,6 +290,50 @@ def vis_seg_imgs(npz_root=r'D:\document\DeepLearning\DataSet\sketch_seg\SketchSe
     print(count)
 
 
+def vis_quickdraw(npz_file, data_mode='train'):
+    sketch_all = fr.npz_read(npz_file, data_mode=data_mode)[0]
+    for c_sketch in sketch_all:
+        vis_sketch(c_sketch)
+
+
+def vis_tensor_map(cuda_tensor, title=None, save_root=None, is_show=True):
+    """
+    将二维的 pytorch tensor 可视化为矩阵图
+    :param cuda_tensor:
+    :param title:
+    :param save_root:
+    :param is_show:
+    :return:
+    """
+    m, n = cuda_tensor.size()
+
+    # 1. 将 CUDA Tensor 转换为 CPU 上的 NumPy 数组
+    cpu_array = cuda_tensor.cpu().numpy()  # 关键步骤：数据从 GPU → CPU
+
+    # 2. 绘制矩阵热力图
+    plt.figure(figsize=(8, 4))  # 设置图像尺寸
+
+    # 绘制热力图，cmap 指定颜色映射（如 'viridis'、'coolwarm' 等）
+    plt.imshow(cpu_array, cmap='viridis', interpolation='nearest', aspect='auto')
+
+    # 3. 自定义图像样式
+    plt.title(title)
+    plt.xlabel("Columns", fontsize=12)
+    plt.ylabel("Rows", fontsize=12)
+    plt.xticks(range(n))
+    plt.yticks(range(m))
+    plt.colorbar()
+
+    if save_root is not None:
+        plt.savefig(save_root)
+
+    if is_show:
+        plt.show()
+
+    plt.clf()
+    plt.close()
+
+
 def test_vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, show_dot=False, show_axis=False):
     """
     显示原始采集的机械草图
@@ -588,42 +436,6 @@ def test():
     plt.show()
 
 
-def vis_quickdraw(npz_file):
-    sketch_all = fr.npz_read(npz_file)[0]
-    for c_sketch in sketch_all:
-        vis_sketch_data(c_sketch)
-
-
-def vis_tensor_map(cuda_tensor, title=None, save_root=None, is_show=True):
-    m, n = cuda_tensor.size()
-
-    # 1. 将 CUDA Tensor 转换为 CPU 上的 NumPy 数组
-    cpu_array = cuda_tensor.cpu().numpy()  # 关键步骤：数据从 GPU → CPU
-
-    # 2. 绘制矩阵热力图
-    plt.figure(figsize=(8, 4))  # 设置图像尺寸
-
-    # 绘制热力图，cmap 指定颜色映射（如 'viridis'、'coolwarm' 等）
-    plt.imshow(cpu_array, cmap='viridis', interpolation='nearest', aspect='auto')
-
-    # 3. 自定义图像样式
-    plt.title(title)
-    plt.xlabel("Columns", fontsize=12)
-    plt.ylabel("Rows", fontsize=12)
-    plt.xticks(range(n))
-    plt.yticks(range(m))
-    plt.colorbar()
-
-    if save_root is not None:
-        plt.savefig(save_root)
-
-    if is_show:
-        plt.show()
-
-    plt.clf()
-    plt.close()
-
-
 if __name__ == '__main__':
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 
@@ -683,7 +495,9 @@ if __name__ == '__main__':
     #
     # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
 
-    vis_sketch_orig(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
+    # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
+
+    vis_sketch(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
 
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'

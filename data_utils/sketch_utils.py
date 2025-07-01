@@ -704,52 +704,25 @@ def single_split(stroke_list: list):
     return sketch
 
 
-def split_stroke(stroke: np.ndarray) -> (np.ndarray, np.ndarray):
-    """
-    将一个笔划拆分为两个近似对半的笔划。
-    使用弧长累加的方法找到一个拆分点，使得
-    拆分前的弧长接近总弧长的一半。
-    拆分时，新笔划均包含拆分点以保证连续性。
-    """
-    if stroke.shape[0] < 2:
-        # 如果只有一个点，无法拆分，直接返回原stroke两次
-        raise ValueError('points in s stroke is too few')
-
-    # 计算累积弧长，每个点对应从起点到该点的弧长
-    diffs = np.diff(stroke, axis=0)
-    seg_lengths = np.linalg.norm(diffs, axis=1)
-    cum_lengths = np.concatenate(([0], np.cumsum(seg_lengths)))
-    total_length = cum_lengths[-1]
-    half_length = total_length / 2.0
-
-    # 找到第一个累积距离超过或等于half_length的位置
-    idx = np.searchsorted(cum_lengths, half_length)
-    # 为避免idx过于靠前或过于靠后，保证分割后两部分都有足够点数
-    idx = max(1, min(idx, stroke.shape[0] - 1))
-
-    # 用拆分点构造两个新笔划（共用拆分点）
-    stroke1 = stroke[:idx + 1, :]
-    stroke2 = stroke[idx:, :]
-    return stroke1, stroke2
-
-
-def sketch_split(sketch, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',') -> list:
+def sketch_split(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',') -> list:
     """
     根据标志符分割笔划，并去掉标志位
-    :param sketch:
+    :param data:
     :param pen_up:
     :param pen_down:
     :param delimiter:
     :return:
     """
-    if isinstance(sketch, str):
-        sketch = np.loadtxt(sketch, delimiter=delimiter)
+    if isinstance(data, str):
+        data = np.loadtxt(data, delimiter=delimiter)
+
+    assert len(data.shape) == 2, ValueError('The size of input data should be n * 2')
 
     # 分割笔划
-    sketch[-1, 2] = pen_down
-    sketch = np.split(sketch[:, :2], np.where(sketch[:, 2] == pen_up)[0] + 1)
+    data[-1, 2] = pen_down
+    data = np.split(data[:, :2], np.where(data[:, 2] == pen_up)[0] + 1)
 
-    return sketch
+    return data
 
 
 def search_nearest_stroke(stroke_list, end_point, given_idx):
@@ -1112,33 +1085,10 @@ def get_rect(stroke_list):
     return Rectangle(min_x, max_x, min_y, max_y)
 
 
-def is_sketch_unified(stroke_list, thres=1e-5):
-
-    sketch = np.vstack(stroke_list)
-
-    if 1 - np.max(sketch) >= -thres and np.min(sketch) + 1 >= -thres:
-        pass
-    else:
-        print(f'max: {np.max(sketch)}, and min: {np.min(sketch)}')
-
-
-# def vis_s5_data(sketch_data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
-#     # 最后一行最后一个数改为17，防止出现空数组
-#     sketch_data[-1, 2] = pen_down
-#
-#     # split all strokes
-#     strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == pen_up)[0] + 1)
-#
-#     for s in strokes:
-#         plt.plot(s[:, 0], -s[:, 1])
-#
-#     plt.axis('off')
-#     plt.show()
-
-
 def stk_extend(stk: np.ndarray, n_extend=2):
     """
     将笔划左右分别向前插值n_extend个点
+    使用三次样条插值
     :param stk:
     :param n_extend:
     :return:

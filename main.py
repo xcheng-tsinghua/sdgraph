@@ -507,10 +507,11 @@ if __name__ == '__main__':
     # edges = cv2.bitwise_not(edges)
     # cv2.imwrite('C:/Users/ChengXi/Desktop/edge.png', edges)
 
-    astr = 'n02694662_17391-2.svg'
-    print(astr.split('.'))
+    # astr = 'n02694662_17391-2.svg'
+    # print(astr.split('.'))
 
-
+    anarray = np.zeros([3, 4])
+    print(len(anarray.shape))
 
 
     pass
