@@ -33,6 +33,26 @@ def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\ske
     #         vis_sketch_orig(c_file_show, show_dot=show_dot, dot_gap=dot_gap)
 
 
+def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, delimiter=','):
+    """
+    显示草图，支持 [n, 3]的 ndarray，[n_stk, n_stk_pnt, 2]的 ndarray， svg文件，txt文件
+    :param data:
+    :param pen_up:
+    :param pen_down:
+    :param title:
+    :param show_dot:
+    :param show_axis:
+    :param dot_gap:
+    :param delimiter:
+    :return:
+    """
+    if isinstance(data, str):  # 是文件路径的情况
+        sketch_data = fr.load_sketch_file(data, delimiter=delimiter)
+
+
+
+
+
 def vis_sketch_orig(root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1):
     """
     显示原始采集的机械草图
@@ -663,7 +683,8 @@ if __name__ == '__main__':
     #
     # vis_quickdraw(fr'D:\document\DeepLearning\DataSet\quickdraw\raw\leaf.full.npz')
 
-    vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg\airplane\n02691156_58-1.svg')
+    vis_sketch_orig(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
+
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz'

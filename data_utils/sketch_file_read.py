@@ -47,7 +47,7 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
 
     def _filter_and_sort(_paths, _attributes):
         _filtered = []
-        _pattern = re.compile(r'^svg_(\d+)$')
+        _pattern = re.compile(r'^(?:svg_)?(\d+)$')
 
         for _idx, _attr in enumerate(_attributes):
             if isinstance(_attr, dict) and 'id' in _attr:
@@ -69,7 +69,7 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
         return _sorted_paths, _sorted_attributes
 
     paths, attributes = svg2paths(svg_path)
-    paths, attributes = _filter_and_sort(paths, attributes)
+    # paths, attributes = _filter_and_sort(paths, attributes)
 
     strokes = []
     for path in paths:
@@ -85,8 +85,48 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
 
         strokes.append(c_stk)
 
+    def is_closed_rectangle(points, tol=1e-6):
+        """
+        判断按顺序连接的点是否构成一个矩形（闭合路径，5个点，其中首尾相同）
+        :param points: numpy数组，形状为(5, 2)，首尾点相同
+        :param tol: 容差，用于浮点数比较
+        :return: bool，是否是矩形
+        """
+        points = np.array(points)
+
+        # 检查点数量和闭合性
+        if points.shape != (5, 2):
+            return False
+        if not np.allclose(points[0], points[-1], atol=tol):
+            return False
+
+        # 只取前4个点用于分析
+        unique_points = points[:4]
+
+        # 计算边向量
+        vectors = [unique_points[(i + 1) % 4] - unique_points[i] for i in range(4)]
+
+        # 判断四个角是否为90度：相邻边向量点积为0
+        for i in range(4):
+            v1 = vectors[i]
+            v2 = vectors[(i + 1) % 4]
+            if abs(np.dot(v1, v2)) > tol:
+                return False
+
+        # 判断对边是否相等
+        if not (np.allclose(np.linalg.norm(vectors[0]), np.linalg.norm(vectors[2]), atol=tol) and
+                np.allclose(np.linalg.norm(vectors[1]), np.linalg.norm(vectors[3]), atol=tol)):
+            return False
+
+        return True
+
     stroke_list_np = []
     for c_stk in strokes:
+
+        # 删除矩形包围盒
+        if is_closed_rectangle(c_stk):
+            continue
+
         c_stk = np.array(c_stk)
         n = len(c_stk)
         ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
