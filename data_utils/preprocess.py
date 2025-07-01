@@ -133,7 +133,7 @@ def preprocess_orig(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
         return None
 
 
-def pre_process_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
+def preprocess_equal_stkpnt(sketch_root: str, resp_dist: float = 0.01, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down) -> list:
     """
     每个笔划的点数相同
     因此不同笔划的点密度可能不同
@@ -710,8 +710,6 @@ def resample_stake(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
 
     # 若笔划数大于指定值，强制合并到指定数值
     sketch_data = du.stroke_merge_number_until(sketch_data, global_defs.n_stk)
-
-
 
     # 将每个笔划重采样至指定点
     sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, global_defs.n_stk_pnt)

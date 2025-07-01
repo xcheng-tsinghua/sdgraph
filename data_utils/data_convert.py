@@ -569,12 +569,18 @@ if __name__ == '__main__':
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
 
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\apple', 1000)
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\moon', 1000)
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\book', 1000)
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\shark', 1000)
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\angel', 1000)
-    quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\bicycle', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\apple', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\moon', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\book', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\shark', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\angel.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\angel', 1000)
+    # quickdraw_to_png(r'D:\document\DeepLearning\DataSet\quickdraw\raw\bicycle.full.npz', r'E:\document\deeplearning_idea\sketch temporal is out\fid_cal\quichdraw\bicycle', 1000)
+
+
+
+    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean',
+    #                    rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
+    #                    preprocess_orig)
 
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
