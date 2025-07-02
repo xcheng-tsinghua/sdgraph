@@ -1,3 +1,6 @@
+"""
+用于测试point frequency的
+"""
 # 工具包
 import torch
 import torch.nn.functional as F
@@ -6,99 +9,83 @@ import argparse
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import os
-import numpy as np
+import time
 
 # 自建模块
+from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
+# from encoders.sdgraph_stk_samp import SDGraphCls
+from encoders.sdgraph import SDGraphCls
+from encoders.sketch_transformer import SketchTransformerCls
+from encoders.sketch_rnn import SketchRNN_Cls
+from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 import global_defs
-from data_utils.sketch_dataset import SketchDataset2 as SketchDataset
-# from encoders.sdgraph3 import SDGraphCls as SDGraphCls
-from encoders.sdgraph2 import SDGraphCls as SDGraphCls
-# from encoders.sdgraph import SDGraphCls
-from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log
-
-
-def has_nan_weight(module):
-    for name, param in module.named_parameters():
-        if param is not None and torch.isnan(param).any():
-            # print(f"参数{name}中存在NaN")
-            return True
-    # print("该模块所有参数均无NaN")
-    return False
 
 
 def parse_args():
-    '''PARAMETERS'''
-    # 输入参数如下：
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--bs', type=int, default=50, help='batch size in training')
-    parser.add_argument('--epoch', default=2000, type=int, help='number of epoch in training')
+    parser.add_argument('--bs', type=int, default=800, help='batch size in training')
+    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
+    parser.add_argument('--is_shuffle_stroke', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_preprocess', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
+    parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'],
+                        help='absolute coordinate or relative coordinate')
+    parser.add_argument('--model', type=str, default='SketchTransformer',
+                        choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--save_str', type=str, default='sdgraph_test', help='---')
-
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
+    parser.add_argument('--root_local', type=str,
+                        default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
 
     r'''
     cad sketch
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt', help='---')
-    
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\unified_sketch_cad_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='---')
-    
-    TuBerlin
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/TU_Berlin_txt_cls', help='---')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt_cls', help='---')
-    '''
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all')
 
+    TuBerlin_raw
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/TU_Berlin/raw/svg')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_raw\svg')
+
+    QuickDraw:
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/raw')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\raw')
+
+    QuickDraw MGT STK:
+    该数据集目录用于 sketchrnn 和 sketchtransformer 的训练
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
+
+    QuickDraw MGT STK:
+    该数据集目录用于 sdgraph 的训练
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    '''
     return parser.parse_args()
 
 
-def get_false_instance(all_preds: list, all_labels: list, all_indexes: list, dataset, save_path: str = './log/false_instance.txt'):
-    """
-    获取全部分类错误的实例路径
-    :param all_preds:
-    :param all_labels:
-    :param all_indexes:
-    :param dataset:
-    :param save_path:
-    :return:
-    """
-    # 将所有batch的预测和真实标签整合在一起
-    all_preds = np.vstack(all_preds)  # 形状为 [n_samples, n_classes]
-    all_labels = np.hstack(all_labels)  # 形状为 [n_samples]
-    all_indexes = np.hstack(all_indexes)  # 形状为 [n_samples]
-
-    # 确保all_labels, all_indexes中保存的为整形数据
-    assert np.issubdtype(all_labels.dtype, np.integer) and np.issubdtype(all_indexes.dtype, np.integer)
-
-    all_preds = np.argmax(all_preds, axis=1)  # -> [n_samples, ]
-    incorrect_index = np.where(all_preds != all_labels)[0]
-    incorrect_index = all_indexes[incorrect_index]
-    incorrect_preds = all_preds[incorrect_index]
-
-    if save_path is not None:
-        with open(save_path, 'w', encoding='utf-8') as f:
-            for c_idx, c_data_idx in enumerate(incorrect_index):
-                # 找到分类错误的类型：
-                false_class = ''
-                for k, v in dataset.classes.items():
-                    if incorrect_preds[c_idx] == v:
-                        false_class = k
-                        break
-
-                f.write(dataset.datapath[c_data_idx][1] + ' | ' + false_class + '\n')
-
-        print('save incorrect cls instance: ', save_path)
-
-
 def main(args):
-    save_str = args.save_str
+    if args.model == 'SDGraph':
+        save_str = f'{args.model.lower()}_SG_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+    else:
+        save_str = args.model.lower()
+
+    save_str = save_str + '_' + args.coor_mode
+
+    if args.is_load_weight == 'True':
+        save_str += '_LW'
+    else:
+        save_str += '_NLW'
+
+    if args.is_shuffle_stroke == 'True':
+        save_str += '_SS'
+    else:
+        save_str += '_NSS'
+
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
@@ -106,7 +93,7 @@ def main(args):
     confusion_dir = os.path.join('data_utils', 'confusion', confusion_dir)
     os.makedirs(confusion_dir, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
-    model_savepth = 'model_trained/' + save_str + '.pth'
+    model_savepth = 'model_trained/best_' + save_str + '.pth'
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
@@ -118,25 +105,37 @@ def main(args):
     else:
         data_root = args.root_sever
 
-    train_dataset = SketchDataset(root=data_root, is_train=True)
-    test_dataset = SketchDataset(root=data_root, is_train=False)
-    num_class = len(train_dataset.classes)
+    if args.model == 'SDGraph':
+        back_mode = 'STK'
+    else:
+        back_mode = 'S5'
 
-    # sampler = torch.utils.data.RandomSampler(train_dataset, num_samples=64, replacement=False)
-    # train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
-    # sampler = torch.utils.data.RandomSampler(test_dataset, num_samples=64, replacement=False)
-    # test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, num_workers=4, sampler=sampler)
+    if args.is_shuffle_stroke == 'True':
+        is_shuffle_stroke = True
+    else:
+        is_shuffle_stroke = False
 
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
-    test_dataloader = torch.utils.data.DataLoader(test_dataset, batch_size=args.bs, shuffle=False, num_workers=4)
+    dataset = SketchDatasetCls(data_root,
+                               back_mode=back_mode,
+                               is_already_divided=True,
+                               is_preprocess=eval(args.is_preprocess),
+                               is_shuffle_stroke=is_shuffle_stroke,
+                               coor_mode=args.coor_mode
+                               )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=0)
 
     '''加载模型及权重'''
-    classifier = SDGraphCls(num_class).cuda()
-    # classifier = PointNet2(num_class)
-    # classifier = DGCNN(num_class)
-    # classifier = Attention(num_class)
-    # classifier = pointnet(num_class)
-    # loss_func = get_loss().cuda()
+    if args.model == 'SketchRNN':
+        classifier = SketchRNN_Cls(dataset.n_classes()).cuda()
+
+    elif args.model == 'SketchTransformer':
+        classifier = SketchTransformerCls(dataset.n_classes()).cuda()
+
+    elif args.model == 'SDGraph':
+        classifier = SDGraphCls(dataset.n_classes(), 2).cuda()
+
+    else:
+        raise TypeError('error model type')
 
     if args.is_load_weight == 'True':
         try:
@@ -155,53 +154,32 @@ def main(args):
         eps=1e-08,
         weight_decay=args.decay_rate
     )
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.95)
+    # scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20)
 
     '''训练'''
     best_instance_accu = -1.0
+
     for epoch in range(args.epoch):
-
-        '''TRAINING'''
-        classifier = classifier.train()
-
         logstr_epoch = f'Epoch({epoch}/{args.epoch}):'
         all_preds = []
         all_labels = []
 
-        for batch_id, data in tqdm(enumerate(train_dataloader, 0), total=len(train_dataloader)):
-            # points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
-            points, target = data[0].float().cuda(), data[1].long().cuda()
-            # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-            # assert stk_coor.size(1) == global_defs.n_stk
-
-            # -> [bs, 2, n_points]
-            # points = points.permute(0, 2, 1)
-            # assert points.size()[1] == 2
-
-            # indexes = data[2].long().cuda()
-            # bs = points.size(0)
-            # with open('log/log_file.txt', 'w') as f:
-            #     for c_bs in range(bs):
-            #         c_idx = indexes[c_bs].cpu().item()
-            #         c_str = train_dataset.datapath[c_idx][1]
-            #
-            #         f.write(c_str)
-
+        classifier = classifier.train()
+        dataset.train()
+        for batch_id, data in tqdm(enumerate(dataloader, 0), total=len(dataloader)):
+            points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
             # 梯度置为零，否则梯度会累加
             optimizer.zero_grad()
 
-            # pred = classifier(points, mask)
-            pred = classifier(points)
+            # 模型传入数据，获取输出，并计算loss
+            pred = classifier(points, mask)
             loss = F.nll_loss(pred, target)
-
-            assert not has_nan_weight(classifier)
 
             # 利用loss更新参数
             loss.backward()
             optimizer.step()
-
-            assert not has_nan_weight(classifier)
 
             # 保存数据用于计算指标
             all_preds.append(pred.detach().cpu().numpy())
@@ -217,23 +195,21 @@ def main(args):
 
         '''测试'''
         with torch.no_grad():
-            classifier = classifier.eval()
-
             all_preds = []
             all_labels = []
+            all_infer_time = []
             # all_indexes = []
 
-            for j, data in tqdm(enumerate(test_dataloader), total=len(test_dataloader)):
-                # points, mask, target = data[0].float().cuda(), data[1].bool().cuda(), data[2].long().cuda()
-                points, target = data[0].float().cuda(), data[1].long().cuda()
-                # stk_coor = data[2].float().cuda()  # [bs, n_stk, 512]
-                # assert stk_coor.size(1) == global_defs.n_stk
+            classifier = classifier.eval()
+            dataset.eval()
+            for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
+                points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
-                # points = points.permute(0, 2, 1)
-                # assert points.size()[1] == 2
-
-                # pred = classifier(points, mask)
-                pred = classifier(points)
+                batch_rec_start = time.time()
+                pred = classifier(points, mask)
+                batch_rec_end = time.time()
+                avg_time = (batch_rec_end - batch_rec_start) / points.size(0)
+                all_infer_time.append(avg_time)
 
                 all_preds.append(pred.detach().cpu().numpy())
                 all_labels.append(target.detach().cpu().numpy())
@@ -241,18 +217,20 @@ def main(args):
                 # 保存索引用于计算分类错误的实例
                 # all_indexes.append(data[-1].long().detach().cpu().numpy())
 
+            infer_time = sum(all_infer_time) / len(all_infer_time)
             all_metric_eval = all_metric_cls(all_preds, all_labels, os.path.join(confusion_dir, f'eval-{epoch}.png'))
-            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}'
+            accustr = f'\teval_ins_acc\t{all_metric_eval[0]}\teval_cls_acc\t{all_metric_eval[1]}\teval_f1_m\t{all_metric_eval[2]}\teval_f1_w\t{all_metric_eval[3]}\tmAP\t{all_metric_eval[4]}\tinfer_time\t{infer_time}'
+            logger.info(logstr_epoch + logstr_trainaccu + accustr)
+
+            # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
+
+            print(
+                f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}, infer_time: {infer_time}')
 
             # 额外保存最好的模型
             if best_instance_accu < all_metric_eval[0]:
                 best_instance_accu = all_metric_eval[0]
                 torch.save(classifier.state_dict(), 'model_trained/best_' + save_str + '.pth')
-
-        # save log
-        logger.info(logstr_epoch + logstr_trainaccu + accustr)
-        print(f'{save_str}: epoch {epoch}/{args.epoch}: train_ins_acc: {all_metric_train[0]}, test_ins_acc: {all_metric_eval[0]}')
-        # get_false_instance(all_preds, all_labels, all_indexes, test_dataset)
 
 
 if __name__ == '__main__':
@@ -260,5 +238,4 @@ if __name__ == '__main__':
     # clear_confusion('./data_utils/confusion')
     init(autoreset=True)
     main(parse_args())
-
 
