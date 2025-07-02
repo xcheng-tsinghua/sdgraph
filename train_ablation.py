@@ -41,7 +41,7 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--ablation', default='ABL_SG_SS_DG_PS_IF', type=str,
+    parser.add_argument('--ablation', default='ABL_SG_SS_DG_PS', type=str,
                         choices=['ABL_SG', 'ABL_SG_SS', 'ABL_DG', 'ABL_DG_PS', 'ABL_SG_DG', 'ABL_SG_SS_DG', 'ABL_SG_DG_PS', 'ABL_SG_SS_DG_PS', 'ABL_SG_SS_DG_PS_IF',
                                  'EVS_ISI', 'EVS_IST'])
 
