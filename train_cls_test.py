@@ -1,5 +1,5 @@
 """
-用于测试point frequency的
+用于测试point frequency的训练文件
 """
 # 工具包
 import torch
@@ -25,21 +25,20 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=800, help='batch size in training')
-    parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=200, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--is_shuffle_stroke', type=str, default='True', choices=['True', 'False'])
-    parser.add_argument('--is_preprocess', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
+    parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'],
+    parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'],
                         help='absolute coordinate or relative coordinate')
-    parser.add_argument('--model', type=str, default='SketchTransformer',
+    parser.add_argument('--model', type=str, default='SDGraph',
                         choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
-    parser.add_argument('--root_local', type=str,
-                        default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
+    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     r'''
     cad sketch
@@ -74,7 +73,7 @@ def main(args):
     else:
         save_str = args.model.lower()
 
-    save_str = save_str + '_' + args.coor_mode
+    save_str = save_str + '_MIX_' + args.coor_mode
 
     if args.is_load_weight == 'True':
         save_str += '_LW'
