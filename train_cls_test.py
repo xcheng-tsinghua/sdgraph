@@ -31,7 +31,7 @@ def parse_args():
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--is_preprocess', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'],
                         help='absolute coordinate or relative coordinate')
