@@ -69,9 +69,7 @@ def main(args):
     else:
         save_str = args.model.lower()
 
-    if args.model == 'MGT':
-        save_str = save_str + '_'
-    else:
+    if args.model != 'MGT':
         save_str = save_str + '_' + args.coor_mode
 
     if args.is_load_weight == 'True':
