@@ -7,8 +7,9 @@ TU_Berlin 数据集中的 svg 文件中存储绝对坐标
 
 定义：
 S5 草图格式: [n, 5] 每行为：(x, y, s1, s2, s3)
-STD 草图格式: [n, 3] 每行为：(x, y, s)
+S3 草图格式: [n, 3] 每行为：(x, y, s)
 STK 草图格式: [n_stk, n_stk_pnt, 2], n_stk: 草图笔划数，n_stk_pnt: 每个笔划点数
+MGT 草图格式: data: (xy [n, 2]), mask: (flag [n, ], pos [n, ], a_mask1, a_mask2, a_mask3, p_mask)
 
 ABS 坐标格式: 绝对坐标
 REL 坐标格式: 相对坐标，除第一个点外，其它坐标均为相对前一个点的坐标偏移量
@@ -34,6 +35,7 @@ from data_utils import data_convert as dc
 class SketchDatasetCls(Dataset):
     """
     无需分割训练集、测试集，将数据放在一起即可自动按比例划分
+    也可事先划分好
     支持 svg 和 txt 和 png 格式的草图读取
     测试是使用 TU-Berlin 数据集，其中的 svg 为绝对坐标，如果你的 svg 文件存储的是相对坐标，请注意修改
     定位文件的路径如下：
@@ -55,6 +57,35 @@ class SketchDatasetCls(Dataset):
     │
     ...
 
+    或者已划分好训练集测试集
+    root
+    ├─ train
+    │   ├─ Bushes
+    │   │   ├─0.suffix
+    │   │   ├─1.suffix
+    │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.suffix
+    │   │   ├─1.suffix
+    │   │   ...
+    │   │
+    │   ...
+    │
+    ├─ test
+    │   ├─ Bushes
+    │   │   ├─0.suffix
+    │   │   ├─1.suffix
+    │   │   ...
+    │   │
+    │   ├─ Clamps
+    │   │   ├─0.suffix
+    │   │   ├─1.suffix
+    │   │   ...
+    │   │
+    │   ...
+    │
+
     """
     def __init__(self,
                  root,
@@ -66,17 +97,24 @@ class SketchDatasetCls(Dataset):
                  max_len=40,
                  img_size=(224, 224),
                  workers=1,
-                 is_retrieval=False,
                  is_already_divided=False,
                  is_preprocess=True,
-                 is_shuffle_stroke=False
+                 is_shuffle_stroke=False,
+                 delimiter=',',
+                 n_stk=global_defs.n_stk,
+                 n_stk_pnt=global_defs.n_stk_pnt,
+                 pen_down=global_defs.pen_down,
+                 pen_up=global_defs.pen_up
                  ):
         """
+        可读取 svg 草图或者 txt 草图
+        txt 草图需要存储 S3 格式
+
         :param root:
         :param test_ratio: 测试集占总数据比例
         :param is_random_divide: 分割训练集测试集时是否随机
         :param data_mode: ['train', 'test'], 区分训练集和测试集
-        :param back_mode: ['STK', 'S5', 'IMG'].
+        :param back_mode: ['STK', 'S5', 'IMG', 'MGT'].
             'STK': [n_stk, n_stk_pnt, 2],
             'S5': data: [n_max_len, 5], mask: [n_max_len, ]
             'IMG': [3, width, height]
@@ -86,13 +124,13 @@ class SketchDatasetCls(Dataset):
         :param max_len:
         :param img_size: 图片大小
         :param workers:
-        :param is_retrieval: 是否是检索
         :param is_already_divided: 训练集与测试集是否已经划分好
-        :param is_preprocess: 是否需要进行预处理，即是否需要将 STD 草图转化为 STK，或者处理成 S5。
+        :param is_preprocess: 是否需要进行预处理，即是否需要将 S3 草图转化为 STK，或者处理成 S5。
                 如果无需处理，说明文件里是已转化好的STK草图，对于 S5 格式，则是在读取时转化
         :param is_shuffle_stroke: 是否打乱笔划
         :return:
         """
+
         print('sketch dataset total, from:' + root + f'. using workers: {workers}')
         assert data_mode == 'train' or data_mode == 'test'
 
@@ -101,9 +139,13 @@ class SketchDatasetCls(Dataset):
         self.coor_mode = coor_mode
         self.max_len = max_len
         self.img_size = img_size
-        self.is_retrieval = is_retrieval
         self.is_preprocess = is_preprocess
         self.is_shuffle_stroke = is_shuffle_stroke
+        self.delimiter = delimiter
+        self.n_stk = n_stk
+        self.n_stk_pnt = n_stk_pnt
+        self.pen_down = pen_down
+        self.pen_up = pen_up
 
         # 训练测试集按给定比例划分
         train_dir = os.path.join(root, 'train')
@@ -130,8 +172,13 @@ class SketchDatasetCls(Dataset):
                                   coor_mode=coor_mode,
                                   max_len=max_len,
                                   img_size=img_size,
-                                  is_retrieval=is_retrieval,
-                                  is_shuffle_stroke=is_shuffle_stroke
+                                  is_shuffle_stroke=is_shuffle_stroke,
+                                  is_preprocess=True,
+                                  delimiter=delimiter,
+                                  n_stk=n_stk,
+                                  n_stk_pnt=n_stk_pnt,
+                                  pen_down=pen_down,
+                                  pen_up=pen_up
                                   )
 
             if workers >= 2:
@@ -150,13 +197,11 @@ class SketchDatasetCls(Dataset):
                     )
             else:
                 self.data_train = []
-                for c_datapath_train in tqdm(datapath_train, total=len(datapath_train),
-                                             desc='processing training files'):
+                for c_datapath_train in tqdm(datapath_train, total=len(datapath_train), desc='processing training files'):
                     self.data_train.append(worker_func(c_datapath_train))
 
                 self.data_test = []
-                for c_datapath_test in tqdm(datapath_test, total=len(datapath_test),
-                                            desc='processing testing files'):
+                for c_datapath_test in tqdm(datapath_test, total=len(datapath_test), desc='processing testing files'):
                     self.data_test.append(worker_func(c_datapath_test))
 
             print('删除异常值')  # 删除异常值
@@ -199,12 +244,11 @@ class SketchDatasetCls(Dataset):
         │
         ...
 
-        [('plane', root1), ('car', root2), ...] 即标签和路径的二联体
         :param folder_root:
-        :param is_divide:
+        :param is_divide: 是否需要划分训练集和测试集，True: 划分后返回两个数组，False: 直接返回一个数组
         :param is_random_divide: 在分割训练集测试集时是否随机
         :param test_ratio:
-        :return:
+        :return: [('plane', root1), ('car', root2), ...] 即标签和路径的二联体
         """
         if is_divide:
             category_path = {}  # {'plane': [Path1,Path2,...], 'car': [Path1,Path2,...]}
@@ -257,47 +301,190 @@ class SketchDatasetCls(Dataset):
             return datapath
 
     @staticmethod
-    def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_retrieval, is_shuffle_stroke):
+    def load_data(cls_path, back_mode, coor_mode, max_len, img_size, is_shuffle_stroke, is_preprocess,
+                  delimiter=',', n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt,
+                  pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
         """
         从文件里读取数据，并进行预处理
         支持三种类型数据读取
         :param cls_path: ('class', file_path)
-        :param back_mode:
-        :param coor_mode:
-        :param max_len:
-        :param img_size:
-        :param is_retrieval:
-        :param is_shuffle_stroke:
+        :param back_mode: 返回的草图格式
+        :param coor_mode: 相对坐标还是绝对坐标
+        :param max_len: S5 草图最大长度
+        :param img_size: 返回图像大小
+        :param is_shuffle_stroke: 是否打乱笔划
+        :param is_preprocess: 是否将 S3 草图转化为 STK，仅在 back_mode == 'STK' 该变量起作用
+        :param delimiter:
+        :param n_stk:
+        :param n_stk_pnt:
+        :param pen_down:
+        :param pen_up:
         :return:
         """
         class_name, file_root = cls_path
 
         try:
             if back_mode == 'STK':
-                sketch_cube = prep(file_root, is_shuffle_stroke=is_shuffle_stroke)
-                if is_retrieval:
-                    sketch_img = dc.std_to_tensor_img(file_root)
-                    return sketch_img, sketch_cube, 0
-
+                if is_preprocess:
+                    sketch_cube = prep(file_root, is_shuffle_stroke=is_shuffle_stroke)
                 else:
-                    return class_name, sketch_cube, 0
+                    sketch_cube = np.loadtxt(file_root, delimiter=delimiter)
+                    sketch_cube.reshape(n_stk, n_stk_pnt, 2)
+                    if is_shuffle_stroke:
+                        np.random.shuffle(sketch_cube)
+
+                return class_name, sketch_cube, 0
 
             elif back_mode == 'S5':
                 sketch_cube, mask = dc.sketch_file_to_s5(file_root, max_len, coor_mode, is_shuffle_stroke)
-                if is_retrieval:
-                    sketch_img = dc.std_to_tensor_img(file_root)
-                    return sketch_img, sketch_cube, mask
-
-                else:
-                    return class_name, sketch_cube, mask
+                return class_name, sketch_cube, mask
 
             elif back_mode == 'IMG':
                 sketch_cube = fr.img_read(file_root, img_size)
                 return class_name, sketch_cube, 0
+
+            elif back_mode == 'MGT':
+                # pad xy: (-1, -1)
+                # s: 100 pen_down, 101 pen_up, 102 padding
+                # pos: [bs, 100]
+                # 最后一行要加上 (0, 0), 但是该加上的点不算在真实草图长度里
+                # maxlen = 100
+                max_len = 100
+
+                # 先获取 S3 草图
+                data_s3 = np.loadtxt(file_root, delimiter=delimiter)
+                real_len = len(data_s3)
+
+                flag_s3 = data_s3[:, 2]
+                flag_s3[flag_s3 == pen_down] = 100
+                flag_s3[flag_s3 == pen_up] = 101
+
+                flag_mgt = np.full(max_len, 102)
+                flag_mgt[:real_len] = flag_s3
+
+                xy_s3 = data_s3[:, :2]
+                xy_mgt = np.full((max_len, 2), -1)
+                xy_mgt[:real_len] = xy_s3
+                xy_mgt[real_len] = [0, 0]
+
+                a_mask1 = SketchDatasetCls.gen_a_mask1(flag_mgt[:, np.newaxis], real_len)  # [100, 100]
+                a_mask2 = SketchDatasetCls.gen_a_mask2(flag_mgt[:, np.newaxis], real_len)  # [100, 100]
+                a_mask3 = SketchDatasetCls.gen_a_mask3(flag_mgt[:, np.newaxis], real_len)  # [100, 100]
+
+                p_mask = SketchDatasetCls.gen_p_mask(real_len)  # [100, 1]
+
+                position_encoding = np.arange(max_len).astype(np.int32)
+
+                flag_mgt = flag_mgt.astype(np.int32)
+                return class_name, xy_mgt, flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask
+
             else:
                 raise TypeError('error back mode')
+
         except:
             return None
+
+    @staticmethod
+    def gen_a_mask1(flag_bits, stroke_len):
+        assert flag_bits.shape == (100, 1)
+        adja_matr = np.zeros([100, 100], int)
+
+        adja_matr[:][:] = -1e10
+
+        adja_matr[0][0] = 0
+        if flag_bits[0] == 100:
+            adja_matr[0][1] = 0
+
+        for idx in range(1, stroke_len):
+            adja_matr[idx][idx] = 0
+
+            if flag_bits[idx - 1] == 100:
+                adja_matr[idx][idx - 1] = 0
+
+            if idx == stroke_len - 1:
+                break
+
+            if flag_bits[idx] == 100:
+                adja_matr[idx][idx + 1] = 0
+
+        return adja_matr
+
+    @staticmethod
+    def gen_a_mask2(flag_bits, stroke_len):
+        assert flag_bits.shape == (100, 1)
+        adja_matr = np.zeros([100, 100], int)
+        adja_matr[:][:] = -1e10
+
+        adja_matr[0][0] = 0
+        if flag_bits[0] == 100:
+            adja_matr[0][1] = 0
+            #
+            if flag_bits[1] == 100:
+                adja_matr[0][2] = 0
+
+        for idx in range(1, stroke_len):
+
+            adja_matr[idx][idx] = 0
+
+            if flag_bits[idx - 1] == 100:
+                adja_matr[idx][idx - 1] = 0
+
+                if (idx >= 2) and (flag_bits[idx - 2] == 100):
+                    adja_matr[idx][idx - 2] = 0
+
+            if idx == stroke_len - 1:
+                break
+
+            if (idx <= (stroke_len - 2)) and (flag_bits[idx] == 100):
+                adja_matr[idx][idx + 1] = 0
+                #
+                if (idx <= (stroke_len - 3)) and (flag_bits[idx + 1] == 100):
+                    adja_matr[idx][idx + 2] = 0
+
+        return adja_matr
+
+    @staticmethod
+    def gen_a_mask3(flag_bits, stroke_len):
+        assert flag_bits.shape == (100, 1)
+        adja_matr = np.zeros([100, 100], int)
+        adja_matr[:][:] = -1e10
+
+        adja_matr[0][0] = 0
+        adja_matr[0][stroke_len - 1] = 0
+        adja_matr[stroke_len - 1][stroke_len - 1] = 0
+        adja_matr[stroke_len - 1][0] = 0
+
+        assert flag_bits[0] == 100 or flag_bits[0] == 101
+
+        if (flag_bits[0] == 101) and stroke_len >= 2:
+            adja_matr[0][1] = 0
+
+        for idx in range(1, stroke_len):
+
+            assert flag_bits[idx] == 100 or flag_bits[idx] == 101
+
+            adja_matr[idx][idx] = 0
+
+            if flag_bits[idx - 1] == 101:
+                adja_matr[idx][idx - 1] = 0
+
+            if idx == stroke_len - 1:
+                break
+
+            if (idx <= (stroke_len - 2)) and (flag_bits[idx] == 101):
+                adja_matr[idx][idx + 1] = 0
+
+        return adja_matr
+
+    @staticmethod
+    def gen_p_mask(real_stroke_len):
+        """
+        :param real_stroke_len: 草图真实点数，不是 max_len
+        :return:
+        """
+        padding_mask = np.ones([100, 1], int)
+        padding_mask[real_stroke_len:, :] = 0
+        return padding_mask
 
     def __getitem__(self, index):
         """
@@ -313,37 +500,59 @@ class SketchDatasetCls(Dataset):
             raise TypeError('error dataset mode')
 
         if self.is_preprocess:  # 数据已预处理
+            if self.back_mode == 'MGT':
+                class_key, xy_mgt, flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask = data[index]
+                cls = self.classes[class_key]
+                return xy_mgt, flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask, cls
+
             class_key, sketch_cube, mask = data[index]
 
         else:  # 数据未预处理
-            class_key, data_path = data[index]
 
-            if self.back_mode == 'STK':  # 数据未预处理, 对于 STK 而言，未预处理表明数据已处理成 STK
-                sketch_cube = np.loadtxt(data_path, delimiter=',')
-                sketch_cube = sketch_cube.reshape(global_defs.n_stk, global_defs.n_stk_pnt, 2)
+            while True:
+                all_data = self.load_data(
+                    data[index],
+                    self.back_mode,
+                    self.coor_mode,
+                    self.max_len,
+                    self.img_size,
+                    self.is_shuffle_stroke,
+                    False,
+                    self.delimiter,
+                    self.n_stk,
+                    self.n_stk_pnt,
+                    self.pen_down,
+                    self.pen_up
+                )
 
-                if self.is_shuffle_stroke:
-                    np.random.shuffle(sketch_cube)
+                if all_data is not None:
+                    break
 
-                mask = 0
+                print('error file read:', data[index][1])
+                index = self.next_index(index)
 
-            elif self.back_mode == 'S5':  # 对于S5而言，需要进行处理
-                sketch_cube, mask = dc.sketch_file_to_s5(data_path, self.max_len, self.coor_mode, self.is_shuffle_stroke)
+            if self.back_mode == 'MGT':
+                class_key, xy_mgt, flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask = all_data
+                cls = self.classes[class_key]
+                return xy_mgt, flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask, cls
 
-            elif self.back_mode == 'IMG':
-                sketch_cube = fr.img_read(data_path, self.img_size)
-                mask = 0
+            class_key, sketch_cube, mask = all_data
 
-            else:
-                raise TypeError(f'Error back mode: {self.back_mode}, [STK, S5, IMG] is supported')
+        cls = self.classes[class_key]  # 表示类别的整形数字
+        return sketch_cube, mask, cls
 
-        if self.is_retrieval:
-            img_tensor = dc.std_to_tensor_img(sketch_cube.numpy())
-            return img_tensor, sketch_cube, mask
+    def __len__(self):
+        if self.data_mode == 'train':
+            return len(self.data_train)
+
+        elif self.data_mode == 'test':
+            return len(self.data_test)
 
         else:
-            cls = self.classes[class_key]  # 表示类别的整形数字
-            return sketch_cube, mask, cls
+            raise TypeError('error dataset mode')
+
+    def n_classes(self):
+        return len(self.classes)
 
     def next_index(self, index):
         max_index = self.__len__()
@@ -352,17 +561,6 @@ class SketchDatasetCls(Dataset):
             return index + 1
         else:
             return 0
-
-    def __len__(self):
-        if self.data_mode == 'train':
-            return len(self.data_train)
-        elif self.data_mode == 'test':
-            return len(self.data_test)
-        else:
-            raise TypeError('error dataset mode')
-
-    def n_classes(self):
-        return len(self.classes)
 
     def train(self):
         self.data_mode = 'train'
@@ -387,13 +585,13 @@ class QuickDrawDiff(Dataset):
         """
         将草图数据读取到该类的数组中
         :param root: npz 文件路径
-        :param back_mode: ['STK', 'STD', 'S5']
+        :param back_mode: ['STK', 'S3', 'S5']
             'STK': [n_stk, n_stk_pnt, 2]
-            'STD': [n, 3] (x, y, s)
+            'S3': [n, 3] (x, y, s)
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
-        :param workers: 'STK' -> 'STD' 过程使用的线程数
+        :param workers: 使用的线程数
         :param pen_down:
         :param pen_up:
         """
@@ -415,10 +613,10 @@ class QuickDrawDiff(Dataset):
             self.mask_all.extend(mask_test)
             self.mask_all.extend(mask_valid)
 
-        elif back_mode == 'STK' or back_mode == 'STD':
-            sketch_train = fr.npz_read(root, 'train', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_test = fr.npz_read(root, 'test', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
-            sketch_valid = fr.npz_read(root, 'valid', 'STD', coor_mode, max_len, pen_down, pen_up)[0]
+        elif back_mode == 'STK' or back_mode == 'S3':
+            sketch_train = fr.npz_read(root, 'train', 'S3', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_test = fr.npz_read(root, 'test', 'S3', coor_mode, max_len, pen_down, pen_up)[0]
+            sketch_valid = fr.npz_read(root, 'valid', 'S3', coor_mode, max_len, pen_down, pen_up)[0]
 
             self.sketch_all.extend(sketch_train)
             self.sketch_all.extend(sketch_test)
@@ -433,11 +631,11 @@ class QuickDrawDiff(Dataset):
                             tqdm(
                                 pool.imap(prep, self.sketch_all),
                                 total=len(self.sketch_all),
-                                desc='converting STD to STK'
+                                desc='converting S3 to STK'
                             )
                         )
                 else:
-                    for c_sketch in tqdm(self.sketch_all, total=len(self.sketch_all), desc='converting STD to STK'):
+                    for c_sketch in tqdm(self.sketch_all, total=len(self.sketch_all), desc='converting S3 to STK'):
                         tmp_sketch_list.append(prep(c_sketch))
 
                 self.sketch_all = tmp_sketch_list
@@ -496,18 +694,18 @@ class QuickDrawCls(Dataset):
         将草图数据读取到该类的数组中
         :param root_npz:
         :param data_mode: ['train', 'test']
-        :param back_mode: ['STK', 'STD', 'S5']
+        :param back_mode: ['STK', 'S3', 'S5']
             'STK': [n_stk, n_stk_pnt, 2]
             'S5': data: [N, 5] (x, y, s1, s2, s3). mask: [N, ]. N = max_len + 2
         :param coor_mode:
         :param max_len:
-        :param workers: 'STK' -> 'STD' 过程使用的线程数
+        :param workers: 使用的线程数
         :param select: 从每类中选择的样本数。 = None: 不选取
             select[0]: 从 train
             select[1]: 从 valid
             select[2]: 从 test
         :param is_random_select: 选取样本时是否随机
-        :param is_process_in_init: 是否在 __init__ 方法中将 'STD' 转化为 'STK'
+        :param is_process_in_init: 是否在 __init__ 方法中将 'S3' 转化为 'STK'
             False: 可提升加载速度，但训练时进行转化，降低训练速度，整体看降低训练速度
             True: 需要极长加载速度，训练时无需转化，整体看提升训练速度
         :param pen_down:
@@ -560,7 +758,7 @@ class QuickDrawCls(Dataset):
             with Pool(processes=workers) as pool:
                 self.data_train = list(
                     tqdm(
-                        pool.imap(self.std_to_stk, self.data_train),
+                        pool.imap(self.s3_to_stk, self.data_train),
                         total=len(self.data_train),
                         desc='converting training set'
                     )
@@ -569,7 +767,7 @@ class QuickDrawCls(Dataset):
             with Pool(processes=workers) as pool:
                 self.data_test = list(
                     tqdm(
-                        pool.imap(self.std_to_stk, self.data_test),
+                        pool.imap(self.s3_to_stk, self.data_test),
                         total=len(self.data_test),
                         desc='converting testing set'
                     )
@@ -593,7 +791,7 @@ class QuickDrawCls(Dataset):
         if back_mode == 'S5':
             back_mode_alt = 'S5'
         elif back_mode == 'STK':
-            back_mode_alt = 'STD'
+            back_mode_alt = 'S3'
         else:
             raise TypeError('error back mode')
 
@@ -616,7 +814,7 @@ class QuickDrawCls(Dataset):
                 c_train = c_train[:select[0]]
                 c_test = c_test[:select[2]]
 
-        elif back_mode == 'STK' or back_mode == 'STD':
+        elif back_mode == 'STK' or back_mode == 'S3':
             if select is not None:
                 sk_train = sk_train[:select[0]]
                 sk_test = sk_test[:select[2]]
@@ -630,9 +828,9 @@ class QuickDrawCls(Dataset):
         return c_train, c_test
 
     @staticmethod
-    def std_to_stk(data_tup):
+    def s3_to_stk(data_tup):
         """
-        将单个 STD 草图转化成 STK 草图
+        将单个 S3 草图转化成 STK 草图
         :param data_tup:
         :return:
         """
@@ -653,7 +851,7 @@ class QuickDrawCls(Dataset):
         cls, data, mask = datapath[index]
         cls = self.classes[cls]
 
-        # 需要将 'STD' 转化为 'STK'
+        # 需要将 'S3' 转化为 'STK'
         if self.back_mode == 'STK' and not self.is_process_in_init:
             data = prep(data)
 

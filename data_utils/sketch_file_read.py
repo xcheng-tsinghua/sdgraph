@@ -139,7 +139,7 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
     return stroke_list_np
 
 
-def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, is_back_seg=False):
+def npz_read(npz_root, data_mode='train', back_mode='S3', coor_mode='ABS', max_len=200, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, is_back_seg=False):
     """
     读取 npz 文件中的草图，读取后的草图已归一化
     这里默认将 npz 文件中存储的数据视为相对坐标，因为 QuickDraw 数据集中的 npz 文件中存储的是相对坐标
@@ -147,8 +147,8 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
 
     :param npz_root:
     :param data_mode: ['train', 'test', 'valid']
-    :param back_mode: ['STD', 'S5']
-        'STD': [n, 3] (x, y, s)
+    :param back_mode: ['S3', 'S5']
+        'S3': [n, 3] (x, y, s)
         'S5': data: [N, 5], mask: [N, ], N = max_len + 2, 因为首尾要加两个标志位
     :param coor_mode: ['ABS', 'REL']
         'ABS': 绝对坐标
@@ -223,7 +223,7 @@ def npz_read(npz_root, data_mode='train', back_mode='STD', coor_mode='ABS', max_
                 if is_back_seg:
                     seg.append(c_seg)
 
-            elif back_mode == 'STD':
+            elif back_mode == 'S3':
                 """
                 TODO: 需要在此添加相关代码返回分割标签
                 """

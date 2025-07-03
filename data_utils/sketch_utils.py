@@ -81,9 +81,13 @@ def get_subdirs(dir_path):
 
 
 def get_allfiles(dir_path, suffix='txt', filename_only=False):
-    '''
+    """
     获取dir_path下的全部文件路径
-    '''
+    :param dir_path:
+    :param suffix: 文件后缀，不需要 "."，如果是 None 则返回全部文件，不筛选类型
+    :param filename_only:
+    :return: [file_path0, file_path1, ...]
+    """
     filepath_all = []
 
     for root, dirs, files in os.walk(dir_path):
