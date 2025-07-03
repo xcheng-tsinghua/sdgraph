@@ -18,6 +18,8 @@ REL 坐标格式: 相对坐标，除第一个点外，其它坐标均为相对�
 
 import random
 import math
+
+import matplotlib.pyplot as plt
 from torch.utils.data import Dataset
 import os
 from tqdm import tqdm
@@ -354,6 +356,23 @@ class SketchDatasetCls(Dataset):
                 # 先获取 S3 草图
                 data_s3 = np.loadtxt(file_root, delimiter=delimiter)
                 real_len = len(data_s3)
+
+                # bks_stk = data_s3
+                if is_shuffle_stroke:
+                    data_s3 = np.split(data_s3, np.where(data_s3[:, 2] == pen_up)[0] + 1)[:-1]
+                    random.shuffle(data_s3)
+                    data_s3 = np.vstack(data_s3)
+
+                # data_s3 = np.split(data_s3, np.where(data_s3[:, 2] == pen_up)[0] + 1)[:-1]
+                # figure, axses = plt.subplots(2)
+                # for c_stk in data_s3:
+                #     axses[0].plot(c_stk[:, 0], c_stk[:, 1])
+                #
+                # bks_stk = np.split(bks_stk, np.where(bks_stk[:, 2] == pen_up)[0] + 1)[:-1]
+                # for c_stk in bks_stk:
+                #     axses[1].plot(c_stk[:, 0], c_stk[:, 1])
+                #
+                # plt.show()
 
                 flag_s3 = data_s3[:, 2]
                 flag_s3[flag_s3 == pen_down] = 100
