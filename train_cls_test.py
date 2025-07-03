@@ -35,11 +35,14 @@ def parse_args():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'],
                         help='absolute coordinate or relative coordinate')
-    parser.add_argument('--model', type=str, default='SDGraph',
-                        choices=['SketchRNN', 'SketchTransformer', 'SDGraph'])
 
-    parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--is_mix', default='False', choices=['True', 'False'], type=str)
+
+    parser.add_argument('--root_sever_mix', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local_mix', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_presv_dnse_mix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    parser.add_argument('--root_sever_nomix', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_presv_dnse_nomix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local_nomix', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_presv_dnse_nomix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     r'''
     cad sketch
@@ -74,7 +77,10 @@ def main(args):
     else:
         save_str = args.model.lower()
 
-    save_str = save_str + '_MIX_' + args.coor_mode
+    if eval(args.is_mix):
+        save_str = save_str + '_MIX_' + args.coor_mode
+    else:
+        save_str = save_str + '_NOMIX_' + args.coor_mode
 
     if args.is_load_weight == 'True':
         save_str += '_LW'
@@ -101,14 +107,16 @@ def main(args):
 
     '''定义数据集'''
     if args.local == 'True':
-        data_root = args.root_local
-    else:
-        data_root = args.root_sever
+        if eval(args.is_mix):
+            data_root = args.root_local_mix
+        else:
+            data_root = args.root_local_nomix
 
-    if args.model == 'SDGraph':
-        back_mode = 'STK'
     else:
-        back_mode = 'S5'
+        if eval(args.is_mix):
+            data_root = args.root_sever_mix
+        else:
+            data_root = args.root_sever_nomix
 
     if args.is_shuffle_stroke == 'True':
         is_shuffle_stroke = True
@@ -116,7 +124,7 @@ def main(args):
         is_shuffle_stroke = False
 
     dataset = SketchDatasetCls(data_root,
-                               back_mode=back_mode,
+                               back_mode='STK',
                                is_already_divided=True,
                                is_preprocess=eval(args.is_preprocess),
                                is_shuffle_stroke=is_shuffle_stroke,
@@ -125,17 +133,7 @@ def main(args):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.bs, shuffle=True, num_workers=0)
 
     '''加载模型及权重'''
-    if args.model == 'SketchRNN':
-        classifier = SketchRNN_Cls(dataset.n_classes()).cuda()
-
-    elif args.model == 'SketchTransformer':
-        classifier = SketchTransformerCls(dataset.n_classes()).cuda()
-
-    elif args.model == 'SDGraph':
-        classifier = SDGraphCls(dataset.n_classes(), 2).cuda()
-
-    else:
-        raise TypeError('error model type')
+    classifier = SDGraphCls(dataset.n_classes(), 2).cuda()
 
     if args.is_load_weight == 'True':
         try:
