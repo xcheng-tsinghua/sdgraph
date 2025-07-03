@@ -41,6 +41,8 @@ tail -f nohup.out
 ## 查看 nohup 的进程
 ps -ef | grep python
 
+nohup 末尾添加该命令可以指定log文件
+ > out.log 2>&1 &
 
 
 ## 服务器训练
