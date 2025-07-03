@@ -72,10 +72,8 @@ def parse_args():
 
 
 def main(args):
-    if args.model == 'SDGraph':
-        save_str = f'{args.model.lower()}_SG_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
-    else:
-        save_str = args.model.lower()
+
+    save_str = f'{args.model.lower()}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
 
     if eval(args.is_mix):
         save_str = save_str + '_MIX_' + args.coor_mode
