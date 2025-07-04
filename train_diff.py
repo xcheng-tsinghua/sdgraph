@@ -1,3 +1,6 @@
+"""
+训练 diffusion，一般来说 category = bicycle, n_stk=11, n_stk_pnt=16
+"""
 # 工具包
 import torch
 import os
