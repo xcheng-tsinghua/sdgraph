@@ -10,8 +10,8 @@ import time
 
 # 自建模块
 from data_utils.sketch_dataset import QuickDrawCls, SketchDatasetCls
-# from encoders.sdgraph_stk_samp import SDGraphCls
-from encoders.sdgraph import SDGraphCls
+from encoders.sdgraph_stk_samp import SDGraphCls
+# from encoders.sdgraph import SDGraphCls
 from encoders.sketch_transformer import SketchTransformerCls
 from encoders.sketch_rnn import SketchRNN_Cls
 from encoders.mgt import MGT
@@ -27,11 +27,11 @@ def parse_args():
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--is_shuffle_stroke', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
-    parser.add_argument('--coor_mode', type=str, default='REL', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
-    parser.add_argument('--model', type=str, default='MGT', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT'])
+    parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
+    parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT'])
 
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
