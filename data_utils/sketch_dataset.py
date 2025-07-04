@@ -331,7 +331,7 @@ class SketchDatasetCls(Dataset):
                     sketch_cube = prep(file_root, is_shuffle_stroke=is_shuffle_stroke)
                 else:
                     sketch_cube = np.loadtxt(file_root, delimiter=delimiter)
-                    sketch_cube.reshape(n_stk, n_stk_pnt, 2)
+                    sketch_cube = sketch_cube.reshape(n_stk, n_stk_pnt, 2)
                     if is_shuffle_stroke:
                         np.random.shuffle(sketch_cube)
 
