@@ -14,7 +14,8 @@ from data_utils.vis import save_format_sketch, save_format_sketch_test
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph import SDGraphUNet as sd_normal
-from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
+# from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
+from ablation.sdgraph_endsnap_nomix import SDGraphUNet as sd_normal
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log, get_log
 
