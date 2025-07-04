@@ -17,7 +17,7 @@ n_stk = 11  # 自建机械草图
 # n_stk_pnt = 32  # 自建机械草图
 # n_stk_pnt = 32  # quickdraw apple
 # n_stk_pnt = 32  # quickdraw apple
-n_stk_pnt = 16  # diff quickdraw bicycle
+n_stk_pnt = 32  # diff quickdraw bicycle
 # n_stk_pnt = 32  # Tu-Berlin
 
 # 笔划在绘制时的后缀，该点的下一个点仍属于当前笔划

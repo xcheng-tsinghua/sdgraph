@@ -36,6 +36,9 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
 
+    parser.add_argument('--root_sever_sd', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    parser.add_argument('--root_local_sd', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
     r'''
     cad sketch
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_cad/sketch_txt_all')
@@ -97,9 +100,18 @@ def main(args):
 
     '''定义数据集'''
     if args.local == 'True':
-        data_root = args.root_local
+        # SDGraph 在无需预处理时，使用专用数据集
+        if args.model == 'SDGraph' and not eval(args.is_preprocess):
+            data_root = args.root_local_sd
+        else:
+            data_root = args.root_local
+
     else:
-        data_root = args.root_sever
+        # SDGraph 在无需预处理时，使用专用数据集
+        if args.model == 'SDGraph' and not eval(args.is_preprocess):
+            data_root = args.root_sever_sd
+        else:
+            data_root = args.root_sever
 
     if args.model == 'SDGraph':
         back_mode = 'STK'

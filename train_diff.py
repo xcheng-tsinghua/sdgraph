@@ -54,7 +54,6 @@ def parse_args():
     parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     
     '''
-
     return parser.parse_args()
 
 
