@@ -181,7 +181,6 @@ def main(args):
                 p_mask = data[6].float().cuda()
                 target = data[7].long().cuda()
 
-                # p_mask.squeeze_()
                 mask = (flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask)
 
             else:
@@ -220,7 +219,21 @@ def main(args):
             classifier = classifier.eval()
             dataset.eval()
             for j, data in tqdm(enumerate(dataloader), total=len(dataloader)):
-                points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
+
+                if args.model == 'MGT':
+                    points = data[0].float().cuda()
+                    flag_mgt = data[1].long().cuda()
+                    position_encoding = data[2].long().cuda()
+                    a_mask1 = data[3].float().cuda()
+                    a_mask2 = data[4].float().cuda()
+                    a_mask3 = data[5].float().cuda()
+                    p_mask = data[6].float().cuda()
+                    target = data[7].long().cuda()
+
+                    mask = (flag_mgt, position_encoding, a_mask1, a_mask2, a_mask3, p_mask)
+
+                else:
+                    points, mask, target = data[0].float().cuda(), data[1].float().cuda(), data[2].long().cuda()
 
                 batch_rec_start = time.time()
                 pred = classifier(points, mask)
