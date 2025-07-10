@@ -585,5 +585,8 @@ if __name__ == '__main__':
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
 
+    svg_to_txt(r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.svg', r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.txt')
+
+
     pass
 

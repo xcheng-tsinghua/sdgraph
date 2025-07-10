@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from svgpathtools import svg2paths
 import numpy as np
 import os
@@ -118,6 +119,14 @@ def svg_read(svg_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up)
             return False
 
         return True
+
+
+    for c_stk in strokes:
+        c_stk = np.array(c_stk)
+
+        plt.plot(c_stk[:, 0], c_stk[:, 1])
+
+    plt.show()
 
     stroke_list_np = []
     for c_stk in strokes:

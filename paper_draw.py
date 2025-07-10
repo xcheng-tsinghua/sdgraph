@@ -415,7 +415,7 @@ def show_fig3():
               (31,119,180)]
     colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
 
-    dot_gap = 2
+    dot_gap = 5
 
     poins_resamp = []
 
@@ -655,7 +655,7 @@ if __name__ == '__main__':
 
     # draw_main_fig()
     # show_fig1()
-    # show_fig3()
+    show_fig3()
 
     # npz_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # c_sketch = fr.npz_read(npz_file)[0][0]
@@ -663,9 +663,9 @@ if __name__ == '__main__':
     # sketch_resample = sketch_resample.reshape([-1, 2])
     # plot_ordered_points(sketch_resample)
 
-    svg_file_ = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg\airplane\n02691156_58-1.svg'
-    svg_transed = fr.svg_read(svg_file_)
-    vis.vis_sketch_data(svg_transed)
+    # svg_file_ = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg\airplane\n02691156_58-1.svg'
+    # svg_transed = fr.svg_read(svg_file_)
+    # vis.vis_sketch(svg_transed)
 
 
     pass
