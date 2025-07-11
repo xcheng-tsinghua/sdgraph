@@ -963,6 +963,7 @@ class RetrievalDataset(Dataset):
                  max_seq_length=1200,
                  image_size=(224, 224),
                  back_mode='S5',
+                 coor_mode='REL',
                  test_ratio=0.2,
                  is_shuffle=True
                  ):
@@ -973,6 +974,7 @@ class RetrievalDataset(Dataset):
         :param data_mode: ['train', 'test']
         :param max_seq_length:
         :param back_mode:
+        :param coor_mode: ['REL', 'ABS']
         :param test_ratio: 测试集占比
         :param is_shuffle: 是否随机划分训练集测试集
 
@@ -1007,6 +1009,7 @@ class RetrievalDataset(Dataset):
 
         self.max_seq_length = max_seq_length
         self.back_mode = back_mode
+        self.coor_mode = coor_mode
         self.image_size = image_size
         self.data_mode = data_mode
 
@@ -1077,7 +1080,7 @@ class RetrievalDataset(Dataset):
 
             # vis_sketch_orig(sketch_root)
 
-            sketch_data, mask = dc.sketch_file_to_s5(sketch_root, self.max_seq_length, 'ABS')
+            sketch_data, mask = dc.sketch_file_to_s5(sketch_root, self.max_seq_length, self.coor_mode)
 
             # vis_s5_data(sketch_data)
 
