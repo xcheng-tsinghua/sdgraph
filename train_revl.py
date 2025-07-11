@@ -158,7 +158,7 @@ class EmbeddingSpace(object):
         return searched_idx
 
 
-def test(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
+def evaluate(img_encoder, skh_encoder, skh_img_dataset, skh_img_loader):
     skh_img_dataset.img()
     emb_space = EmbeddingSpace(img_encoder, skh_img_dataset, skh_img_loader)
 
@@ -259,7 +259,7 @@ def main(args):
     )
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
 
-    # acc_top1, acc_top5, acc_top10 = test(img_encoder, skh_encoder, dataset, dataloader)
+    # acc_top1, acc_top5, acc_top10 = evaluate(img_encoder, skh_encoder, dataset, dataloader)
 
     '''训练'''
     for epoch in range(args.epoch):
@@ -295,7 +295,7 @@ def main(args):
         # print(f'save image weights at: {img_weight_path}')
         # print(f'{epoch} / {args.epoch}: loss: {np.mean(loss_all)}')
 
-        acc_top1, acc_top5, acc_top10 = test(img_encoder, skh_encoder, dataset, dataloader)
+        acc_top1, acc_top5, acc_top10 = evaluate(img_encoder, skh_encoder, dataset, dataloader)
         eval_str = f'{args.save_str}:{epoch}/{args.epoch}-loss: {np.mean(loss_all)} acc_top1: {acc_top1} acc_top5: {acc_top5} acc_top10: {acc_top10}'
         print(eval_str)
         logger.info(eval_str)

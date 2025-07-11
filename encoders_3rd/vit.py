@@ -3,6 +3,7 @@ import timm
 import torch.nn as nn
 import torch
 from collections import OrderedDict
+import torch.nn.functional as F
 
 from encoders.utils import MLP
 
@@ -38,7 +39,6 @@ class VITFinetune(nn.Module):
 
         self.mlp = MLP(0, (512, int((512 * channel_out) ** 0.5), channel_out), final_proc=False)
 
-    # @torch.inference_mode()
     def forward(self, image):
         """
         :param image: [bs, c, w, h]
@@ -52,6 +52,8 @@ class VITFinetune(nn.Module):
             fea = self.image_encoder_pretrained(image)
 
         fea = self.mlp(fea)
+        fea = F.log_softmax(fea, dim=1)  # 使用 nll_loss 训练时必须要进行 log_softmax 处理
+
         return fea
 
 
