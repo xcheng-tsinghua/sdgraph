@@ -28,7 +28,7 @@ def parse_args():
     parser.add_argument('--bs', type=int, default=3, help='batch size in training')
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
-    parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
+    parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_retrieval')
@@ -251,7 +251,7 @@ def main(args):
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        list(skh_encoder.parameters()) + list(img_encoder.mlp.parameters()),
+        list(skh_encoder.parameters()) + list(img_encoder.parameters()),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-08,
@@ -278,8 +278,8 @@ def main(args):
             img_emb = img_encoder(img)
 
             # loss = F.mse_loss(skh_emb, img_emb)
-            # loss = constructive_loss(skh_emb, img_emb)
-            loss = nt_xent_loss(skh_emb, img_emb)
+            loss = constructive_loss(skh_emb, img_emb)
+            # loss = nt_xent_loss(skh_emb, img_emb)
 
             # 利用loss更新参数
             loss.backward()

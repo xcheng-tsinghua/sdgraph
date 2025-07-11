@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch
 from collections import OrderedDict
 import torch.nn.functional as F
+from typing import Any, Mapping
 
 from encoders.utils import MLP
 
@@ -55,6 +56,15 @@ class VITFinetune(nn.Module):
         fea = F.log_softmax(fea, dim=1)  # 使用 nll_loss 训练时必须要进行 log_softmax 处理
 
         return fea
+
+    def load_state_dict(self, state_dict: Mapping[str, Any], strict: bool = True, assign: bool = False):
+        self.mlp.load_state_dict(state_dict, strict, assign)
+
+    def parameters(self, recurse: bool = True):
+        return self.mlp.parameters(recurse)
+
+    def state_dict(self, *args, destination=None, prefix="", keep_vars=False):
+        return self.mlp.state_dict()
 
 
 def save_weights_from_all():
