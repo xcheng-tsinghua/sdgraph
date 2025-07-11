@@ -522,7 +522,7 @@ class SketchTransformerModel(nn.Module):
 
 
 class SketchTransformer(nn.Module):
-    def __init__(self, max_length=1200):
+    def __init__(self, max_length=40, dropout=0.4):  # max_length = 1200
         super().__init__()
 
         self.sketch_transformer = SketchTransformerModel(max_length=max_length)
@@ -530,7 +530,7 @@ class SketchTransformer(nn.Module):
             nn.Linear(768, 627),
             nn.BatchNorm1d(627),
             nn.ReLU(),
-            nn.Dropout(0.4),
+            nn.Dropout(dropout),
 
             nn.Linear(627, 512)
         )

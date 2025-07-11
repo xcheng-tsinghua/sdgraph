@@ -53,7 +53,7 @@ class VITFinetune(nn.Module):
             fea = self.image_encoder_pretrained(image)
 
         fea = self.mlp(fea)
-        fea = F.log_softmax(fea, dim=1)  # 使用 nll_loss 训练时必须要进行 log_softmax 处理
+        # fea = F.log_softmax(fea, dim=1)  # 使用 nll_loss 训练时必须要进行 log_softmax 处理
 
         return fea
 
