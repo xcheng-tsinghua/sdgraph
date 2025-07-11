@@ -10,4 +10,3 @@ encoders/__pycache__/
 ablation/__pycache__/
 evs/__pycache__/
 encoders_3rd/__pycache__/
-train_seg.py
