@@ -15,7 +15,12 @@ from data_utils import sketch_file_read as fr
 
 def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, delimiter=','):
     """
-    显示草图，支持 [n, 3]的 ndarray，[n_stk, n_stk_pnt, 2]的 ndarray， svg文件，txt文件
+    显示草图，
+    S3 草图 - 存储在 [n, 3] 的 ndarray 或者文件
+    S5 草图 - 存储在 [n, 3] 的 ndarray 或者文件
+    STK 草图 - 存储在 [n_stk, n_stk_pnt, 2] 的 ndarray
+    以 list 存储的草图，其中每个元素为一个笔划 [n, 2] 的 ndarray
+
     :param data:
     :param pen_up:
     :param pen_down:
@@ -39,10 +44,17 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
 
     if not is_list:
         sketch_dims = len(sketch.shape)
-        if sketch_dims == 2:  # 需要进行分割处理
+        if sketch_dims == 2 and sketch.shape[1] == 3:  # 需要进行分割处理
             sketch = du.sketch_split(sketch, pen_up, pen_down)
+
+        elif sketch_dims == 2 and sketch.shape[1] == 5:  # S5 格式
+            sketch[:, 2] = sketch[:, 3]
+            sketch = sketch[:, 3]
+            sketch = du.sketch_split(sketch, pen_up, pen_down)
+
         elif sketch_dims == 3:  # 直接就是 STK 格式
             sketch = [sketch[i] for i in range(len(sketch))]
+
         else:
             raise ValueError('Error input data dims')
 

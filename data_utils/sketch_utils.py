@@ -720,7 +720,7 @@ def sketch_split(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down,
     if isinstance(data, str):
         data = np.loadtxt(data, delimiter=delimiter)
 
-    assert len(data.shape) == 2, ValueError('The size of input data should be n * 2')
+    assert len(data.shape) == 2 and data.shape[1] == 3, ValueError('The size of input data should be n * 3')
 
     # 分割笔划
     data[-1, 2] = pen_down
