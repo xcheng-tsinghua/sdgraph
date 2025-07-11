@@ -52,9 +52,10 @@ class GRU(nn.Module):
 
         self.cls_head = MLP(0, (emb_l0, emb_l1, emb_l2, emb_l3))
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """
         :param x: [bs, len_seq, 3]
+        :param mask: 占位用
         :return:
         """
         emb = self.gru_encoder(x)
