@@ -13,6 +13,8 @@ import argparse
 import torch.nn.functional as F
 from pathlib import Path
 
+from encoders.utils import MLP
+
 
 def sketch_plot(data):
     data = data.cpu().numpy()
@@ -86,76 +88,54 @@ def kl_div_loss(sigma_hat: torch.Tensor, mu: torch.Tensor):
     return -0.5 * torch.mean(1 + sigma_hat - mu ** 2 - torch.exp(sigma_hat))
 
 
-class SketchRNNEmbedding(Module):
-    """
-    ## Encoder module
-
-    This consists of a bidirectional LSTM
-    """
-
-    def __init__(self, enc_hidden_size: int = 256, is_global=True):
-        """
-        :param enc_hidden_size:
-        :param is_global: True: 返回全局特征， False: 返回局部特征
-        """
+class BiLSTMEncoder(nn.Module):
+    def __init__(self, input_dim=3, hidden_dim=256, num_layers=2, bidirectional=True, dropout=0.4):
         super().__init__()
-        self.is_global = is_global
-        self.lstm = nn.LSTM(5, enc_hidden_size, bidirectional=True)
+        self.hidden_dim = hidden_dim
+        self.num_layers = num_layers
+        self.bidirectional = bidirectional
 
-        if self.is_global:
-            self.mu_head = nn.Linear(2 * enc_hidden_size, 2 * enc_hidden_size)
+        self.lstm = nn.LSTM(
+            input_size=input_dim,
+            hidden_size=hidden_dim,
+            num_layers=num_layers,
+            batch_first=True,
+            bidirectional=bidirectional,
+            dropout=dropout
+        )
+
+        self.out_dim = hidden_dim * (2 if bidirectional else 1)
+
+    def forward(self, x):
+        # x: [bs, n_pnts, 3]
+        _, (h_n, _) = self.lstm(x)  # h_n: [num_layers * num_directions, bs, hidden_dim]
+
+        if self.bidirectional:
+            # 取最后一层的正向和反向 hidden state
+            h_last = torch.cat((h_n[-2], h_n[-1]), dim=1)  # [bs, hidden_dim * 2]
         else:
-            self.mu_head = nn.Conv1d(2 * enc_hidden_size, 2 * enc_hidden_size, 1)
+            h_last = h_n[-1]  # [bs, hidden_dim]
 
-    def forward(self, inputs: torch.Tensor, mask: torch.Tensor,  state=None):
-        """
-        :param inputs: [bs, len, emb]
-        :param mask: [bs, len]
-        :param state:
-        :return:
-        """
-        inputs = inputs.transpose(0, 1)
-
-        # -> output: [n_pnt, bs, channel]
-        output, (hidden, cell) = self.lstm(inputs.float(), state)
-
-        if self.is_global:
-            hidden = einops.rearrange(hidden, 'fb b h -> b (fb h)')  # fb: forward backward
-        else:
-            hidden = output.permute(1, 2, 0)
-
-        emb = self.mu_head(hidden)
-        return emb
+        return h_last  # [bs, out_dim]
 
 
-class SketchRNN_Cls(Module):
+class SketchRNNCls(Module):
     def __init__(self, n_classes: int, dropout=0.4):
         super().__init__()
         print('create sketch_rnn classifier')
 
-        self.encoder = SketchRNNEmbedding()
+        self.encoder = BiLSTMEncoder(dropout=dropout)
 
-        channel_l0 = 512
-        channel_l1 = int((channel_l0 * n_classes) ** 0.5)
-        channel_l2 = n_classes
+        emb_l0 = 512
+        emb_inc = (n_classes / emb_l0) ** (1 / 3)
+        emb_l1 = int(emb_l0 * emb_inc)
+        emb_l2 = int(emb_l0 * emb_inc * emb_inc)
+        emb_l3 = n_classes
+        self.cls_head = MLP(0, (emb_l0, emb_l1, emb_l2, emb_l3))
 
-        self.linear = nn.Sequential(
-            nn.BatchNorm1d(channel_l0),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(channel_l0, channel_l1),
-            nn.BatchNorm1d(channel_l1),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-
-            nn.Linear(channel_l1, channel_l2),
-        )
-
-    def forward(self, inputs: torch.Tensor, mask: torch.Tensor=None):
-        fea = self.encoder(inputs, mask)
-        fea = self.linear(fea)
-
+    def forward(self, inputs: torch.Tensor, mask: torch.Tensor = None):
+        fea = self.encoder(inputs)
+        fea = self.cls_head(fea)
         fea = F.log_softmax(fea, dim=1)
 
         return fea

@@ -7,17 +7,13 @@ from torch.nn import Module
 import torch.nn.functional as F
 import argparse
 from data_utils.sketch_dataset import RetrievalDataset
-from encoders_3rd.sketch_rnn import SketchRNNEmbedding
 from encoders_3rd.sketch_transformer import SketchTransformer
 from tqdm import tqdm
 from colorama import Fore, Back, init
 import numpy as np
-from itertools import chain
 from datetime import datetime
-import matplotlib.pyplot as plt
-from data_utils.vis import vis_tensor_map, vis_sketch
 
-from encoders_3rd.vit import VITFinetune, create_pretrained_VIT
+from encoders_3rd.vit import VITFinetune
 from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_cls, get_log, get_false_instance
 
 
