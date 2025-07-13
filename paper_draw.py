@@ -415,7 +415,7 @@ def show_fig3():
               (31,119,180)]
     colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
 
-    dot_gap = 5
+    dot_gap = 1
 
     poins_resamp = []
 
@@ -437,6 +437,64 @@ def show_fig3():
 
         # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
         plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def show_random_scatter():
+    the_file = r'C:\Users\ChengXi\Desktop\fig\vec_sketch\nut_source_merged2.txt'
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    # sketch mass move to (0, 0), x y scale to [-1, 1]
+    coordinates = coordinates - np.expand_dims(np.mean(coordinates, axis=0), 0)  # 实测是否加expand_dims效果一样
+    dist = np.max(np.sqrt(np.sum(coordinates ** 2, axis=1)), 0)
+    coordinates = coordinates / dist
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为0，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    strokes = sp.uni_arclength_resample_strict(strokes, 0.1)
+
+    plt.figure(figsize=(10, 5))
+
+    # colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180),
+              (31,119,180)]
+    colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
+
+    dot_gap = 1
+
+    poins_resamp = []
+
+    for idx, s in enumerate(strokes):
+
+        if idx == 0:
+            s = s[:-1, :]
+
+        if idx == 1:
+            s = s[:-1, :]
+
+        if idx == 3:
+            s = s[:-1, :]
+
+        if idx == 6:
+            s = s[:-1, :]
+
+        poins_resamp.append(s)
+
+    poins_resamp = np.vstack(poins_resamp)
+    # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
+    plt.scatter(poins_resamp[::dot_gap, 0], -poins_resamp[::dot_gap, 1], s=80, color=np.random.rand(len(poins_resamp), 3))
 
     plt.axis('off')
     plt.axis("equal")
@@ -655,7 +713,8 @@ if __name__ == '__main__':
 
     # draw_main_fig()
     # show_fig1()
-    show_fig3()
+    # show_fig3()
+    show_random_scatter()
 
     # npz_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # c_sketch = fr.npz_read(npz_file)[0][0]

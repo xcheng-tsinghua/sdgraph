@@ -33,7 +33,7 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
     parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/sketch_retrieval')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_retrieval\test_dataset')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_test')
 
     '''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -114,7 +114,7 @@ class EmbeddingSpace(object):
                  skh_img_dataset,
                  skh_img_loader: DataLoader
                  ):
-        skh_img_dataset.eval()
+        skh_img_dataset.img()
         img_encoder = img_encoder.eval()
 
         self.embeddings = []
