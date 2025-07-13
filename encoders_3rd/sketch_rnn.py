@@ -89,7 +89,7 @@ def kl_div_loss(sigma_hat: torch.Tensor, mu: torch.Tensor):
 
 
 class BiLSTMEncoder(nn.Module):
-    def __init__(self, input_dim=3, hidden_dim=256, num_layers=2, bidirectional=True, dropout=0.4):
+    def __init__(self, input_dim=5, hidden_dim=256, num_layers=2, bidirectional=True, dropout=0.4):
         super().__init__()
         self.hidden_dim = hidden_dim
         self.num_layers = num_layers
