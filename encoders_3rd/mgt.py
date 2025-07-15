@@ -9,7 +9,6 @@ import numpy as np
 
 
 class PositionWiseFeedforward(nn.Module):
-
     def __init__(self, embed_dim, feedforward_dim=512, dropout=0.1):
         super().__init__()
         self.sub_layers = nn.Sequential(
@@ -295,10 +294,10 @@ class MGT(nn.Module):
         flag, pos, attention_mask1, attention_mask2, attention_mask3, padding_mask = additional
         # flag: state, [bs, 100], 100: pen_down, 101: pen_up, 102: padding
         # pos: position, [bs, 100]
-        # attention_mask1:
-        # attention_mask2:
-        # attention_mask3:
-        # padding_mask:
+        # attention_mask1: 可为 None
+        # attention_mask2: 可为 None
+        # attention_mask3: 可为 None
+        # padding_mask: 可为 None
 
         # Embed input sequence
         h = self.encoder(coord, flag, pos, attention_mask1, attention_mask2, attention_mask3)

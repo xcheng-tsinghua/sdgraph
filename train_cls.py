@@ -32,7 +32,7 @@ def parse_args():
     parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
-    parser.add_argument('--model', type=str, default='SketchRNN', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT', 'GRU'])
+    parser.add_argument('--model', type=str, default='MGT', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT', 'GRU'])
 
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
