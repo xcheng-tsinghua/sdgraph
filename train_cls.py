@@ -277,6 +277,10 @@ def main(args):
 
                 batch_rec_start = time.time()
                 pred = classifier(points, mask)
+
+                if eval(args.is_re_stk):
+                    pred = pred[0]
+
                 batch_rec_end = time.time()
                 avg_time = (batch_rec_end - batch_rec_start) / points.size(0)
                 all_infer_time.append(avg_time)
