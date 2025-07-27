@@ -386,7 +386,7 @@ class SDGraphEncoder(nn.Module):
 
 
 class SDGraphCls(nn.Module):
-    def __init__(self, n_class: int, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4):
+    def __init__(self, n_class: int, channel_in=2, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.4, is_re_stk=False):
         """
         :param n_class: 总类别数
         """
@@ -396,6 +396,8 @@ class SDGraphCls(nn.Module):
         self.n_stk = n_stk
         self.n_stk_pnt = n_stk_pnt
         self.channel_in = channel_in
+
+        self.is_re_stk = is_re_stk
 
         # 各层特征维度
         sparse_l0 = 32 + 16
@@ -481,7 +483,10 @@ class SDGraphCls(nn.Module):
         cls = self.linear(all_fea)
         cls = F.log_softmax(cls, dim=1)
 
-        return cls
+        if self.is_re_stk:
+            return cls, stk_coor0
+        else:
+            return cls
 
 
 class SDGraphUNet(nn.Module):

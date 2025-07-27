@@ -20,6 +20,22 @@ from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_
 import global_defs
 
 
+def repulsion_loss_entropy_v2(x, temperature=0.1):
+    """
+    x: [bs, n, channel]
+    最大化分布熵，鼓励分布均匀
+    """
+    bs, n, c = x.shape
+    x = F.normalize(x, dim=2)
+    sim = torch.bmm(x, x.transpose(1, 2)) / temperature  # [bs, n, n]
+
+    p = F.softmax(sim, dim=-1)
+    log_p = torch.log(p + 1e-9)
+
+    entropy = - (p * log_p).sum(dim=-1).mean(dim=-1)
+    return -entropy.mean()
+
+
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
@@ -27,18 +43,21 @@ def parse_args():
     parser.add_argument('--epoch', default=1000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
-    parser.add_argument('--model', type=str, default='MGT', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT', 'GRU'])
+    parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT', 'GRU'])
 
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str)
     parser.add_argument('--root_sever', type=str, default=rf'/opt/data/private/data_set/quickdraw/MGT/log_normal_mean')
     parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean')
-
     parser.add_argument('--root_sever_sd', type=str, default=rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
     parser.add_argument('--root_local_sd', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+
+    # test
+    parser.add_argument('--is_re_stk', type=str, default='False', choices=['True', 'False'])
 
     r'''
     cad sketch
@@ -145,7 +164,7 @@ def main(args):
         classifier = SketchTransformerCls(dataset.n_classes()).cuda()
 
     elif args.model == 'SDGraph':
-        classifier = SDGraphCls(dataset.n_classes(), 2).cuda()
+        classifier = SDGraphCls(dataset.n_classes(), 2, is_re_stk=eval(args.is_re_stk)).cuda()
 
     elif args.model == 'MGT':
         classifier = MGT(dataset.n_classes()).cuda()
@@ -207,7 +226,12 @@ def main(args):
 
             # 模型传入数据，获取输出，并计算loss
             pred = classifier(points, mask)
-            loss = F.nll_loss(pred, target)
+
+            if eval(args.is_re_stk):
+                loss = F.nll_loss(pred[0], target) + repulsion_loss_entropy_v2(pred[1])
+
+            else:
+                loss = F.nll_loss(pred, target)
 
             # 利用loss更新参数
             loss.backward()

@@ -141,7 +141,7 @@ class SketchRNNCls(Module):
         return fea
 
 
-class SketchRNN_Seg(Module):
+class SketchRNNSeg(Module):
     def __init__(self, n_classes: int, dropout=0.4):
         super().__init__()
         print('create sketch_rnn classifier')
