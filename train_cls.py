@@ -105,6 +105,9 @@ def main(args):
     else:
         save_str += '_NSS'
 
+    if eval(args.is_re_stk):
+        save_str += '_RESTK'
+
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
