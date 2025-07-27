@@ -229,6 +229,7 @@ def main(args):
 
             if eval(args.is_re_stk):
                 loss = F.nll_loss(pred[0], target) + repulsion_loss_entropy_v2(pred[1])
+                pred = pred[0]
 
             else:
                 loss = F.nll_loss(pred, target)
