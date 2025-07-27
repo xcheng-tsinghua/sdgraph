@@ -46,7 +46,7 @@ def parse_args():
 
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--is_shuffle_stroke', type=str, default='False', choices=['True', 'False'])
-    parser.add_argument('--is_preprocess', type=str, default='True', choices=['True', 'False'])
+    parser.add_argument('--is_preprocess', type=str, default='False', choices=['True', 'False'])
     parser.add_argument('--coor_mode', type=str, default='ABS', choices=['ABS', 'REL'], help='absolute coordinate or relative coordinate')
     parser.add_argument('--model', type=str, default='SDGraph', choices=['SketchRNN', 'SketchTransformer', 'SDGraph', 'MGT', 'GRU'])
 
