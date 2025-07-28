@@ -20,7 +20,7 @@ from encoders.utils import inplace_relu, clear_log, clear_confusion, all_metric_
 import global_defs
 
 
-def repulsion_loss_entropy_v2(x, temperature=0.1):
+def repulsion_loss_entropy(x, temperature=0.1):
     """
     x: [bs, n, channel]
     最大化分布熵，鼓励分布均匀
@@ -34,6 +34,45 @@ def repulsion_loss_entropy_v2(x, temperature=0.1):
 
     entropy = - (p * log_p).sum(dim=-1).mean(dim=-1)
     return -entropy.mean()
+
+
+def repulsion_loss_cosine(x):
+    """
+    x: [bs, n, channel]
+    目标是让每个 batch 中的样本在特征空间中彼此远离（低余弦相似度）
+    """
+    bs, n, c = x.shape
+    x = F.normalize(x, dim=2)  # 对最后一维归一化：channel 维度
+
+    # 相似度矩阵: [bs, n, n]
+    sim_matrix = torch.bmm(x, x.transpose(1, 2))  # 每个 batch：x @ x^T
+
+    # 去除对角线
+    mask = torch.eye(n, device=x.device).bool()
+    sim_matrix.masked_fill_(mask.unsqueeze(0), 0)
+
+    loss = sim_matrix.sum(dim=(1, 2)) / (n * (n - 1))
+    return loss.mean()
+
+
+def repulsion_loss_euclidean(x):
+    """
+    x: [bs, n, channel]
+    推远每对样本（使用欧氏距离）
+    """
+    bs, n, c = x.shape
+    x1 = x.unsqueeze(2)  # [bs, n, 1, c]
+    x2 = x.unsqueeze(1)  # [bs, 1, n, c]
+
+    # pairwise L2 距离矩阵: [bs, n, n]
+    dist = torch.norm(x1 - x2, dim=-1)
+
+    # 去除对角线
+    mask = torch.eye(n, device=x.device).bool()
+    dist.masked_fill_(mask.unsqueeze(0), 0)
+
+    loss = -dist.sum(dim=(1, 2)) / (n * (n - 1))  # 越远损失越小
+    return loss.mean()
 
 
 def parse_args():
@@ -231,7 +270,7 @@ def main(args):
             pred = classifier(points, mask)
 
             if eval(args.is_re_stk):
-                loss = F.nll_loss(pred[0], target) + repulsion_loss_entropy_v2(pred[1])
+                loss = F.nll_loss(pred[0], target) + repulsion_loss_cosine(pred[1])
                 pred = pred[0]
 
             else:
