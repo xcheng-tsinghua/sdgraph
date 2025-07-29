@@ -357,9 +357,21 @@ def quickdraw_to_png(npz_file, save_root, n_save, linewidth=5, npz_tag='test', p
         plt.close()
 
 
-def std_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
+def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
     """
-    将 STD 草图转化为 Tensor 图片
+    将 S3 草图转化为 Tensor 图片
+    sketch: np.ndarray
+
+    x1, y1, s1
+    x2, y2, s2
+    ...
+    xn, yn, sn
+
+    x, y 为绝对坐标
+    s = 1: 下一个点属于当前笔划
+    s = 0: 下一个点不属于当前笔划
+    注意 Quickdraw 中存储相对坐标，不能直接使用
+
     :param sketch: 文件路径或者加载好的 [n, 3] 草图
     :param image_size:
     :param line_thickness:
@@ -553,6 +565,65 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     #         print(f'error occurred, skip instance: {idx}')
 
 
+def s3_sample_to_specific_point(s3_data, n_point=100, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=','):
+    """
+    将 S3 草图采样至指定的点数，可能多几个点
+    :param s3_data:
+    :param n_point:
+    :return:
+    """
+    if isinstance(s3_data, str):
+        s3_data = fr.load_sketch_file(s3_data, pen_up, pen_down, delimiter)
+        strokes = du.sketch_split(s3_data, pen_up, pen_down, delimiter)
+
+    elif isinstance(s3_data, np.ndarray):
+        assert s3_data.shape[1] == 3, ValueError('input tensor is not s3')
+        strokes = du.sketch_split(s3_data, pen_up, pen_down, delimiter)
+
+    elif isinstance(s3_data, list):
+        strokes = s3_data
+
+    else:
+        raise TypeError('unsupported s3_data type')
+
+    # 先排除掉方框
+    stroke_list_np = []
+    for c_stk in strokes:
+
+        # 删除矩形包围盒
+        if du.is_closed_rectangle(c_stk):
+            continue
+
+        plt.plot(c_stk[:, 0], c_stk[:, 1])
+
+        # c_stk = np.array(c_stk)
+        # n = len(c_stk)
+        # ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
+        # ones_col[-1, 0] = pen_up
+        # c_stk = np.hstack((c_stk, ones_col))
+        #
+        # stroke_list_np.append(c_stk)
+
+    plt.show()
+
+
+
+    # 然后根据笔划长度分配点数
+
+
+
+
+    # 使用线性差值采样
+
+
+
+
+
+
+
+    pass
+
+
 if __name__ == '__main__':
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
@@ -585,8 +656,9 @@ if __name__ == '__main__':
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
 
-    svg_to_txt(r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.svg', r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.txt')
+    # svg_to_txt(r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.svg', r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.txt')
 
+    s3_sample_to_specific_point(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg')
 
     pass
 

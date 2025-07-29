@@ -509,7 +509,9 @@ if __name__ == '__main__':
 
     # vis_sketch_orig(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
 
-    vis_sketch(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
+    # vis_sketch(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
+
+    vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches\butterfly\n02274259_6282-4.txt')
 
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
