@@ -18,36 +18,71 @@ import matplotlib.pyplot as plt
 from data_utils import sketch_utils as du
 from data_utils import sketch_file_read as fr
 from data_utils import preprocess as pp
+from encoders import spline as sp
 import global_defs
 
 
-def svg_to_txt(svg_path, txt_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
+def svg_to_s3(svg_path, txt_path, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up, delimiter=','):
     svg_data = fr.svg_read(svg_path, pen_down, pen_up)
     np.savetxt(txt_path, svg_data, delimiter=delimiter)
 
 
-def svg_to_txt_batched(source_dir, target_dir):
+def svg_to_s3_ass(c_file, source_dir, target_dir):
+    try:
+        txt_path = c_file.replace(source_dir, target_dir).replace('svg', 'txt')
+        svg_to_s3(c_file, txt_path)
+
+    except:
+        try:
+            du.fix_svg_file(c_file)
+            txt_path = c_file.replace(source_dir, target_dir).replace('svg', 'txt')
+            svg_to_s3(c_file, txt_path)
+
+        except:
+            try:
+
+                du.delete_lines_with_ampersand(c_file)
+                txt_path = c_file.replace(source_dir, target_dir).replace('svg', 'txt')
+                svg_to_s3(c_file, txt_path)
+
+            except:
+                try:
+                    du.remove_svg_comments(c_file)
+                    txt_path = c_file.replace(source_dir, target_dir).replace('svg', 'txt')
+                    svg_to_s3(c_file, txt_path)
+
+                except:
+                    raise ValueError('err at ' + c_file)
+
+
+def svg_to_s3_batched(source_dir, target_dir, workers=4):
     os.makedirs(target_dir, exist_ok=True)
     # 清空target_dir
     print('clear dir: ', target_dir)
     shutil.rmtree(target_dir)
 
     # 在target_dir中创建与source_dir相同的目录层级
-    for root, dirs, files in os.walk(source_dir):
-        # 计算目标文件夹中的对应路径
-        relative_path = os.path.relpath(root, source_dir)
-        target_path = os.path.join(target_dir, relative_path)
-
-        # 创建目标文件夹中的对应目录
-        os.makedirs(target_path, exist_ok=True)
-
+    du.create_tree_like(source_dir, target_dir)
     files_all = du.get_allfiles(source_dir, 'svg')
 
-    for c_file in tqdm(files_all, total=len(files_all)):
-        try:
-            svg_to_txt(c_file, c_file.replace(source_dir, target_dir).replace('svg', 'txt'))
-        except:
-            print(f'trans failure: {c_file}')
+    worker_func = partial(svg_to_s3_ass,
+                          source_dir=source_dir,
+                          target_dir=target_dir
+                          )
+
+    with Pool(processes=workers) as pool:
+        data_trans = list(tqdm(
+            pool.imap(worker_func, files_all),
+            total=len(files_all),
+            desc='svg to s3')
+        )
+
+    # files_all = du.get_allfiles(source_dir, 'svg')
+    # for c_file in tqdm(files_all, total=len(files_all)):
+    #     try:
+    #         svg_to_txt(c_file, c_file.replace(source_dir, target_dir).replace('svg', 'txt'))
+    #     except:
+    #         print(f'trans failure: {c_file}')
 
 
 def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='black', canvas_size=800, padding=20):
@@ -433,7 +468,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
     return tensor_img
 
 
-def std_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter=','):
+def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter=','):
     try:
         c_target_file = std_file.replace(source_dir, target_dir)
 
@@ -448,7 +483,7 @@ def std_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter=
         print(f'error occurred, skip file: {std_file}')
 
 
-def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', workers=4):
+def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4):
     """
     将 source_dir 内的 std 草图转化为 STK 草图
     std 草图：每行为 [x, y, s]，行数不固定
@@ -463,19 +498,12 @@ def std_to_stk_batched(source_dir, target_dir, preprocess_func, delimiter=',', w
     """
     # 在 target_dir 内创建与 source_dir 相同的文件夹层级结构
     print('create dirs')
-
-    for root, dirs, files in os.walk(source_dir):
-        # 计算目标文件夹中的对应路径
-        relative_path = os.path.relpath(root, source_dir)
-        target_path = os.path.join(target_dir, relative_path)
-
-        # 创建目标文件夹中的对应目录
-        os.makedirs(target_path, exist_ok=True)
+    du.create_tree_like(source_dir, target_dir)
 
     # 获得source_dir中的全部文件
     files_all = du.get_allfiles(source_dir, 'txt')
 
-    worker_func = partial(std_to_stk_ass,
+    worker_func = partial(s3_to_stk_ass,
                           source_dir=source_dir,
                           target_dir=target_dir,
                           preprocess_func=preprocess_func,
@@ -548,80 +576,117 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
             desc='QuickDraw to MGT')
         )
 
-    # for idx, c_skh in tqdm(enumerate(skh_all), total=len(skh_all)):
-    #
-    #     try:
-    #         c_target_file = os.path.join(stk_root_inner, f'{idx}.txt')
-    #
-    #         target_skh_STK = preprocess_func(c_skh)
-    #         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
-    #
-    #         if len(target_skh_STK) == global_defs.n_skh_pnt:
-    #             np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
-    #         else:
-    #             print(f'error occurred, skip instance: {idx}')
-    #
-    #     except:
-    #         print(f'error occurred, skip instance: {idx}')
 
-
-def s3_sample_to_specific_point(s3_data, n_point=100, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=','):
+def stroke_list_to_s3(stroke_list, pen_down=global_defs.pen_down, pen_up=global_defs.pen_up):
     """
-    将 S3 草图采样至指定的点数，可能多几个点
+    将笔划数组转化为 s3 格式的 ndarray
+    :param stroke_list:
+    :param pen_down:
+    :param pen_up:
+    :return:
+    """
+    # 在每个点的末尾加上笔划状态
+    stroke_list_np = []
+    for c_stk in stroke_list:
+
+        # 先构建一个全为 pen_down 的ndarray
+        n = len(c_stk)
+        ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
+
+        # 将最后一个设置为 pen_up
+        ones_col[-1, 0] = pen_up
+
+        # 拼接到 (x, y) 上
+        c_stk = np.hstack((c_stk, ones_col))
+        stroke_list_np.append(c_stk)
+
+    stroke_list_np = np.vstack(stroke_list_np)
+    return stroke_list_np
+
+
+def s3_to_fix_point_s3(s3_data, n_point=global_defs.n_skh_pnt):
+    """
+    将 S3 草图中的点数采样到固定数值
+    根据长度分配点数
+    保留相对采样密度
+
     :param s3_data:
     :param n_point:
     :return:
     """
     if isinstance(s3_data, str):
-        s3_data = fr.load_sketch_file(s3_data, pen_up, pen_down, delimiter)
-        strokes = du.sketch_split(s3_data, pen_up, pen_down, delimiter)
+        s3_data = fr.load_sketch_file(s3_data)
+        stroke_list = du.sketch_split(s3_data)
 
     elif isinstance(s3_data, np.ndarray):
-        assert s3_data.shape[1] == 3, ValueError('input tensor is not s3')
-        strokes = du.sketch_split(s3_data, pen_up, pen_down, delimiter)
+        stroke_list = du.sketch_split(s3_data)
 
     elif isinstance(s3_data, list):
-        strokes = s3_data
+        stroke_list = s3_data
 
     else:
-        raise TypeError('unsupported s3_data type')
+        raise TypeError('error s3 data format')
 
-    # 先排除掉方框
-    stroke_list_np = []
-    for c_stk in strokes:
+    # 根据长度分配点数，每个笔划至少分配两个点
+    stk_lens = []
+    sketch_length = 0.0
 
-        # 删除矩形包围盒
-        if du.is_closed_rectangle(c_stk):
-            continue
+    for c_stk in stroke_list:
+        c_length = du.stroke_length(c_stk)
 
-        plt.plot(c_stk[:, 0], c_stk[:, 1])
+        stk_lens.append(c_length)
+        sketch_length += c_length
 
-        # c_stk = np.array(c_stk)
-        # n = len(c_stk)
-        # ones_col = np.full((n, 1), pen_down, dtype=c_stk.dtype)
-        # ones_col[-1, 0] = pen_up
-        # c_stk = np.hstack((c_stk, ones_col))
-        #
-        # stroke_list_np.append(c_stk)
+    point_assign = []
+    for c_len in stk_lens:
+        c_n_point = round((c_len / sketch_length) * n_point)
 
-    plt.show()
+        if c_n_point < 2:
+            c_n_point = 2
 
+        point_assign.append(c_n_point)
 
+    # 保留密度采样
+    sampled_stk = []
+    for c_stk, c_n_point in zip(stroke_list, point_assign):
+        c_sampled = sp.sample_keep_dense(c_stk, c_n_point)
+        sampled_stk.append(c_sampled)
 
-    # 然后根据笔划长度分配点数
-
-
-
-
-    # 使用线性差值采样
-
+    sampled_stk = stroke_list_to_s3(sampled_stk)
+    return sampled_stk
 
 
+def s3_to_fix_point_s3_ass(s3_file, source_dir, target_dir, n_pnt, delimiter=','):
+    try:
+        target_pix_pnt_s3 = s3_to_fix_point_s3(s3_file, n_pnt)
+
+        c_target_file = s3_file.replace(source_dir, target_dir)
+        np.savetxt(c_target_file, target_pix_pnt_s3, delimiter=delimiter)
+
+    except:
+        print(f'error occurred, skip file: {s3_file}')
 
 
+def s3_to_fix_point_s3_batched(source_dir, target_dir, n_pnt=global_defs.n_skh_pnt, workers=4):
+    # 在 target_dir 内创建与 source_dir 相同的文件夹层级结构
+    print('create dirs')
+    du.create_tree_like(source_dir, target_dir)
 
+    # 获得source_dir中的全部文件
+    files_all = du.get_allfiles(source_dir, 'txt')
 
-    pass
+    worker_func = partial(s3_to_fix_point_s3_ass,
+                          source_dir=source_dir,
+                          target_dir=target_dir,
+                          n_pnt=n_pnt
+                          )
+
+    with Pool(processes=workers) as pool:
+        data_trans = list(tqdm(
+            pool.imap(worker_func, files_all),
+            total=len(files_all),
+            desc='s3 to fix point number s3')
+        )
 
 
 if __name__ == '__main__':
@@ -649,16 +714,52 @@ if __name__ == '__main__':
 
 
 
-    # std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean',
-    #                    rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
-    #                    preprocess_orig)
+    s3_to_stk_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3',
+                       rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
 
     # svg_to_txt(r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.svg', r'C:\Users\ChengXi\Desktop\0a6d329de93891ee4b8ecfd8b08feee7_2_1.txt')
 
-    s3_sample_to_specific_point(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg')
+    # s3_sample_to_specific_point(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg')
+
+    # atensor = image_to_vector_strokes(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_png\airplane\n02691156_394-2.png')
+    # plt.imshow(atensor[1], cmap='gray')
+
+    # img = cv2.imread(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_png\airplane\n02691156_394-2.png', cv2.IMREAD_GRAYSCALE)
+    # _, binary = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+    # cv2.imwrite(r"C:\Users\ChengXi\Desktop\60mm20250708\sketch.bmp", binary)
+
+    cmpx_svg = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg'
+    # modify_stroke_width_for_black_strokes(cmpx_svg, r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.svg', 2)
+
+    # image_to_vector_strokes(r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png', visualize=True)
+
+    # img_to_bmp(r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png', r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.bmp')
+
+    # raster_to_vector_sketch(r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png', visualize=True)
+
+
+
+    # strokes = du.sketch_split(atensor)
+    #
+    # for c_stk in strokes:
+    #     plt.plot(c_stk[:, 0], -c_stk[:, 1])
+    #
+    # plt.axis('equal')
+    # plt.show()
+
+    # svg_to_txt(cmpx_svg, r'C:\Users\ChengXi\Desktop\60mm20250708\transed.txt')
+
+    # s3_to_fix_point_s3(r'C:\Users\ChengXi\Desktop\60mm20250708\transed.txt')
+
+    # svg_to_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg_raw', r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_txt')
+
+    # s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_{global_defs.n_skh_pnt}')
+
+
+
 
     pass
 

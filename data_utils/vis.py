@@ -7,7 +7,7 @@ import cv2
 import random
 
 import global_defs
-from data_utils.sketch_utils import get_allfiles, get_subdirs
+from data_utils.sketch_utils import get_allfiles
 import data_utils.sketch_utils as du
 import encoders.spline as sp
 from data_utils import sketch_file_read as fr
@@ -511,7 +511,26 @@ if __name__ == '__main__':
 
     # vis_sketch(r'C:\Users\ChengXi\Desktop\bxluomusvg\0a6d329de93891ee4b8ecfd8b08feee7_2_2.svg')
 
-    vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches\butterfly\n02274259_6282-4.txt')
+    # vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches\butterfly\n02274259_6282-4.txt')
+
+    cmpx_svg = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg'
+
+    trans_skh = r'C:\Users\ChengXi\Desktop\60mm20250708\sketch_trans.svg'
+    vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_394-2.txt', show_axis=True)
+
+
+
+    # transpng = r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png'
+    # all_pnt = png_to_points_array(transpng)
+    # plt.scatter(all_pnt[:, 0], -all_pnt[:, 1], s=1)
+    # plt.axis('equal')
+    # plt.show()
+
+
+
+
+    # cairosvg.svg2png(url=cmpx_svg, write_to=transpng)
+
 
     # 有效的草图
     # the_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'

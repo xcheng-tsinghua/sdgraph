@@ -218,7 +218,7 @@ if __name__ == '__main__':
     worker_func = partial(preprocess_orig,
                           is_mix_proc=False
                           )
-    dc.std_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean',
+    dc.s3_to_stk_batched(r'D:\document\DeepLearning\DataSet\quickdraw\MGT\log_normal_mean',
                        rf'D:\document\DeepLearning\DataSet\quickdraw\mgt_presv_dnse_nomix_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
                        worker_func)
 

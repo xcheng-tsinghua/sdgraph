@@ -9,6 +9,7 @@ from tqdm import tqdm
 import requests
 from matplotlib.collections import LineCollection
 from scipy.interpolate import CubicSpline
+import re
 
 import global_defs
 import encoders.spline as sp
@@ -1290,6 +1291,57 @@ def is_closed_rectangle(points, tol=1e-6):
     return True
 
 
+def fix_svg_file(filepath):
+    """
+    某个svg文件如果不以 </svg> 结尾，将其末尾加上 </svg>
+    :param filepath:
+    :return:
+    """
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    if not content.strip().endswith('</svg>'):
+        content += '\n</svg>'
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print("已添加缺失的 </svg> 标签：" + filepath)
+    else:
+        print("文件已正确结尾，无需修改。")
+
+
+def delete_lines_with_ampersand(svg_path):
+    """
+    删除 SVG 文件中所有包含 & 字符的行（无论是否合法）
+
+    Parameters:
+        svg_path (str): 输入 SVG 文件路径
+        output_path (str): 输出文件路径，默认为覆盖原文件
+    """
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+
+    # 删除所有包含 & 的行
+    clean_lines = [line for line in lines if '&' not in line]
+
+    with open(svg_path, 'w', encoding='utf-8') as f:
+        f.writelines(clean_lines)
+
+    print(f"已删除所有包含 '&' 的行：{svg_path}")
+
+
+def remove_svg_comments(svg_path):
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg_text = f.read()
+
+    # 正则匹配并删除注释 <!-- ... -->
+    cleaned_text = re.sub(r'<!--.*?-->', '', svg_text, flags=re.DOTALL)
+
+    # 如果提供了输出路径，保存；否则覆盖原文件
+    with open(svg_path, 'w', encoding='utf-8') as f:
+        print(f'having removed commons: {svg_path}')
+        f.write(cleaned_text)
+
+
 if __name__ == '__main__':
     # svg_to_txt_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin\sketches', r'D:\document\DeepLearning\DataSet\TU_Berlin_txt')
     # std_unify_batched(r'D:\document\DeepLearning\DataSet\TU_Berlin_txt', r'D:\document\DeepLearning\DataSet\TU_Berlin_std')
@@ -1378,13 +1430,17 @@ if __name__ == '__main__':
     # plt.plot(cdata[:, 0].numpy(), cdata[:, 1].numpy())
     # plt.show()
 
-    points1 = np.array([[0, 0], [1, 1], [2, 4], [3, 9], [4, 16]])
+    # points1 = np.array([[0, 0], [1, 1], [2, 4], [3, 9], [4, 16]])
+    # pts_extend = stk_extend(points1, 2)
+    # plt.plot(pts_extend[:, 0], pts_extend[:, 1])
+    # plt.scatter(pts_extend[:, 0], pts_extend[:, 1])
+    # plt.show()
 
-    pts_extend = stk_extend(points1, 2)
-    plt.plot(pts_extend[:, 0], pts_extend[:, 1])
-    plt.scatter(pts_extend[:, 0], pts_extend[:, 1])
-    plt.show()
+    # error_file = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_7989-2.svg'
+    # fix_svg_file(r'C:\Users\ChengXi\Desktop\60mm20250708\n02691156_7989-2.svg')
 
+    # delete_lines_with_ampersand(r'C:\Users\ChengXi\Desktop\60mm20250708\n02139199_7674-2.svg')
+    remove_svg_comments(r'C:\Users\ChengXi\Desktop\60mm20250708\n02948072_1674-2.svg')
     pass
 
 

@@ -620,6 +620,36 @@ def linear_resample(points, n_sample, sample_mode='arc'):
     # return sampled_points
 
 
+def sample_keep_dense(stroke, n_sample):
+    """
+    将给定笔划采样到制定点数，保持相对点密度不变
+    :param stroke: [n, 2]
+    :param n_sample:
+    :return:
+    """
+    # 步骤1: 计算每一段的欧氏距离
+    deltas = np.diff(stroke, axis=0)
+    dists = np.linalg.norm(deltas, axis=1)
+
+    # 步骤2: 累计长度（包括起点0）
+    cumdist = np.concatenate([[0], np.cumsum(dists)])
+
+    # 累积点数
+    n_pnts = len(stroke)
+    cumnpnt = np.linspace(1, n_pnts, n_pnts)
+
+    # 插值获得插值点弧长参数
+    samp_para = np.linspace(1, n_pnts, n_sample)
+    interp_para = np.interp(samp_para, cumnpnt, cumdist)
+
+    # 根据插值获得的弧长参数获得 x y
+    interp_x = np.interp(interp_para, cumdist, stroke[:, 0])
+    interp_y = np.interp(interp_para, cumdist, stroke[:, 1])
+
+    interp_stk = np.hstack([interp_x[:, np.newaxis], interp_y[:, np.newaxis]])
+    return interp_stk
+
+
 def show_pnts_with_idx(points):
 
     plt.clf()
