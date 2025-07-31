@@ -392,7 +392,7 @@ def quickdraw_to_png(npz_file, save_root, n_save, linewidth=5, npz_tag='test', p
         plt.close()
 
 
-def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up):
+def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up, save_path=None):
     """
     将 S3 草图转化为 Tensor 图片
     sketch: np.ndarray
@@ -463,7 +463,8 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
     # 5. 转为归一化float32 Tensor
     tensor_img = torch.from_numpy(img).float() / 255.0
 
-    cv2.imwrite(r'C:\Users\ChengXi\Desktop\fig\out.jpg', img)
+    if save_path is not None:
+        cv2.imwrite(save_path, img)
 
     return tensor_img
 
@@ -758,7 +759,7 @@ if __name__ == '__main__':
 
     # s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_{global_defs.n_skh_pnt}')
 
-
+    atensor = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3\airplane\n02691156_394-5.txt', line_thickness=2)
 
 
     pass
