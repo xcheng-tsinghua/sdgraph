@@ -59,6 +59,9 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
             raise ValueError('Error input data dims')
 
     for s in sketch:
+        # if len(s) < 20:
+        #     continue
+
         plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
 
         if show_dot:
@@ -516,9 +519,12 @@ if __name__ == '__main__':
     cmpx_svg = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg'
 
     trans_skh = r'C:\Users\ChengXi\Desktop\60mm20250708\sketch_trans.svg'
-    vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3\airplane\n02691156_394-5.txt', show_axis=False)
+    # vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt', show_axis=False)
 
-
+    vis_sketch(r'C:\Users\ChengXi\Desktop\fig\selected_sketch\chair.txt',
+               show_axis=False,
+               dot_gap=5,
+               show_dot=True)
 
     # transpng = r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png'
     # all_pnt = png_to_points_array(transpng)

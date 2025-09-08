@@ -392,7 +392,7 @@ def quickdraw_to_png(npz_file, save_root, n_save, linewidth=5, npz_tag='test', p
         plt.close()
 
 
-def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up, save_path=None):
+def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=global_defs.pen_up, coor_mode='ABS', save_path=None):
     """
     将 S3 草图转化为 Tensor 图片
     sketch: np.ndarray
@@ -413,6 +413,7 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
     :param pen_up:
     :return: list(image_size), 224, 224 为预训练的 vit 的图片大小
     """
+    assert coor_mode in ['REL', 'ABS']
     width, height = image_size
 
     if isinstance(sketch, str):
@@ -423,6 +424,9 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
 
     else:
         raise TypeError('error sketch type')
+
+    if coor_mode == 'REL':
+        points_with_state[:, :2] = np.cumsum(points_with_state[:, :2], axis=0)
 
     # 1. 坐标归一化
     pts = np.array(points_with_state[:, :2], dtype=np.float32)
@@ -715,8 +719,8 @@ if __name__ == '__main__':
 
 
 
-    s3_to_stk_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3',
-                       rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
+    # s3_to_stk_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3',
+    #                    rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
 
     # txt_to_svg(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Bearing\00b11be6f26c85ca85f84daf52626b36_1.txt', r'E:\document\DeepLearning\sketch-specific-data-augmentation\convert.svg')
@@ -732,7 +736,7 @@ if __name__ == '__main__':
     # _, binary = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
     # cv2.imwrite(r"C:\Users\ChengXi\Desktop\60mm20250708\sketch.bmp", binary)
 
-    cmpx_svg = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg'
+    # cmpx_svg = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy_other_files\sketches_svg\airplane\n02691156_394-2.svg'
     # modify_stroke_width_for_black_strokes(cmpx_svg, r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.svg', 2)
 
     # image_to_vector_strokes(r'C:\Users\ChengXi\Desktop\60mm20250708\sketch.png', visualize=True)
@@ -759,8 +763,9 @@ if __name__ == '__main__':
 
     # s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_{global_defs.n_skh_pnt}')
 
-    atensor = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3\airplane\n02691156_394-5.txt', line_thickness=2)
+    # atensor = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt', line_thickness=2, save_path=r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png')
 
+    txt_to_svg(r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.txt', r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.svg', 0, 1)
 
     pass
 

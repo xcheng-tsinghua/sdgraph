@@ -47,7 +47,7 @@ class SketchDatasetCls(Dataset):
     │   ├─1.suffix
     │   ...
     │
-    ├─ Clamps
+    ├─ Clampsz
     │   ├─0.suffix
     │   ├─1.suffix
     │   ...

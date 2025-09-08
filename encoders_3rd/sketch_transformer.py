@@ -536,6 +536,10 @@ class SketchTransformer(nn.Module):
         )
 
     def forward(self, input_states, attention_mask):
+        """
+        input_states: [bs, max_len, 5]
+        attention_mask: [bs, max_len]
+        """
         fea = self.sketch_transformer(input_states, attention_mask)
         fea = fea.max(1)[0]
         fea = self.linear(fea)

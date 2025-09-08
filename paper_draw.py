@@ -87,7 +87,7 @@ def traverse_folder(data_root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\
         # sketch_utils.std_to_tensor_img(np.loadtxt(c_file, delimiter=','))
 
 
-def draw_main_fig():
+def draw_main_fig(the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source.txt'):
     def expand_array(arr):
         k = arr.shape[0]  # 获取数组的行数
 
@@ -101,7 +101,7 @@ def draw_main_fig():
         return np.hstack((arr, new_column))
 
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
-    the_file = r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source.txt'
+
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
     # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
@@ -587,11 +587,12 @@ def add_noise2():
     coordinates = coordinates / dist
 
     # 添加噪音
-    np.random.seed(99)
+    np.random.seed(99)  # 99
+    noise_ratio = 0.04  # 0.04
     random_array1 = np.random.randn(*coordinates.shape)
     random_array2 = np.random.randn(*coordinates.shape)
     # coordinates = 0.9 * coordinates + 0.05 * random_array1 + 0.05 * random_array2
-    coordinates = 0.96 * coordinates + 0.04 * random_array1
+    coordinates = (1 - noise_ratio) * coordinates + noise_ratio * random_array1
     # coordinates = 0.04 * random_array1
 
     sketch_data[:, :2] = coordinates
@@ -606,8 +607,8 @@ def add_noise2():
 
     plt.figure(figsize=(10, 5))
 
-    # colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
-    colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180)]
+    colors = [(31,119,180), (255,127,14), (44,160,44), (214,39,40), (148,103,189), (140,86,75), (227,119,194)]
+    # colors = [(31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180), (31,119,180)]
     colors = [(r / 255, g / 255, b / 255) for r, g, b in colors]
 
     dot_gap = 1
@@ -631,8 +632,12 @@ def add_noise2():
         poins_resamp.append(s)
 
         # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1], color=colors[idx])
-        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
+        # plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=colors[idx])
         # plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=(31/255,119/255,180/255))
+
+        # 随机散点颜色
+        random_color = np.random.rand(len(s), 3)
+        plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80, color=random_color)
 
     plt.axis('off')
     plt.axis("equal")
@@ -683,6 +688,173 @@ def plot_ordered_points(points):
     plt.show()
 
 
+def draw_main_fig_nature(the_file=r'C:\Users\ChengXi\Desktop\fig\selected_sketch\airplane.txt'):
+    def expand_array(arr):
+        k = arr.shape[0]  # 获取数组的行数
+
+        # 创建一个形状为(k, 1)的全1数组
+        new_column = np.ones((k, 1), dtype=arr.dtype)
+
+        # 将最后一个元素设为0
+        new_column[-1, 0] = 0
+
+        # 水平拼接原数组和新列
+        return np.hstack((arr, new_column))
+
+    # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Nut\e667cbb1491b6cf657d8627e60604c7c_3.txt'
+
+    # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
+
+    # -> [n, 4] col: 0 -> x, 1 -> y, 2 -> pen state (17: drawing, 16: stroke end), 3 -> None
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
+
+    # 最后一行最后一个数改为17，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    # 重采样，使得点之间的距离近似相等
+    # strokes = sp.batched_spline_approx(
+    #     point_list=strokes,
+    #     median_ratio=0.1,
+    #     approx_mode='uni-arclength'
+    # )
+
+    # for idx, s in enumerate(strokes):
+    #     if idx == 2:
+    #         fs = s[::5, :]
+    #         fs[-1, :] = s[-1, :]
+    #         s = fs
+    #
+    #     # if idx == 12:
+    #     #     s = s[:13, :]
+    #
+    #     if du.stroke_length(s) > 0.3:
+    #         strokes_filter.append(s)
+
+    # np.savetxt(r'C:\Users\ChengXi\Desktop\fig\fig1\nut_source.txt', np.vstack(strokes_filter), delimiter=',')
+
+    sf = []
+    for idx, s in enumerate(strokes):
+        if len(s) < 20:
+            continue
+
+        # if idx == 0:
+        #     s = s[:-4, :]
+        #
+        # if idx == 1:
+        #     s = s[:-3, :]
+        #
+        # if idx == 2:
+        #     s = s[:-1, :]
+        #
+        # if idx == 3:
+        #     s = s[7:-3, :]
+        #
+        # if idx == 4:
+        #     s = s[5:, :]
+        #
+        # if idx == 5:
+        #     s = s[:-3, :]
+        #
+        # if idx == 6:
+        #     s = s[:-2, :]
+        #
+        # if idx == 7:
+        #     s = s[4:, :]
+        #
+        # if idx == 8:
+        #     s = s[4:-3, :]
+        #
+        # if idx == 9:
+        #     s = s[3:-2, :]
+        #
+        # if idx == 10:
+        #     s = s[:-2, :]
+        #
+        # if idx == 11:
+        #     s = s[:-6, :]
+        #
+        # if idx == 15:
+        #     s = s[:-3, :]
+
+        sf.append(s[:, :2])
+
+    strokes_merge = [np.vstack([sf[1][:-6], np.flip(sf[4][:-2], axis=0)])]
+    strokes_merge.extend([sf[0], sf[2], sf[3], sf[5], sf[6]])
+
+    # strokes_merge = [sf[0], sf[1], sf[2]]
+    # strokes_merge.append(np.vstack([np.flip(sf[4], axis=0), sf[3], sf[6], sf[5], np.flip(sf[7], axis=0), np.flip(sf[8], axis=0)]))
+    # strokes_merge.append(np.vstack([sf[9], sf[13], np.flip(sf[10], axis=0)]))
+    # strokes_merge.append(sf[9])
+    # strokes_merge.append(np.flip(sf[10], axis=0))
+    # strokes_merge.append(np.vstack([sf[12], sf[15], sf[13], sf[14], np.flip(sf[11], axis=0)]))
+
+    plt.figure(figsize=(10, 5))
+
+    dot_gap = 1
+
+    altered_stks_save = []
+
+    for idx, s in enumerate(strokes_merge):
+        altered_stks_save.append(expand_array(s))
+
+        plt.clf()
+
+        # np.savetxt(fr'C:\Users\ChengXi\Desktop\fig\fig1\nut_stk_{idx}.txt', s, delimiter=',')
+
+        # plt.plot(s[::dot_gap, 0], -s[::dot_gap, 1])
+        # plt.scatter(s[::dot_gap, 0], -s[::dot_gap, 1], s=80)
+
+        plt.plot(s[:, 0], -s[:, 1])
+        plt.scatter(s[:, 0], -s[:, 1], s=80)
+
+        plt.title(f'stk index: {idx}')
+        plt.axis('off')
+        plt.axis("equal")
+        plt.show()
+
+    for idx, s in enumerate(strokes_merge):
+        plt.scatter([s[:, 0]], [-s[:, 1]], s=80, c='black')
+
+    np.savetxt(r'C:\Users\ChengXi\Desktop\fig\selected_sketch\airplane2.txt', np.vstack(altered_stks_save), delimiter=',')
+
+    plt.axis('off')
+    plt.axis("equal")
+    plt.show()
+
+
+def add_freq(the_file=r'C:\Users\ChengXi\Desktop\fig\selected_sketch\airplane2.txt'):
+    sketch_data = fr.load_sketch_file(the_file, delimiter=',')
+
+    # 2D coordinates
+    coordinates = sketch_data[:, :2]
+
+    sketch_data[:, :2] = coordinates
+
+    # 最后一行最后一个数改为17，防止出现空数组
+    sketch_data[-1, 2] = global_defs.pen_down
+
+    # split all strokes
+    strokes = np.split(sketch_data, np.where(sketch_data[:, 2] == global_defs.pen_up)[0] + 1)
+
+    for cstk in strokes:
+        plt.plot(cstk[:, 0], -cstk[:, 1])
+        plt.scatter(cstk[:, 0], -cstk[:, 1])
+
+    plt.axis('equal')
+    plt.show()
+
+
+def rel_fid_cal():
+    skhrnn = np.array([90.91, 99.886, 77.505, 79.584, 155.247, 89.029])
+    skhknitter = np.array([282.832, 301.249, 258.316, 279.666, 269.196, 271.82])
+    ours = np.array([45.281, 63.346, 49.1, 35.304, 45.426, 49.801])
+
+    print((skhknitter - ours) / skhknitter)
+    print((skhrnn - ours) / skhrnn)
+
+
 if __name__ == '__main__':
 
     # # data_root = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all'
@@ -705,8 +877,9 @@ if __name__ == '__main__':
     # the_file = r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Plug\8d3fe8a25838031b3321b480176926db_3.txt'
     # vis.vis_sketch_orig(the_file, show_dot=True, dot_gap=3)
 
+    # add_noise()
     # add_noise2()
-
+    rel_fid_cal()
     # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
     # traverse_folder()
@@ -714,7 +887,7 @@ if __name__ == '__main__':
     # draw_main_fig()
     # show_fig1()
     # show_fig3()
-    show_random_scatter()
+    # show_random_scatter()
 
     # npz_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\airplane.full.npz'
     # c_sketch = fr.npz_read(npz_file)[0][0]
@@ -725,6 +898,9 @@ if __name__ == '__main__':
     # svg_file_ = r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg\airplane\n02691156_58-1.svg'
     # svg_transed = fr.svg_read(svg_file_)
     # vis.vis_sketch(svg_transed)
+
+    # draw_main_fig_nature()
+    # add_freq()
 
 
     pass
