@@ -85,7 +85,7 @@ def svg_to_s3_batched(source_dir, target_dir, workers=4):
     #         print(f'trans failure: {c_file}')
 
 
-def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='black', canvas_size=800, padding=20):
+def s3_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=',', stroke_width=2, stroke_color='black', canvas_size=800, padding=20, is_print_log=True):
     """
     将txt文件转化为svg文件，txt文件需要保存为每行(x, y, s)格式
     该函数用于配合sketch-a-net变形代码进行数据增强
@@ -172,9 +172,30 @@ def txt_to_svg(txt_file, svg_file, pen_up=global_defs.pen_up, pen_down=global_de
         f.writelines(path_lines)
         f.write(footer)
 
-    print(f"✅ SVG 文件已保存：{svg_file}")
-    print(
-        f"📐 transform = translate({trans_x:.2f},{trans_y:.2f}) scale({scale_factor:.4f}) translate({-min_x:.2f},{-max_y:.2f})")
+    if is_print_log:
+        print(f"✅ SVG 文件已保存：{svg_file}")
+        print(
+            f"📐 transform = translate({trans_x:.2f},{trans_y:.2f}) scale({scale_factor:.4f}) translate({-min_x:.2f},{-max_y:.2f})")
+
+
+def s3_to_svg_batched(source_dir, target_dir):
+    if os.path.exists(target_dir):
+        user = input(f"目标文件夹已存在文件，删除它？(y / n)").strip()
+        if user.lower() == 'y':
+            print('delete dir' + target_dir)
+            shutil.rmtree(target_dir)
+        else:
+            exit(0)
+    os.makedirs(target_dir, exist_ok=True)
+
+    # 在target_dir中创建与source_dir相同的目录层级
+    du.create_tree_like(source_dir, target_dir)
+    files_all = du.get_allfiles(source_dir, 'txt')
+
+    for c_txt in tqdm(files_all):
+        c_svg = c_txt.replace(source_dir, target_dir)
+        c_svg = os.path.splitext(c_svg)[0] + '.svg'
+        s3_to_svg(c_txt, c_svg, is_print_log=False)
 
 
 def sketch_file_to_s5(root, max_length, coor_mode='ABS', is_shuffle_stroke=False):
@@ -765,7 +786,8 @@ if __name__ == '__main__':
 
     # atensor = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt', line_thickness=2, save_path=r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png')
 
-    txt_to_svg(r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.txt', r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.svg', 0, 1)
+    # s3_to_svg(r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.txt', r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.svg', 0, 1)
 
+    s3_to_svg_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Spring', r'C:\Users\ChengXi\Documents\MATLAB\sketch_deformation\svg\Spring')
     pass
 
