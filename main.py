@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from scipy.interpolate import splprep, splev
-from encoders.vit import VITFinetune
+from encoders_3rd.vit import VITFinetune
 
 # import data_utils.sketch_vis as vis
 # from data_utils.sketch_utils import svg_to_txt
@@ -73,30 +73,30 @@ def down_sample_and_up_sample():
     print("+2形状:", plus2.shape)  # torch.Size([1, 3, 4, 4])
 
 
-def curve_fit():
-    # 生成圆形数据
-    theta = np.linspace(0, 2 * np.pi, 50)
-    x = np.cos(theta)
-    y = np.sin(theta)
-
-    # 添加一些噪声
-    x += np.random.normal(0, 0.1, size=x.shape)
-    y += np.random.normal(0, 0.1, size=y.shape)
-
-    # 使用 splprep 进行参数化样条拟合
-    tck, u = splprep([x, y], s=0.5)  # s 控制平滑程度
-
-    # 生成拟合曲线
-    new_u = np.linspace(0, 1, 100)
-    new_x, new_y = splev(new_u, tck)
-
-    # 可视化
-    plt.figure(figsize=(6, 6))
-    plt.plot(x, y, 'o', label='原始点')
-    plt.plot(new_x, new_y, '-', label='拟合曲线')
-    plt.legend()
-    plt.axis('equal')  # 保持比例
-    plt.show()
+# def curve_fit():
+#     # 生成圆形数据
+#     theta = np.linspace(0, 2 * np.pi, 50)
+#     x = np.cos(theta)
+#     y = np.sin(theta)
+#
+#     # 添加一些噪声
+#     x += np.random.normal(0, 0.1, size=x.shape)
+#     y += np.random.normal(0, 0.1, size=y.shape)
+#
+#     # 使用 splprep 进行参数化样条拟合
+#     tck, u = splprep([x, y], s=0.5)  # s 控制平滑程度
+#
+#     # 生成拟合曲线
+#     new_u = np.linspace(0, 1, 100)
+#     new_x, new_y = splev(new_u, tck)
+#
+#     # 可视化
+#     plt.figure(figsize=(6, 6))
+#     plt.plot(x, y, 'o', label='原始点')
+#     plt.plot(new_x, new_y, '-', label='拟合曲线')
+#     plt.legend()
+#     plt.axis('equal')  # 保持比例
+#     plt.show()
 
 
 def find_files_with_line_count_not_equal(directory, k):
