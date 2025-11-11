@@ -648,6 +648,7 @@ class SketchProjDataset(Dataset):
         """
 
         file_all = self.get_allfiles(root_npz)
+        print(f'txt file all: {len(file_all)}')
         data = []
 
         for c_file in file_all:
