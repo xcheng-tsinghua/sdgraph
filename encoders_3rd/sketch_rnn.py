@@ -901,7 +901,7 @@ def parse_args_sketch_proj():
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--root_local', type=str, default=r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt',
                         help='root of local')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/quickdraw/raw',
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/sketch_cad /sketchrnn_proj_txt',
                         help='root of sever')
 
     return parser.parse_args()
