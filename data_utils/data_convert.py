@@ -788,6 +788,6 @@ if __name__ == '__main__':
 
     # s3_to_svg(r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.txt', r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.svg', 0, 1)
 
-    s3_to_svg_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all\Spring', r'C:\Users\ChengXi\Documents\MATLAB\sketch_deformation\svg\Spring')
+    s3_to_svg_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_svg_all')
     pass
 

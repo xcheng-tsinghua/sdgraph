@@ -879,10 +879,10 @@ if __name__ == '__main__':
 
     # add_noise()
     # add_noise2()
-    rel_fid_cal()
+    # rel_fid_cal()
     # prep.find_nonstandard_leaf_dirs(rf'/opt/data/private/data_set/quickdraw/mgt_normal_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}')
 
-    # traverse_folder()
+    traverse_folder()
 
     # draw_main_fig()
     # show_fig1()

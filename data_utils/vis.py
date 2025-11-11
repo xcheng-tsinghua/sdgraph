@@ -521,7 +521,7 @@ if __name__ == '__main__':
     trans_skh = r'C:\Users\ChengXi\Desktop\60mm20250708\sketch_trans.svg'
     # vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt', show_axis=False)
 
-    vis_sketch(r'C:\Users\ChengXi\Desktop\fig\selected_sketch\chair.txt',
+    vis_sketch(r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt\7579150c8f4fd5af6797312b9c996630_2.txt',
                show_axis=False,
                dot_gap=5,
                show_dot=True)
