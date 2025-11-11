@@ -13,7 +13,7 @@ import argparse
 import torch.nn.functional as F
 from pathlib import Path
 
-from encoders.utils import MLP
+# from encoders.utils import MLP
 
 
 def sketch_plot(data):
@@ -823,8 +823,8 @@ def sketch_rnn_proj():
     encoder = EncoderRNN().cuda()
     decoder = DecoderRNN().cuda()
 
-    encoder_weight = './model_trained/sketchrnn_enc.pth'
-    decoder_weight = './model_trained/sketchrnn_dec.pth'
+    encoder_weight = '../model_trained/sketchrnn_enc.pth'
+    decoder_weight = '../model_trained/sketchrnn_dec.pth'
     encoder_weight = os.path.abspath(encoder_weight)
     decoder_weight = os.path.abspath(decoder_weight)
 
