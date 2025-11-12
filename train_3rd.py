@@ -159,7 +159,7 @@ def train_sketch_rnn_proj():
         torch.save(predictor.state_dict(), model_save)
         print('save weight to ', model_save)
 
-        time.sleep(2)
+        time.sleep(10)
 
 
 def parse_args():
