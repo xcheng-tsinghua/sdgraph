@@ -336,9 +336,6 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
 
 
 if __name__ == '__main__':
-
-    sketch_rnn.sketch_rnn_proj()
-
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
 

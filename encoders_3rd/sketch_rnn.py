@@ -440,18 +440,35 @@ class DecoderRNN(Module):
         return dist, q_logits, state
 
 
+class SketchRNN(Module):
+    def __init__(self):
+        super().__init__()
+
+        self.encoder = EncoderRNN()
+        self.decoder = DecoderRNN()
+
+    def forward(self, data):
+        z, mu, sigma_hat = self.encoder(data)
+
+        z_stack = z.unsqueeze(0).expand(data.shape[0] - 1, -1, -1)
+        inputs = torch.cat([data[:-1], z_stack], 2)
+        dist, q_logits, _ = self.decoder(inputs, z, None)
+
+        return sigma_hat, mu, dist, q_logits
+
+
 class Sampler(object):
     """
     ## Sampler
 
     This samples a sketch from the decoder and plots it
     """
-    def __init__(self, encoder: EncoderRNN, decoder: DecoderRNN):
+    def __init__(self, predictor: SketchRNN):
         super().__init__()
-        self.decoder = decoder
-        self.encoder = encoder
+        self.decoder = predictor.decoder
+        self.encoder = predictor.encoder
 
-    def sample(self, data: torch.Tensor, category: str, plot_idx: int, temperature: float = 0.4):
+    def sample(self, data: torch.Tensor, category: str = None, plot_idx: int = None, temperature: float = 0.4, is_save_fig=True):
         # $N_{max}$
         longest_seq_len = len(data)
 
@@ -487,8 +504,11 @@ class Sampler(object):
         # Create a PyTorch tensor of the sequence of strokes
         seq = torch.stack(seq)
 
-        # Plot the sequence of strokes
-        self.plot(seq, category, plot_idx)
+        if is_save_fig:
+            # Plot the sequence of strokes
+            self.plot(seq, category, plot_idx)
+
+        return seq
 
     @staticmethod
     def _sample_step(dist: 'BivariateGaussianMixture', q_logits: torch.Tensor, temperature: float):
@@ -566,13 +586,11 @@ def main():
     train_loader = DataLoader(train_dataset, args.bs, shuffle=True)
 
     '''定义模型'''
-    encoder = EncoderRNN().cuda()
-    decoder = DecoderRNN().cuda()
-    # sampler = Sampler(encoder, decoder)
+    predictor = SketchRNN().cuda()
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        params=list(encoder.parameters()) + list(decoder.parameters()),
+        params=predictor.parameters(),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-8,
@@ -583,8 +601,7 @@ def main():
 
     '''训练'''
     for epoch in range(args.epoch):
-        encoder = encoder.train()
-        decoder = decoder.train()
+        predictor = predictor.train()
 
         for batch_id, batch in tqdm(enumerate(train_loader, 0), total=len(train_loader), desc=f'epoch: {epoch} / {args.epoch}'):
             optimizer.zero_grad()
@@ -592,11 +609,7 @@ def main():
             data = batch[0].transpose(0, 1).cuda()
             mask = batch[1].transpose(0, 1).cuda()
 
-            z, mu, sigma_hat = encoder(data)
-
-            z_stack = z.unsqueeze(0).expand(data.shape[0] - 1, -1, -1)
-            inputs = torch.cat([data[:-1], z_stack], 2)
-            dist, q_logits, _ = decoder(inputs, z, None)
+            sigma_hat, mu, dist, q_logits = predictor(data)
 
             kl_loss = kl_div_loss(sigma_hat, mu)
             rect_loss = reconstruction_loss(mask, data[1:], dist, q_logits)
@@ -605,8 +618,7 @@ def main():
             loss.backward()
 
             # 防止梯度爆炸，必须放在 loss.backward() 之后，optimizer.step() 之前
-            nn.utils.clip_grad_norm_(encoder.parameters(), 1.0)
-            nn.utils.clip_grad_norm_(decoder.parameters(), 1.0)
+            nn.utils.clip_grad_norm_(predictor.parameters(), 1.0)
 
             optimizer.step()
 
@@ -614,13 +626,12 @@ def main():
 
     '''生成草图'''
     with torch.no_grad():
-
+        predictor = predictor.eval()
         for _ in tqdm(range(args.n_skh_gen), total=args.n_skh_gen, desc='generate sketches'):
-            encoder = encoder.eval()
-            decoder = decoder.eval()
-            sampler = Sampler(encoder, decoder)
+            sampler = Sampler(predictor)
 
             # Randomly pick a sample from validation dataset to encoder
+            # data: [seq_len, 5]，即 S5 格式的一张草图
             data, *_ = valid_dataset[np.random.choice(len(valid_dataset))]
 
             # Add batch dimension and move it to device
@@ -631,292 +642,7 @@ def main():
             skh_gen_idx += 1
 
 
-class SketchProjDataset(Dataset):
-    """
-    ## Dataset
-
-    This class loads and pre-processes the data.
-    """
-    def __init__(self, root_npz: str, max_seq_length: int, scale: Optional[float] = None):
-        """
-        `dataset` is a list of numpy arrays of shape [seq_len, 3].
-        It is a sequence of strokes, and each stroke is represented by
-        3 integers.
-        First two are the displacements along x and y ($\Delta x$, $\Delta y$)
-        and the last integer represents the state of the pen, $1$ if it's touching
-        the paper and $0$ otherwise.
-        """
-
-        file_all = self.get_allfiles(root_npz)
-        print(f'txt file all: {len(file_all)}, from: ', root_npz)
-        data = []
-
-        for c_file in file_all:
-            c_np = np.loadtxt(c_file, delimiter=',')
-
-            if 10 < len(c_np) <= max_seq_length:
-
-                # 归一化到 [-1, 1]
-                c_np = self.sketch_std(c_np)
-
-                # 转化为相对坐标
-                c_np[1:, :2] = c_np[1:, :2] - c_np[:-1, :2]
-
-                data.append(c_np)
-
-        # Get the longest sequence length among all sequences
-        longest_seq_len = max([len(seq) for seq in data])
-
-        # We initialize PyTorch data array with two extra steps for start-of-sequence (sos)
-        # and end-of-sequence (eos).
-        # Each step is a vector $(\Delta x, \Delta y, p_1, p_2, p_3)$.
-        # Only one of $p_1, p_2, p_3$ is $1$ and the others are $0$.
-        # They represent *pen down*, *pen up* and *end-of-sequence* in that order.
-        # $p_1$ is $1$ if the pen touches the paper in the next step.
-        # $p_2$ is $1$ if the pen doesn't touch the paper in the next step.
-        # $p_3$ is $1$ if it is the end of the drawing.
-        # dim0: 数据集中的草图数
-        # dim1: 草图中的点数 + 2
-        # dim2: x, y, p1, p2, p3
-        self.data = torch.zeros(len(data), longest_seq_len + 2, 5, dtype=torch.float)  # =2 是因为新增了草图开始和草图结束两个额外步骤
-
-        # The mask array needs only one extra-step since it is for the outputs of the
-        # decoder, which takes in `data[:-1]` and predicts next step.
-        # 即哪些点是有效的，因为不同草图中的点不同，数值为1及=即该位置的点是有效的，
-        self.mask = torch.zeros(len(data), longest_seq_len + 1)
-
-        for i, seq in enumerate(data):
-            seq = torch.from_numpy(seq)
-            len_seq = len(seq)
-            # Scale and set $\Delta x, \Delta y$
-            # 设置点坐标，注意避开第一行及最后一行
-            self.data[i, 1:len_seq + 1, :2] = seq[:, :2]
-            # $p_1$
-            self.data[i, 1:len_seq + 1, 2] = 1 - seq[:, 2]
-            # $p_2$
-            self.data[i, 1:len_seq + 1, 3] = seq[:, 2]
-            # $p_3$
-            # 草图最后一个点的状态设为1，即草图结束
-            self.data[i, len_seq + 1:, 4] = 1
-            # Mask is on until end of sequence
-            # 设定哪些点是有效的
-            self.mask[i, :len_seq + 1] = 1
-
-        # Start-of-sequence is $(0, 0, 1, 0, 0)$
-        self.data[:, 0, 2] = 1
-
-    def __len__(self):
-        """Size of the dataset"""
-        return len(self.data)
-
-    def __getitem__(self, idx: int):
-        """Get a sample"""
-        return self.data[idx], self.mask[idx]
-
-    @staticmethod
-    def get_allfiles(dir_path, suffix='txt', filename_only=False):
-        """
-        获取dir_path下的全部文件路径
-        :param dir_path:
-        :param suffix: 文件后缀，不需要 "."，如果是 None 则返回全部文件，不筛选类型
-        :param filename_only:
-        :return: [file_path0, file_path1, ...]
-        """
-        filepath_all = []
-
-        for root, dirs, files in os.walk(dir_path):
-            for file in files:
-
-                if suffix is not None:
-                    if file.split('.')[-1] == suffix:
-                        if filename_only:
-                            current_filepath = file
-                        else:
-                            current_filepath = str(os.path.join(root, file))
-                        filepath_all.append(current_filepath)
-
-                else:
-                    if filename_only:
-                        current_filepath = file
-                    else:
-                        current_filepath = str(os.path.join(root, file))
-                    filepath_all.append(current_filepath)
-
-        return filepath_all
-
-    @staticmethod
-    def sketch_std(sketch):
-        """
-        将草图质心移动到原点，范围归一化为 [-1, 1]^2
-        :param sketch: [n_point, s]
-        :return: 输入和输出类型相同
-        """
-
-        def _mean_coor_and_dist(_sketch_np):
-            """
-
-            :param _sketch_np: n*2 的 numpy 数组，表示草图
-            :return:
-            """
-            _mean_coor = np.mean(_sketch_np, axis=0)
-            _coordinates = _sketch_np - _mean_coor  # 实测是否加expand_dims效果一样
-            _dist = np.max(np.sqrt(np.sum(_coordinates ** 2, axis=1)), 0)
-
-            if _dist < 1e-5:
-                raise ValueError('too small sketch scale')
-
-            return _mean_coor, _dist
-
-        def _move_scale_proc(_sketch_np, _mean_coor, _dist):
-            _sketch_np = _sketch_np - _mean_coor  # 实测是否加expand_dims效果一样
-            _sketch_np = _sketch_np / _dist
-
-            return _sketch_np
-
-        if len(sketch) == 0:
-            raise ValueError('invalid stroke occurred, which contained zero points')
-
-        if isinstance(sketch, np.ndarray):
-            coordinates = sketch[:, :2]
-
-            mean_coor, dist = _mean_coor_and_dist(coordinates)
-            coordinates = _move_scale_proc(coordinates, mean_coor, dist)
-
-            sketch[:, :2] = coordinates
-            return sketch
-
-        elif isinstance(sketch, list) and isinstance(sketch[0], np.ndarray):
-            # 草图表示为sketch_list
-            sketch_np = np.vstack(sketch)
-            assert sketch_np.shape[1] == 2
-
-            mean_coor, dist = _mean_coor_and_dist(sketch_np)
-
-            stroke_list_new = []
-
-            for c_stk in sketch:
-                stk_new = _move_scale_proc(c_stk, mean_coor, dist)
-                stroke_list_new.append(stk_new)
-
-            return stroke_list_new
-
-        else:
-            raise TypeError('error sketch type')
-
-
-def sketch_rnn_proj():
-    """
-    草图项目的草图补全
-    :return:
-    """
-    args = parse_args_sketch_proj()
-
-    if args.local == 'True':
-        root = args.root_local
-    else:
-        root = args.root_sever
-
-    '''定义数据集'''
-    train_dataset = SketchProjDataset(root, 200)
-    train_loader = DataLoader(train_dataset, args.bs, shuffle=True)
-
-    '''定义模型'''
-    encoder = EncoderRNN().cuda()
-    decoder = DecoderRNN().cuda()
-
-    encoder_weight = './model_trained/sketchrnn_enc.pth'
-    decoder_weight = './model_trained/sketchrnn_dec.pth'
-    encoder_weight = os.path.abspath(encoder_weight)
-    decoder_weight = os.path.abspath(decoder_weight)
-
-    try:
-        encoder.load_state_dict(torch.load(encoder_weight))
-        decoder.load_state_dict(torch.load(decoder_weight))
-        print('training from exist model: ' + encoder_weight + ' and ' + decoder_weight)
-    except:
-        print('no existing model, training from scratch')
-
-    '''定义优化器'''
-    optimizer = torch.optim.Adam(
-        params=list(encoder.parameters()) + list(decoder.parameters()),
-        lr=args.lr,
-        betas=(0.9, 0.999),
-        eps=1e-8,
-        weight_decay=args.decay_rate
-    )
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.9)
-
-    '''训练'''
-    for epoch in range(args.epoch):
-        encoder = encoder.train()
-        decoder = decoder.train()
-        epoch_loss = []
-
-        for batch_id, batch in tqdm(enumerate(train_loader, 0), total=len(train_loader), desc=f'epoch: {epoch} / {args.epoch}'):
-            optimizer.zero_grad()
-
-            data = batch[0].transpose(0, 1).cuda()
-            mask = batch[1].transpose(0, 1).cuda()
-
-            z, mu, sigma_hat = encoder(data)
-
-            z_stack = z.unsqueeze(0).expand(data.shape[0] - 1, -1, -1)
-            inputs = torch.cat([data[:-1], z_stack], 2)
-            dist, q_logits, _ = decoder(inputs, z, None)
-
-            kl_loss = kl_div_loss(sigma_hat, mu)
-            rect_loss = reconstruction_loss(mask, data[1:], dist, q_logits)
-            loss = rect_loss + 0.5 * kl_loss
-
-            loss.backward()
-            epoch_loss.append(loss.item())
-
-            # 防止梯度爆炸，必须放在 loss.backward() 之后，optimizer.step() 之前
-            nn.utils.clip_grad_norm_(encoder.parameters(), 1.0)
-            nn.utils.clip_grad_norm_(decoder.parameters(), 1.0)
-
-            optimizer.step()
-
-        print(f'loss: {np.mean(epoch_loss).item()}')
-        scheduler.step()
-
-        torch.save(encoder.state_dict(), encoder_weight)
-        print('save encoder weight to ', encoder_weight)
-
-        torch.save(decoder.state_dict(), decoder_weight)
-        print('save decoder weight to ', decoder_weight)
-
-
-def parse_args_sketch_proj():
-    '''PARAMETERS'''
-    # 输入参数如下：
-    parser = argparse.ArgumentParser('training')
-
-    parser.add_argument('--bs', type=int, default=15, help='batch size in training')
-    parser.add_argument('--epoch', default=100000, type=int, help='number of epoch in training')
-    parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--n_skh_gen', default=1000, type=int, help='---')
-
-    parser.add_argument('--category', type=str, default='shark', help='diffusion category')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
-    parser.add_argument('--root_local', type=str, default=r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt',
-                        help='root of local')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/sketch_cad/sketchrnn_proj_txt',
-                        help='root of sever')
-
-    return parser.parse_args()
-
-
 if __name__ == "__main__":
-    # categories = ['moon', 'book', 'shark', 'angel', 'bicycle']
-    #
-    # for c_cat in categories:
-    #     main(c_cat)
-
     main()
-    # sketch_rnn_proj()
-
-    pass
 
 
