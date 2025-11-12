@@ -1,3 +1,5 @@
+import matplotlib.pyplot as plt
+
 from encoders_3rd import sketch_rnn
 import numpy as np
 import os
@@ -8,6 +10,29 @@ from tqdm import tqdm
 import argparse
 from data_utils import sketch_utils
 import time
+from data_utils import vis
+
+
+def parse_args_sketch_proj():
+    '''PARAMETERS'''
+    # 输入参数如下：
+    parser = argparse.ArgumentParser('training')
+
+    parser.add_argument('--bs', type=int, default=15, help='batch size in training')
+    parser.add_argument('--epoch', default=100000, type=int, help='number of epoch in training')
+    parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
+    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
+    parser.add_argument('--n_skh_gen', default=1000, type=int, help='---')
+    parser.add_argument('--is_vis', default='False', type=str, choices=['True', 'False'], help='---')
+
+    parser.add_argument('--category', type=str, default='shark', help='diffusion category')
+    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
+    parser.add_argument('--root_local', type=str, default=r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt',
+                        help='root of local')
+    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/sketch_cad/sketchrnn_proj_txt',
+                        help='root of sever')
+
+    return parser.parse_args()
 
 
 class SketchProjDataset(Dataset):
@@ -25,6 +50,9 @@ class SketchProjDataset(Dataset):
             c_np = np.loadtxt(c_file, delimiter=',')
 
             if 10 < len(c_np) <= max_seq_length:
+
+                # 将标志位进行更改，原本是 pen_down=1,pen_up=0，现在要改成pen_down=0,pen_up=1
+                c_np[:, 2] = 1 - c_np[:, 2]
 
                 # 归一化到 [-1, 1]
                 c_np = sketch_utils.sketch_std(c_np)
@@ -67,27 +95,6 @@ class SketchProjDataset(Dataset):
     def __getitem__(self, idx: int):
         """Get a sample"""
         return self.data[idx], self.mask[idx]
-
-
-def parse_args_sketch_proj():
-    '''PARAMETERS'''
-    # 输入参数如下：
-    parser = argparse.ArgumentParser('training')
-
-    parser.add_argument('--bs', type=int, default=15, help='batch size in training')
-    parser.add_argument('--epoch', default=100000, type=int, help='number of epoch in training')
-    parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
-    parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--n_skh_gen', default=1000, type=int, help='---')
-
-    parser.add_argument('--category', type=str, default='shark', help='diffusion category')
-    parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
-    parser.add_argument('--root_local', type=str, default=r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt',
-                        help='root of local')
-    parser.add_argument('--root_sever', type=str, default=r'/root/my_data/data_set/sketch_cad/sketchrnn_proj_txt',
-                        help='root of sever')
-
-    return parser.parse_args()
 
 
 def train_sketch_rnn_proj():
@@ -156,10 +163,31 @@ def train_sketch_rnn_proj():
         print(f'loss: {np.mean(epoch_loss).item()}')
         scheduler.step()
 
-        torch.save(predictor.state_dict(), model_save)
-        print('save weight to ', model_save)
+        try:
+            torch.save(predictor.state_dict(), model_save)
+            print('save weight to ', model_save)
+        except:
+            print('cannot save weight to ', model_save)
 
         time.sleep(10)
+
+    if eval(args.is_vis):
+        with torch.no_grad():
+            predictor = predictor.eval()
+            sampler = sketch_rnn.Sampler(predictor)
+            sketch_file_all = sketch_utils.get_allfiles(root)
+
+            for c_s3_file in tqdm(sketch_file_all, desc='generate sketches'):
+                c_s3_sketch = np.loadtxt(c_s3_file, delimiter=',')
+                c_s3_sketch = torch.from_numpy(c_s3_sketch)
+
+                # Sample
+                s3_gen = sampler.sample_s3(c_s3_sketch).detach().cpu().numpy()
+                print(f'generate sequence length: {len(s3_gen)}')
+                plt.plot(s3_gen[:, 0], s3_gen[:, 1])
+                plt.show()
+                plt.close()
+                vis.vis_sketch(s3_gen, pen_down=0, pen_up=1)
 
 
 def parse_args():
@@ -200,13 +228,11 @@ def main():
     train_loader = DataLoader(train_dataset, args.bs, shuffle=True)
 
     '''定义模型'''
-    encoder = sketch_rnn.EncoderRNN().cuda()
-    decoder = sketch_rnn.DecoderRNN().cuda()
-    # sampler = Sampler(encoder, decoder)
+    predictor = sketch_rnn.SketchRNN().cuda()
 
     '''定义优化器'''
     optimizer = torch.optim.Adam(
-        params=list(encoder.parameters()) + list(decoder.parameters()),
+        params=predictor.parameters(),
         lr=args.lr,
         betas=(0.9, 0.999),
         eps=1e-8,
@@ -217,8 +243,7 @@ def main():
 
     '''训练'''
     for epoch in range(args.epoch):
-        encoder = encoder.train()
-        decoder = decoder.train()
+        predictor = predictor.train()
 
         for batch_id, batch in tqdm(enumerate(train_loader, 0), total=len(train_loader), desc=f'epoch: {epoch} / {args.epoch}'):
             optimizer.zero_grad()
@@ -226,11 +251,7 @@ def main():
             data = batch[0].transpose(0, 1).cuda()
             mask = batch[1].transpose(0, 1).cuda()
 
-            z, mu, sigma_hat = encoder(data)
-
-            z_stack = z.unsqueeze(0).expand(data.shape[0] - 1, -1, -1)
-            inputs = torch.cat([data[:-1], z_stack], 2)
-            dist, q_logits, _ = decoder(inputs, z, None)
+            sigma_hat, mu, dist, q_logits = predictor(data)
 
             kl_loss = sketch_rnn.kl_div_loss(sigma_hat, mu)
             rect_loss = sketch_rnn.reconstruction_loss(mask, data[1:], dist, q_logits)
@@ -239,8 +260,7 @@ def main():
             loss.backward()
 
             # 防止梯度爆炸，必须放在 loss.backward() 之后，optimizer.step() 之前
-            nn.utils.clip_grad_norm_(encoder.parameters(), 1.0)
-            nn.utils.clip_grad_norm_(decoder.parameters(), 1.0)
+            nn.utils.clip_grad_norm_(predictor.parameters(), 1.0)
 
             optimizer.step()
 
@@ -248,13 +268,12 @@ def main():
 
     '''生成草图'''
     with torch.no_grad():
-
+        predictor = predictor.eval()
         for _ in tqdm(range(args.n_skh_gen), total=args.n_skh_gen, desc='generate sketches'):
-            encoder = encoder.eval()
-            decoder = decoder.eval()
-            sampler = sketch_rnn.Sampler(encoder, decoder)
+            sampler = sketch_rnn.Sampler(predictor)
 
             # Randomly pick a sample from validation dataset to encoder
+            # data: [seq_len, 5]，即 S5 格式的一张草图
             data, *_ = valid_dataset[np.random.choice(len(valid_dataset))]
 
             # Add batch dimension and move it to device
@@ -268,6 +287,6 @@ def main():
 if __name__ == '__main__':
     train_sketch_rnn_proj()
     # main()
-
+    pass
 
 

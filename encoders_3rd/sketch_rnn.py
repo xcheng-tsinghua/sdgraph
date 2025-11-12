@@ -470,6 +470,15 @@ class Sampler(object):
         self.encoder = predictor.encoder
 
     def sample(self, data: torch.Tensor, category: str = None, plot_idx: int = None, temperature: float = 0.4, is_save_fig=True):
+        """
+        根据一张图，生成另一张图
+        :param data: [seq_max_len, 1, 5], REL coordinate
+        :param category:
+        :param plot_idx:
+        :param temperature:
+        :param is_save_fig:
+        :return: [gen_len, 5], REL coordinate
+        """
         # $N_{max}$
         longest_seq_len = len(data)
 
@@ -510,6 +519,58 @@ class Sampler(object):
             self.plot(seq, category, plot_idx)
 
         return seq
+
+    def sample_s3(self, data_s3, pen_down=0, pen_up=1, coor_mode='ABS'):
+        """
+        从 S3 格式的草图中采样出生成图
+        :param data_s3: [seq_len, 3]
+        :param pen_down: 该点下一个点仍属于当前笔划
+        :param pen_up: 该点下一个点属于另一个笔划
+        :param coor_mode:
+        :return:
+        """
+        # S3 格式必须是 pen_down=0, pen_up=1, TODO: 不符合进行转化
+
+        # 归一化到 [-1, 1]
+
+        # 绝对坐标转化为相对坐标
+        if coor_mode == 'ABS':
+            data_s3[1:, :2] = data_s3[1:, :2] - data_s3[:-1, :2]
+
+        # 先将 s3 转化为 s5
+        seq_len = data_s3.size(0)
+        data_s5 = torch.zeros(seq_len + 2, 5, dtype=torch.float).cuda()  # =2 是因为新增了草图开始和草图结束两个额外步骤
+
+        # mask 即哪些点是有效的，因为不同草图中的点不同，数值为1及=即该位置的点是有效的，
+        mask = torch.zeros(seq_len + 1).cuda()
+
+        # 设置点坐标，注意避开第一行及最后一行
+        data_s5[1:seq_len + 1, :2] = data_s3[:, :2]
+        # $p_1$
+        data_s5[1:seq_len + 1, 2] = 1 - data_s3[:, 2]
+        # $p_2$
+        data_s5[1:seq_len + 1, 3] = data_s3[:, 2]
+        # $p_3$
+        # 草图最后一个点的状态设为1，即草图结束
+        data_s5[seq_len + 1:, 4] = 1
+        # Mask is on until end of sequence
+        # 设定哪些点是有效的
+        mask[:seq_len + 1] = 1
+
+        # Start-of-sequence is $(0, 0, 1, 0, 0)$
+        data_s5[0, 2] = 1
+        data_s5 = data_s5.unsqueeze(1).cuda()
+
+        # 生成草图
+        gen_s5 = self.sample(data_s5, is_save_fig=False)
+
+        # 转化为 S3
+        gen_s5[:, 0:2] = torch.cumsum(gen_s5[:, 0:2], dim=0)
+        gen_s5[:, 2] = gen_s5[:, 3]
+        gen_s3 = gen_s5[:, 0:3]
+
+        return gen_s3
+
 
     @staticmethod
     def _sample_step(dist: 'BivariateGaussianMixture', q_logits: torch.Tensor, temperature: float):
