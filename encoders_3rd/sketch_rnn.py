@@ -824,8 +824,8 @@ def sketch_rnn_proj():
     encoder = EncoderRNN().cuda()
     decoder = DecoderRNN().cuda()
 
-    encoder_weight = '../model_trained/sketchrnn_enc.pth'
-    decoder_weight = '../model_trained/sketchrnn_dec.pth'
+    encoder_weight = './model_trained/sketchrnn_enc.pth'
+    decoder_weight = './model_trained/sketchrnn_dec.pth'
     encoder_weight = os.path.abspath(encoder_weight)
     decoder_weight = os.path.abspath(decoder_weight)
 
@@ -914,8 +914,8 @@ if __name__ == "__main__":
     # for c_cat in categories:
     #     main(c_cat)
 
-    # main()
-    sketch_rnn_proj()
+    main()
+    # sketch_rnn_proj()
 
     pass
 

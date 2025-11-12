@@ -14,6 +14,7 @@ import os
 import numpy as np
 from scipy.interpolate import splprep, splev
 from encoders_3rd.vit import VITFinetune
+from encoders_3rd import sketch_rnn
 
 # import data_utils.sketch_vis as vis
 # from data_utils.sketch_utils import svg_to_txt
@@ -335,6 +336,9 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
 
 
 if __name__ == '__main__':
+
+    sketch_rnn.sketch_rnn_proj()
+
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
 
@@ -510,8 +514,6 @@ if __name__ == '__main__':
     # astr = 'n02694662_17391-2.svg'
     # print(astr.split('.'))
 
-    anarray = np.zeros([3, 4])
-    print(len(anarray.shape))
 
 
     pass
