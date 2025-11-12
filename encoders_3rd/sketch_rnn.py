@@ -444,6 +444,7 @@ class SketchRNN(Module):
     def __init__(self):
         super().__init__()
 
+        print('Create SketchRNN model')
         self.encoder = EncoderRNN()
         self.decoder = DecoderRNN()
 
