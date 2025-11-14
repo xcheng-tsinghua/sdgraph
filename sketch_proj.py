@@ -25,7 +25,7 @@ def infer():
     x = torch.tensor(data['input'], dtype=torch.float32)
     print('receive data: ', x.size())
     y = sampler.sample_s3(x, min_gen_len=50, max_gen_len=100)
-    print('inference point number: ', y.size())
+    print('inference data: ', y.size())
 
     return jsonify({"output": y.tolist()})
 
