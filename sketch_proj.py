@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from encoders_3rd import sketch_rnn
 import torch
 import os
+import time
 app = Flask(__name__)
 
 
@@ -24,8 +25,11 @@ def infer():
     data = request.json
     x = torch.tensor(data['input'], dtype=torch.float32)
     print('receive data: ', x.size())
+    strat_time = time.time()
     y = sampler.sample_s3(x, min_gen_len=50, max_gen_len=100)
+    end_time = time.time()
     print('inference data: ', y.size())
+    print(f'inference time: {end_time - strat_time} s')
 
     return jsonify({"output": y.tolist()})
 
