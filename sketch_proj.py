@@ -23,7 +23,9 @@ sampler = sketch_rnn.Sampler(sketch_rnn_model)
 def infer():
     data = request.json
     x = torch.tensor(data['input'], dtype=torch.float32)
+    print('receive data: ', x)
     y = sampler.sample_s3(x).tolist()
+    print('inference data: ', y)
 
     return jsonify({"output": y})
 
