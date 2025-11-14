@@ -22,7 +22,8 @@ def parse_args_sketch_proj():
     parser.add_argument('--epoch', default=100000, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-3, type=float, help='learning rate in training')
     parser.add_argument('--decay_rate', type=float, default=1e-4, help='decay rate')
-    parser.add_argument('--n_skh_gen', default=1000, type=int, help='---')
+    parser.add_argument('--min_gen_len', default=50, type=int, help='最小生成长度')
+    parser.add_argument('--max_gen_len', default=100, type=int, help='最大生成长度')
     parser.add_argument('--is_vis', default='False', type=str, choices=['True', 'False'], help='---')
 
     parser.add_argument('--category', type=str, default='shark', help='diffusion category')
@@ -182,12 +183,12 @@ def train_sketch_rnn_proj():
                 c_s3_sketch = torch.from_numpy(c_s3_sketch)
 
                 # Sample
-                s3_gen = sampler.sample_s3(c_s3_sketch).detach().cpu().numpy()
+                s3_gen = sampler.sample_s3(c_s3_sketch, min_gen_len=args.min_gen_len, max_gen_len=args.max_gen_len).detach().cpu().numpy()
                 print(f'generate sequence length: {len(s3_gen)}')
                 plt.plot(s3_gen[:, 0], s3_gen[:, 1])
                 plt.show()
                 plt.close()
-                vis.vis_sketch(s3_gen, pen_down=0, pen_up=1)
+                # vis.vis_sketch(s3_gen, pen_down=0, pen_up=1)
 
 
 def parse_args():

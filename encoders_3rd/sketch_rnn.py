@@ -469,7 +469,7 @@ class Sampler(object):
         self.decoder = predictor.decoder
         self.encoder = predictor.encoder
 
-    def sample(self, data: torch.Tensor, category: str = None, plot_idx: int = None, temperature: float = 0.4, is_save_fig=True):
+    def sample(self, data: torch.Tensor, category: str = None, plot_idx: int = None, temperature: float = 0.4, is_save_fig=True, min_gen_len=None, max_gen_len=None):
         """
         根据一张图，生成另一张图
         :param data: [seq_max_len, 1, 5], REL coordinate
@@ -477,6 +477,8 @@ class Sampler(object):
         :param plot_idx:
         :param temperature:
         :param is_save_fig:
+        :param min_gen_len: 最大生成长度
+        :param max_gen_len: 最大生成长度
         :return: [gen_len, 5], REL coordinate
         """
         # $N_{max}$
@@ -508,7 +510,13 @@ class Sampler(object):
                 # Add the new stroke to the sequence of strokes
                 seq.append(s)
                 # Stop sampling if $p_3 = 1$. This indicates that sketching has stopped
-                if s[4] == 1:
+                if min_gen_len is None and s[4] == 1:
+                    break
+                elif min_gen_len is not None and i > min_gen_len and s[4] == 1:
+                    print('force to enlarge generate scale')
+                    break
+
+                if max_gen_len is not None and i > max_gen_len:
                     break
 
         # Create a PyTorch tensor of the sequence of strokes
@@ -520,18 +528,38 @@ class Sampler(object):
 
         return seq
 
-    def sample_s3(self, data_s3, pen_down=0, pen_up=1, coor_mode='ABS'):
+    def sample_s3(self, data_s3, pen_down=0, pen_up=1, coor_mode='ABS', min_gen_len=None, max_gen_len=None):
         """
         从 S3 格式的草图中采样出生成图
         :param data_s3: [seq_len, 3]
         :param pen_down: 该点下一个点仍属于当前笔划
         :param pen_up: 该点下一个点属于另一个笔划
+        :param min_gen_len: 最短生成长度
+        :param max_gen_len: 最大生成长度
         :param coor_mode:
         :return:
         """
         # S3 格式必须是 pen_down=0, pen_up=1, TODO: 不符合进行转化
 
-        # 归一化到 [-1, 1]
+        # 将草图质心平移到(0, 0), 将范围归一化到 [-1, 1]
+        # 计算质心
+        points = data_s3[:, :2]
+        centroid = torch.mean(points, dim=0)
+
+        # 将质心移到原点
+        points_centered = points - centroid
+
+        # 计算缩放因子（每个维度的最大绝对值）
+        max_abs = torch.max(torch.abs(points_centered), dim=0)[0]
+        scale = torch.max(max_abs)  # 取 x 和 y 的最大值作为统一的缩放因子
+
+        # 避免除以0
+        if scale.item() == 0:
+            scale = torch.tensor(1.0)
+
+        # 缩放到 [-1, 1]
+        points_normalized = points_centered / scale
+        data_s3[:, :2] = points_normalized
 
         # 绝对坐标转化为相对坐标
         if coor_mode == 'ABS':
@@ -562,10 +590,10 @@ class Sampler(object):
         data_s5 = data_s5.unsqueeze(1).cuda()
 
         # 生成草图
-        gen_s5 = self.sample(data_s5, is_save_fig=False)
+        gen_s5 = self.sample(data_s5, is_save_fig=False, min_gen_len=min_gen_len, max_gen_len=max_gen_len)
 
         # 转化为 S3
-        gen_s5[:, 0:2] = torch.cumsum(gen_s5[:, 0:2], dim=0)
+        gen_s5[:, 0:2] = torch.cumsum(gen_s5[:, 0:2], dim=0) * scale
         gen_s5[:, 2] = gen_s5[:, 3]
         gen_s3 = gen_s5[:, 0:3]
 
