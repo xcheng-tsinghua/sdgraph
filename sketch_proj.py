@@ -24,10 +24,10 @@ def infer():
     data = request.json
     x = torch.tensor(data['input'], dtype=torch.float32)
     print('receive data: ', x.size())
-    y = sampler.sample_s3(x).tolist()
-    print('inference point number: ', len(y))
+    y = sampler.sample_s3(x, min_gen_len=50, max_gen_len=100)
+    print('inference point number: ', y.size())
 
-    return jsonify({"output": y})
+    return jsonify({"output": y.tolist()})
 
 
 def test_input():
