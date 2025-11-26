@@ -43,7 +43,7 @@ def stroke_list_padding_to_cube(sketch_list: list, n_stk=global_defs.n_stk, n_st
     return n3_cube
 
 
-def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False) -> np.ndarray:
+def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=',') -> np.ndarray:
     """
     最初始的版本, 处理成 STK 草图
     通过反复合并、拆分，使得笔划长度尽量相等
@@ -54,7 +54,7 @@ def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
         # 读取草图数据
         if isinstance(sketch_root, str):
             # 读取草图数据
-            sketch_data = fr.load_sketch_file(sketch_root)
+            sketch_data = fr.load_sketch_file(sketch_root, delimiter=delimiter)
 
         elif isinstance(sketch_root, (np.ndarray, list)):
             sketch_data = sketch_root
@@ -128,8 +128,8 @@ def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.
 
         return sketch_data
 
-    except:
-        print('error file read')
+    except Exception as e:
+        print('error file read: ', e)
         return None
 
 

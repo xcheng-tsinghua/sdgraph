@@ -26,6 +26,12 @@ from tqdm import tqdm
 from multiprocessing import Pool
 from functools import partial
 import numpy as np
+import pickle
+import torchvision.transforms as transforms
+from PIL import Image
+from bresenham import bresenham
+import scipy.ndimage
+from rdp import rdp
 
 import global_defs
 from data_utils.preprocess import preprocess_stk as prep
@@ -1162,7 +1168,335 @@ class SketchDatasetSeg(Dataset):
         self.data_mode = 'test'
 
 
+class QMULDataset(Dataset):
+    def __init__(self,
+                 root_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2',
+                 dataset_name='ShoeV2',
+                 seq_len_threshold=251,
+                 is_train=True):
+        super().__init__()
+
+        self.is_train = is_train
+        self.root_dir = root_dir
+        self.dataset_name = dataset_name
+        self.seq_len_threshold = seq_len_threshold
+
+        self.root_dir = os.path.join(self.root_dir, self.dataset_name)
+        self.Coordinate = coordinate_pre_load(os.path.join(self.root_dir, self.dataset_name + '_Coordinate'))
+
+        seq_len_threshold = 81
+        coordinate_refine = {}
+        seq_len = []
+        for key in self.Coordinate.keys():
+            if len(self.Coordinate[key]) < seq_len_threshold:
+                coordinate_refine[key] = self.Coordinate[key]
+                seq_len.append(len(self.Coordinate[key]))
+        self.Coordinate = coordinate_refine
+        self.max_seq_len = max(seq_len)
+        self.average_seq_len = int(np.round(np.mean(seq_len) + 0.5*np.std(seq_len)))
+
+        # greater_than_average = 0
+        # for seq in seq_len:
+        #     if seq > self.hp.average_len:
+        #         greater_than_average +=1
+
+        self.Train_Sketch = [x for x in self.Coordinate if ('train' in x) and (len(self.Coordinate[x]) < seq_len_threshold)]  # separating trains
+        self.Test_Sketch = [x for x in self.Coordinate if ('test' in x) and (len(self.Coordinate[x]) < seq_len_threshold)]    # separating tests
+
+        self.train_transform = self.get_transform('Train')
+        self.test_transform = self.get_transform('Test')
+
+        # # seq_len = []
+        # # for key in self.Coordinate.keys():
+        # #     seq_len += [len(self.Coordinate[key])]
+        # # plt.hist(seq_len)
+        # # plt.savefig('histogram of number of Coordinate Points.png')
+        # # plt.close()
+        # # hp.max_seq_len = max(seq_len)
+        # hp.max_seq_len = 130
+
+
+        """" Preprocess offset coordinates """
+        self.Offset_Coordinate = {}
+        for key in self.Coordinate.keys():
+            self.Offset_Coordinate[key] = to_delXY(self.Coordinate[key])
+        data = []
+        for sample in self.Offset_Coordinate.values():
+            data.extend(sample[:, 0])
+            data.extend(sample[:, 1])
+        data = np.array(data)
+        scale_factor = np.std(data)
+
+        for key in self.Coordinate.keys():
+            self.Offset_Coordinate[key][:, :2] /= scale_factor
+
+        """" <<< Preprocess offset coordinates >>> """
+        """" <<<           Done                >>> """
+
+    def __getitem__(self, item):
+
+        if self.is_train:
+            sketch_path = self.Train_Sketch[item]
+
+            positive_sample = '_'.join(self.Train_Sketch[item].split('/')[-1].split('_')[:-1])
+            positive_path = os.path.join(self.root_dir, 'photo', positive_sample + '.png')
+            positive_img = Image.open(positive_path).convert('RGB')
+
+            sketch_abs = self.Coordinate[sketch_path]
+            sketch_delta = self.Offset_Coordinate[sketch_path]
+
+            sketch_img = rasterize_Sketch(sketch_abs)
+            sketch_img = Image.fromarray(sketch_img).convert('RGB')
+
+            # sketch_img = TF.hflip(sketch_img)
+            # positive_img = TF.hflip(positive_img)
+            sketch_img = self.train_transform(sketch_img)
+            positive_img = self.train_transform(positive_img)
+
+            #################################### #################################### ####################################
+
+            absolute_coordinate = np.zeros((self.max_seq_len, 3))
+            relative_coordinate = np.zeros((self.max_seq_len, 3))
+            absolute_coordinate[:sketch_abs.shape[0], :] = sketch_abs
+            relative_coordinate[:sketch_delta.shape[0], :] = sketch_delta
+            #################################### #################################### ####################################
+
+            # sample = {'sketch_img': sketch_img,
+            #           'sketch_path': sketch_path,
+            #           'absolute_coordinate':absolute_coordinate,
+            #           'relative_coordinate': relative_coordinate,
+            #           'sketch_length': int(len(sketch_abs)),
+            #           'absolute_fivePoint': to_FivePoint(sketch_abs, self.hp.max_seq_len),
+            #           'relative_fivePoint': to_FivePoint(sketch_delta, self.hp.max_seq_len),
+            #           'positive_img': positive_img,
+            #           'positive_path': positive_sample}
+
+            sample = {'sketch_path': sketch_path, 'length': int(len(sketch_abs)),
+                      'sketch_vector': to_FivePoint(sketch_delta, self.max_seq_len),
+                      'photo': positive_img}
+
+        else:
+            sketch_path = self.Test_Sketch[item]
+
+            positive_sample = '_'.join(self.Test_Sketch[item].split('/')[-1].split('_')[:-1])
+            positive_path = os.path.join(self.root_dir, 'photo', positive_sample + '.png')
+
+            sketch_abs = self.Coordinate[sketch_path]
+            sketch_delta = self.Offset_Coordinate[sketch_path]
+
+            sketch_img = rasterize_Sketch(sketch_abs)
+            sketch_img = Image.fromarray(sketch_img).convert('RGB')
+
+            sketch_img = self.test_transform(sketch_img)
+            positive_img = self.test_transform(Image.open(positive_path).convert('RGB'))
+
+            #################################### #################################### ####################################
+
+            absolute_coordinate = np.zeros((self.max_seq_len, 3))
+            relative_coordinate = np.zeros((self.max_seq_len, 3))
+            absolute_coordinate[:sketch_abs.shape[0], :] = sketch_abs
+            relative_coordinate[:sketch_delta.shape[0], :] = sketch_delta
+            #################################### #################################### ####################################
+
+            # sample = {'sketch_img': sketch_img,
+            #           'sketch_path': sketch_path,
+            #           'absolute_coordinate':absolute_coordinate,
+            #           'relative_coordinate': relative_coordinate,
+            #           'sketch_length': int(len(sketch_abs)),
+            #           'absolute_fivePoint': to_FivePoint(sketch_abs, self.hp.max_seq_len),
+            #           'relative_fivePoint': to_FivePoint(sketch_delta, self.hp.max_seq_len),
+            #           'positive_img': positive_img,
+            #           'positive_path': positive_sample}
+
+            sample = {'sketch_path': sketch_path,
+                      'length': int(len(sketch_abs)),
+                      'sketch_vector': to_FivePoint(sketch_delta, self.max_seq_len),
+                      'photo': positive_img}
+
+        return sample
+
+    def __len__(self):
+        if self.is_train:
+            return len(self.Train_Sketch)
+        else:
+            return len(self.Test_Sketch)
+
+
+    @staticmethod
+    def get_transform(is_train):
+        transform_list = []
+        if is_train:
+            transform_list.extend([transforms.Resize(256)])
+        else:
+            transform_list.extend([transforms.Resize(256)])
+        # transform_list.extend(
+        #     [transforms.ToTensor(), transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
+        transform_list.extend(
+            [transforms.ToTensor(), transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+
+        return transforms.Compose(transform_list)
+
+
+def to_delXY(sketch):
+    new_skech = sketch.copy()
+    new_skech[:-1,:2]  = new_skech[1:,:2] - new_skech[:-1,:2]
+    new_skech[:-1, 2] = new_skech[1:, 2]
+    return new_skech[:-1,:]
+
+
+def rasterize_Sketch(sketch_points):
+    sketch_points = preprocess(sketch_points)
+    raster_images, _ = mydrawPNG(sketch_points)
+    return raster_images
+
+
+def to_FivePoint(sketch, max_seq_len=130):
+    len_seq = len(sketch[:, 0])
+    new_seq = np.zeros((max_seq_len, 5))
+    new_seq[0:len_seq, :2] = sketch[:, :2]
+    new_seq[0:len_seq, 3] = sketch[:, 2]
+    new_seq[0:len_seq, 2] = 1 - new_seq[0:len_seq, 3]
+    new_seq[(len_seq - 1):, 4] = 1
+    new_seq[(len_seq - 1), 2:4] = 0
+    return new_seq
+
+
+def preprocess(sketch_points, side = 256.0):
+    sketch_points = sketch_points.astype(np.float32)
+    sketch_points[:, :2] = sketch_points[:, :2] / np.array([256, 256])
+    sketch_points[:,:2] = sketch_points[:,:2] * side
+    sketch_points = np.round(sketch_points)
+    return sketch_points
+
+
+def mydrawPNG(vector_image, Side = 256):
+
+    raster_image = np.zeros((int(Side), int(Side)), dtype=np.float32)
+    initX, initY = int(vector_image[0, 0]), int(vector_image[0, 1])
+    stroke_bbox = []
+    stroke_cord_buffer = []
+    pixel_length = 0
+
+    for i in range(0, len(vector_image)):
+        if i > 0:
+            if vector_image[i - 1, 2] == 1:
+                initX, initY = int(vector_image[i, 0]), int(vector_image[i, 1])
+
+        cordList = list(bresenham(initX, initY, int(vector_image[i, 0]), int(vector_image[i, 1])))
+        pixel_length += len(cordList)
+        stroke_cord_buffer.extend([list(i) for i in cordList])
+
+        for cord in cordList:
+            if (cord[0] > 0 and cord[1] > 0) and (cord[0] < Side and cord[1] < Side):
+                raster_image[cord[1], cord[0]] = 255.0
+        initX, initY = int(vector_image[i, 0]), int(vector_image[i, 1])
+
+        if vector_image[i, 2] == 1:
+            min_x = np.array(stroke_cord_buffer)[:, 0].min()
+            min_y = np.array(stroke_cord_buffer)[:, 1].min()
+            max_x = np.array(stroke_cord_buffer)[:, 0].max()
+            max_y = np.array(stroke_cord_buffer)[:, 1].max()
+            stroke_bbox.append([min_x, min_y, max_x, max_y])
+            stroke_cord_buffer = []
+
+    raster_image = scipy.ndimage.binary_dilation(raster_image) * 255.0
+    #utils.image_boxes(Image.fromarray(raster_image).convert('RGB'), stroke_bbox).show()
+    return raster_image, stroke_bbox
+
+
+def coordinate_pre_load(coordinate_path):
+    # coordinate_path = os.path.join('/home/media/On_the_Fly/Code_ALL/Final_Dataset/ShoeV2/ShoeV2_Coordinate')
+    # coordinate_path = r'E:\sketchPool\Sketch_Classification\TU_Berlin'
+    with open(coordinate_path, 'rb') as fp:
+        Coordinate = pickle.load(fp)
+
+    dir_path = os.path.dirname(coordinate_path)
+    # 构建草图的文件夹
+    sketch_save_dir = os.path.join(dir_path, 'sketch_s3')
+    os.makedirs(sketch_save_dir, exist_ok=True)
+    os.makedirs(os.path.join(sketch_save_dir, 'train'), exist_ok=True)
+    os.makedirs(os.path.join(sketch_save_dir, 'test'), exist_ok=True)
+
+    # for key in Coordinate.keys():
+    key_list = list(Coordinate.keys())
+
+    for i_rdp in [3, 4]:  # reversed(range(11)):
+        rdp_simplified = {}
+        max_points_old = []
+        max_points_new = []
+
+        if not os.path.exists(str(i_rdp)):
+            os.makedirs(str(i_rdp))
+
+        for num, key in enumerate(key_list):
+
+            c_save_name = os.path.join(sketch_save_dir, *key.split('/')) + '.txt'
+
+            print(i_rdp, num, key)
+            sketch_points = Coordinate[key]
+            sketch_points_orig = sketch_points
+
+            sketch_points = sketch_points.astype(np.float32)
+            # sketch_points[:, :2] = sketch_points[:, :2] / np.array([800, 800])
+            # sketch_points[:, :2] = sketch_points[:, :2] * 256
+            sketch_points = np.round(sketch_points)
+
+            all_strokes = np.split(sketch_points, np.where(sketch_points[:, 2])[0] + 1, axis=0)[:-1]
+
+            max_points_old.append(sketch_points_orig.shape)
+
+            sketch_img_orig = rasterize_Sketch(sketch_points_orig)
+            sketch_img_orig = Image.fromarray(sketch_img_orig).convert('RGB')
+            # sketch_img_orig.show()
+            sketch_img_orig.save(str(i_rdp) + '/' + str(num) + '.jpg')
+
+            sketch_points_sampled_new = []
+            for stroke in all_strokes:
+                stroke_new = rdp(stroke[:, :2], epsilon=i_rdp, algo="iter")
+                stroke_new = np.hstack((stroke_new, np.zeros((stroke_new.shape[0], 1))))
+                stroke_new[-1, -1] = 1.
+                # print(stroke_new.shape, stroke.shape)
+                sketch_points_sampled_new.append(stroke_new)
+            sketch_points_new = np.vstack(sketch_points_sampled_new)
+
+            max_points_new.append(sketch_points_new.shape[0])
+            # print(sketch_points_orig.shape, sketch_points_new.shape)
+
+            sketch_img_orig = rasterize_Sketch(sketch_points_new)
+            sketch_img_orig = Image.fromarray(sketch_img_orig).convert('RGB')
+            # sketch_img_orig.show()
+            sketch_img_orig.save(str(i_rdp) + '/' + str(num) + 'Low_.jpg')
+
+            np.savetxt(c_save_name, sketch_points_new)
+
+            # if sketch_points_new.shape[0] > 200:
+            #     combined_image = np.concatenate(( sketch_img_orig, sketch_img_rdp), axis=1)
+            #     combined_image = Image.fromarray(combined_image).convert('RGB')
+            #     combined_image.save('./saved_folder2/image_' + str(num) + '_@'  +
+            #                         str(sketch_points_orig.shape[0]) +
+            #                         '_' +
+            #                         str(sketch_points_new.shape[0]) + '.jpg')
+
+            rdp_simplified[key] = sketch_points_new
+
+            # print(sketch_img.shape)
+
+        print('Max number of Points Old: {}'.format(max(max_points_old)))
+        print('Max number of Points New: {}'.format(max(max_points_new)))
+
+        # with open('ShoeV2_RDP_' + str(i_rdp), 'wb') as fp:
+        #     pickle.dump(rdp_simplified, fp)
+
+        return rdp_simplified
+
+
 if __name__ == '__main__':
+    adataset = QMULDataset()
+    asample = adataset[0]
+    sketch_path = asample['sketch_path']
+
+    print(sketch_path)
+
     # adataset = DiffDataset(f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', shuffle_stk=True)
     #
     # for _ in range(10):

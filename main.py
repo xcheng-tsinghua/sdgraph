@@ -16,9 +16,11 @@ from scipy.interpolate import splprep, splev
 from encoders_3rd.vit import VITFinetune
 from encoders_3rd import sketch_rnn
 
-# import data_utils.sketch_vis as vis
+import data_utils.vis as vis
 # from data_utils.sketch_utils import svg_to_txt
 import data_utils.sketch_utils as skutils
+from data_utils import data_convert as dc
+from data_utils import preprocess as pp
 
 
 def curve_fit(x, y, k):
@@ -336,6 +338,22 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
 
 
 if __name__ == '__main__':
+    dc.s3_to_stk_batched(
+        source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3',
+        target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_stk',
+        delimiter=' ',
+        pen_up=1,
+        pen_down=0
+    )
+
+    # vis.vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk\test\2429245009_1.txt', pen_down=0, pen_up=1, delimiter=' ', show_dot=True)
+
+    # vis.vis_sketch_folder(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk', delimiter=' ', save_root=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\stk_png')
+
+    # transed_data = pp.preprocess_stk(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_s3\test\2429245009_1.txt', 1, 0)
+
+    # vis.vis_sketch(r'C:\Users\ChengXi\Desktop\sketchrnn_proj_txt\0dd1520e215d8d4c3cdbfe889316ba33_2.txt')
+
     # curve_fit()
     # print(find_files_with_line_count_not_equal(r'D:\document\DeepLearning\DataSet\unified_sketch_from_quickdraw\banana_stk5_stkpnt32', 160))
 

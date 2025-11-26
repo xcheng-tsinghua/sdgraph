@@ -13,7 +13,7 @@ import encoders.spline as sp
 from data_utils import sketch_file_read as fr
 
 
-def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, delimiter=','):
+def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, title=None, show_dot=False, show_axis=False, dot_gap=1, delimiter=',', fig_save_path=None):
     """
     显示草图，
     S3 草图 - 存储在 [n, 3] 的 ndarray 或者文件
@@ -29,6 +29,7 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
     :param show_axis:
     :param dot_gap:
     :param delimiter:
+    :param fig_save_path: 图片保存路径
     :return:
     """
     is_list = False
@@ -41,6 +42,10 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
         sketch = data
     else:
         raise TypeError(f'Only str, list, np.ndarray is supported, but input {type(data)}')
+
+    if sketch.shape[0] == global_defs.n_skh_pnt:
+        sketch = sketch.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
+        print('convert to STK mode')
 
     if not is_list:
         sketch_dims = len(sketch.shape)
@@ -72,17 +77,29 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
 
     plt.axis("equal")
     plt.title(title)
-    plt.show()
+
+    if fig_save_path is None:
+        plt.show()
+    else:
+        plt.savefig(fig_save_path)
+
+    plt.close('all')
 
 
-def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3):
+def vis_sketch_folder(root=r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', shuffle=True, show_dot=True, dot_gap=3, delimiter=',', save_root=None):
     files_all = get_allfiles(root)
     if shuffle:
         random.shuffle(files_all)
 
+    if save_root is not None:
+        du.create_tree_like(root, save_root)
+
     for c_file in files_all:
         print(c_file)
-        vis_sketch(c_file, show_dot=show_dot, dot_gap=dot_gap)
+
+        c_save_fig = os.path.splitext(c_file.replace(root, save_root))[0] + '.png' if save_root is not None else None
+
+        vis_sketch(c_file, show_dot=show_dot, dot_gap=dot_gap, delimiter=delimiter, fig_save_path=c_save_fig)
 
 
 def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0), linewidth=5):

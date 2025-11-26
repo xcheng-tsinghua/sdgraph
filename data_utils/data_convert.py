@@ -494,11 +494,11 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
     return tensor_img
 
 
-def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter=','):
+def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter, pen_up, pen_down):
     try:
         c_target_file = std_file.replace(source_dir, target_dir)
 
-        target_skh_STK = preprocess_func(std_file)
+        target_skh_STK = preprocess_func(std_file, pen_up=pen_up, pen_down=pen_down, delimiter=delimiter)
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
@@ -509,7 +509,7 @@ def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter='
         print(f'error occurred, skip file: {std_file}')
 
 
-def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4):
+def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
     """
     将 source_dir 内的 std 草图转化为 STK 草图
     std 草图：每行为 [x, y, s]，行数不固定
@@ -533,7 +533,9 @@ def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk,
                           source_dir=source_dir,
                           target_dir=target_dir,
                           preprocess_func=preprocess_func,
-                          delimiter=delimiter
+                          delimiter=delimiter,
+                          pen_up=pen_up,
+                          pen_down=pen_down
                           )
 
     with Pool(processes=workers) as pool:
