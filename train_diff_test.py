@@ -18,11 +18,11 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
     parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
 
-    parser.add_argument('--bs', type=int, default=20, help='batch size in training')
+    parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='False', choices=['True', 'False'], help='---')
-    parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
+    parser.add_argument('--n_skh_gen', default=300, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
