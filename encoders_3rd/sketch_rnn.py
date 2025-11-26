@@ -42,12 +42,13 @@ def parse_args():
     return parser.parse_args()
 
 
-def reconstruction_loss(mask: torch.Tensor,
+def reconstruction_loss(mask: torch.Tensor,  # mask 仅用于在计算损失时，只考虑有效的点
                         target: torch.Tensor,
                         dist: 'BivariateGaussianMixture',
                         q_logits: torch.Tensor):
     # Get $\Pi$ and $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$
     pi, mix = dist.get_distribution()
+
     # `target` has shape `[seq_len, batch_size, 5]` where the last dimension is the features
     # $(\Delta x, \Delta y, p_1, p_2, p_3)$.
     # We want to get $\Delta x, \Delta$ y and get the probabilities from each of the distributions
@@ -55,6 +56,7 @@ def reconstruction_loss(mask: torch.Tensor,
     #
     # `xy` will have shape `[seq_len, batch_size, n_distributions, 2]`
     xy = target[:, :, 0:2].unsqueeze(-2).expand(-1, -1, dist.n_distributions, -1)
+
     # Calculate the probabilities
     # $$p(\Delta x, \Delta y) =
     # \sum_{j=1}^M \Pi_j \mathcal{N} \big( \Delta x, \Delta y \vert
@@ -234,16 +236,21 @@ class StrokesDataset(Dataset):
         for i, seq in enumerate(data):
             seq = torch.from_numpy(seq)
             len_seq = len(seq)
+
             # Scale and set $\Delta x, \Delta y$
             # 设置点坐标，注意避开第一行及最后一行
             self.data[i, 1:len_seq + 1, :2] = seq[:, :2] / scale
+
             # $p_1$
             self.data[i, 1:len_seq + 1, 2] = 1 - seq[:, 2]
+
             # $p_2$
             self.data[i, 1:len_seq + 1, 3] = seq[:, 2]
+
             # $p_3$
             # 草图最后一个点的状态设为1，即草图结束
             self.data[i, len_seq + 1:, 4] = 1
+
             # Mask is on until end of sequence
             # 设定哪些点是有效的
             self.mask[i, :len_seq + 1] = 1
@@ -502,13 +509,17 @@ class Sampler(object):
             for i in range(longest_seq_len):
                 # $[(\Delta x, \Delta y, p_1, p_2, p_3); z]$ is the input to the decoder
                 data = torch.cat([s.view(1, 1, -1), z.unsqueeze(0)], 2)
+
                 # Get $\Pi$, $\mathcal{N}(\mu_{x}, \mu_{y}, \sigma_{x}, \sigma_{y}, \rho_{xy})$,
                 # $q$ and the next state from the decoder
                 dist, q_logits, state = self.decoder(data, z, state)
+
                 # Sample a stroke
                 s = self._sample_step(dist, q_logits, temperature)
+
                 # Add the new stroke to the sequence of strokes
                 seq.append(s)
+
                 # Stop sampling if $p_3 = 1$. This indicates that sketching has stopped
                 if min_gen_len is None and s[4] == 1:
                     break

@@ -8,11 +8,10 @@ from datetime import datetime
 
 # 自建模块
 import global_defs
-from data_utils.sketch_dataset import DiffDataset2 as DiffDataset
+from data_utils.sketch_dataset import DiffDataset
 from data_utils.vis import save_format_sketch_test
-from encoders.sdgraph2 import SDGraphUNet
+from encoders.sdgraph_test import SDGraphUNet
 from GaussianDiffusion import GaussianDiffusion
-from encoders.utils import clear_log
 
 
 def parse_args():
@@ -27,16 +26,8 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    # parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
-    parser.add_argument('--root_sever', type=str,
-                        default=rf'/root/my_data/data_set/sketch_cad/sketch_txt/train/Rivet',
-                        help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Rivet', help='root of dataset')
-
-    '''
-    parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
-    '''
+    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/quickdraw/stk2/book_stk_16_32', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32', help='root of dataset')
 
     return parser.parse_args()
 
@@ -62,7 +53,7 @@ def main(args):
     logger.addHandler(file_handler)
 
     '''加载模型及权重'''
-    model = SDGraphUNet(3, 3)
+    model = SDGraphUNet()
     model_savepth = 'model_trained/' + save_str + '.pth'
 
     if args.is_load_weight == 'True':
@@ -74,7 +65,7 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.channels(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model, model.img_size(), global_defs.n_skh_pnt)
     diffusion = diffusion.cuda()
 
     if args.epoch > 0:
@@ -84,7 +75,7 @@ def main(args):
             data_root = args.root_local
         else:
             data_root = args.root_sever
-        train_dataset = DiffDataset(root=data_root, shuffle_stk=True)
+        train_dataset = DiffDataset(root=data_root, is_stk_processed=True, delimiter=' ')
         train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.bs, shuffle=True, num_workers=4)
 
         '''优化器'''
@@ -104,7 +95,11 @@ def main(args):
             print(f'Epoch ({epoch_idx + 1}/{args.epoch}):')
 
             for batch_idx, data in enumerate(train_dataloader, 0):
-                points = data.float().cuda()  # -> [bs, 2, n_points]
+                points = data[0].float().cuda()  # -> [bs, n_points, 3]
+
+                col3 = points[..., 2].unsqueeze(-1)
+                inv = 1 - points[..., 2].unsqueeze(-1)
+                points = torch.cat([points[..., :2], inv, col3], dim=-1)
 
                 optimizer.zero_grad()
                 loss = diffusion(points)

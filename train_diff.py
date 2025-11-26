@@ -12,7 +12,7 @@ import shutil
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
-from data_utils.vis import save_format_sketch, save_format_sketch_test
+from data_utils.vis import save_format_sketch
 # from encoders.sdgraph_stk_samp import SDGraphUNet as sd_stk_sample
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample

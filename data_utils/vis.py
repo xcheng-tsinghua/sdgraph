@@ -43,9 +43,13 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
     else:
         raise TypeError(f'Only str, list, np.ndarray is supported, but input {type(data)}')
 
-    if sketch.shape[0] == global_defs.n_skh_pnt:
+    if not is_list and sketch.shape[0] == global_defs.n_skh_pnt and sketch.shape[1] == 2:
         sketch = sketch.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
         print('convert to STK mode')
+
+    elif not is_list and sketch.shape[0] == global_defs.n_skh_pnt and sketch.shape[1] == 3:
+        sketch = sketch.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 3])
+        print('convert to STK2 mode')
 
     if not is_list:
         sketch_dims = len(sketch.shape)
@@ -59,6 +63,15 @@ def vis_sketch(data, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, t
 
         elif sketch_dims == 3:  # 直接就是 STK 格式
             sketch = [sketch[i] for i in range(len(sketch))]
+
+            # STK2 处理
+            if sketch[0].shape[1] == 3:
+                sketch_new = []
+
+                for c_stk in sketch:
+                    sketch_new.append(c_stk[c_stk[:, 2] == 1][:, :2])
+
+                sketch = sketch_new
 
         else:
             raise ValueError('Error input data dims')
@@ -157,26 +170,29 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
         plt.savefig(ahead + 'smooth' + ext)
 
 
-def save_format_sketch_test(sketch_points, file_path, z_thres=0.0):
+def save_format_sketch_test(sketch_points, file_path):
     """
     保存设定格式的草图
-    :param sketch_points: [n_stk, n_stk_pnt, 3]
+    :param sketch_points: [n_stk, n_stk_pnt, 4]
     :param file_path:
-    :param z_thres: z 位置大于该值才判定为有效点
     :return:
     """
 
     n_stk = sketch_points.size(0)
 
-    # -> [n_stk, n_stk_pnt, channel]
-    sketch_points = sketch_points.detach().cpu().numpy()
+    # -> [n_stk, n_stk_pnt]
+    point_status = torch.argmax(sketch_points[..., 2:], dim=-1).detach().cpu().numpy()
+
+    # -> [n_stk, n_stk_pnt, 2]
+    sketch_points = sketch_points[..., :2].detach().cpu().numpy()
 
     plt.clf()
     for stk_idx in range(n_stk):
         c_stk = sketch_points[stk_idx]  # -> [n_stk_pnt, channel]
+        c_status = point_status[stk_idx]  # -> [n_stk_pnt]
 
         # 去掉无效点
-        c_stk = c_stk[c_stk[:, 2] >= z_thres]
+        c_stk = c_stk[c_status == 1]
 
         plt.plot(c_stk[:, 0], -c_stk[:, 1])
 

@@ -913,7 +913,8 @@ class DiffDataset(Dataset):
                  coor_mode='ABS',
                  n_max_len=200,
                  is_stk_processed=False,
-                 scale=1.
+                 scale=1.,
+                 delimiter=','
                  ):
         """
         :param root:
@@ -931,6 +932,7 @@ class DiffDataset(Dataset):
         self.n_max_len = n_max_len
         self.is_stk_processed = is_stk_processed
         self.scale = scale
+        self.delimiter = delimiter
 
         self.datapath = du.get_allfiles(root, suffix)
 
@@ -945,8 +947,8 @@ class DiffDataset(Dataset):
 
         if self.back_mode == 'STK':
             if self.is_stk_processed:
-                sketch_cube = np.loadtxt(fn, delimiter=',')
-                sketch_cube = sketch_cube.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
+                sketch_cube = np.loadtxt(fn, delimiter=self.delimiter)
+                sketch_cube = sketch_cube.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 3])
             else:
                 sketch_cube = prep(fn)
             mask = 0

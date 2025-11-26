@@ -90,27 +90,6 @@ def near_pnt_dist_filter(sketch, tol):
     return valid_stks
 
 
-def stroke_num_filter(stroke_list, stroke_num):
-    """
-    get top stroke_num strokes by stroke points
-    :param stroke_list:
-    :param stroke_num:
-    :return:
-    """
-    array_info = [(i, arr.shape[0]) for i, arr in enumerate(stroke_list)]
-
-    # 按行数从大到小排序
-    sorted_arrays = sorted(array_info, key=lambda x: x[1], reverse=True)
-
-    # 提取前 m 个数组的索引
-    top_m_indices = [idx for idx, _ in sorted_arrays[:stroke_num]]
-
-    # 获取对应的 numpy 数组
-    top_m_arrays = [stroke_list[idx] for idx in top_m_indices]
-
-    return top_m_arrays
-
-
 def stroke_len_filter(stroke_list, min_length=5e-2):
     """
     删除数组中长度小于 min_length 的笔划
@@ -131,25 +110,44 @@ def stroke_len_filter(stroke_list, min_length=5e-2):
     return filtered_stk
 
 
-def stk_number_filter(sketch, n_stk=global_defs.n_stk):
+def stk_number_filter(sketch, n_stk=global_defs.n_stk, is_keep_order=False):
     """
     保留笔划中点数较多的前n_stk个笔画
     :param sketch:
     :param n_stk:
+    :param is_keep_order: 删除后是否保持元素顺序
     :return:
     """
     if isinstance(sketch, np.ndarray):
         sketch = du.sketch_split(sketch)
 
-    sketch = sorted(sketch, key=lambda arr: arr.shape[0], reverse=True)
-    sketch = sketch[:n_stk]
+    # 如果不需要删，直接返回
+    if len(sketch) <= n_stk:
+        return sketch
 
-    return sketch
+    if is_keep_order:
+        # 每个元素：(行数, 原索引)
+        sizes = [(arr.shape[0], idx) for idx, arr in enumerate(sketch)]
+
+        # 按行数升序（从小到大）排序，选择需要删除的项
+        to_delete = sorted(sizes, key=lambda x: x[0])[:len(sketch) - n_stk]
+
+        # 要删除的索引集合
+        delete_indices = {idx for (_, idx) in to_delete}
+
+        # 构建新列表，保持原顺序
+        result = [arr for i, arr in enumerate(sketch) if i not in delete_indices]
+
+    else:
+        sketch = sorted(sketch, key=lambda arr: arr.shape[0], reverse=True)
+        result = sketch[:n_stk]
+
+    return result
 
 
 def stk_pnt_filter(sketch, n_stk_pnt=global_defs.n_stk_pnt):
     """
-    保留笔划中的前n_stk_pnt个点
+    保留每个笔划中的前n_stk_pnt个点
     :param sketch:
     :param n_stk_pnt:
     :return:

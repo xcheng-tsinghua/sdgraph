@@ -13,7 +13,7 @@ from data_utils import sketch_utils as du
 import global_defs
 
 
-def load_sketch_file(skh_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=','):
+def load_sketch_file(skh_file, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, delimiter=' '):
     """
     从草图文件中获取草图数据
     注意这里是直接读取文件存储的数据

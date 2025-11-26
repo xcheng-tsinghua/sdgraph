@@ -51,15 +51,18 @@ class LinearInterp(object):
 
             return self.batch_interp(paras)
 
-    def uni_dist_interp_strict(self, dist) -> np.ndarray:
+    def uni_dist_interp_strict(self, dist, is_forward_interp=True) -> np.ndarray:
         """
-        严格按照该距离采样，最后一个点向前插值到间隔距离
+        严格按照该距离采样
         :param dist:
+        :param is_forward_interp: 最后一个点向前插值到间隔距离
         :return:
         """
+        # 采样长度大于笔划长度时，直接返回两个端点
         if dist >= self.arc_length:
-            warnings.warn('resample dist is equal to stroke length, drop this stroke')
-            return np.array([])
+            # warnings.warn(f'resample dist ({dist:.6f}) is equal to stroke length ({self.arc_length:.6f}), drop this stroke')
+            # return np.array([])
+            return np.vstack([self.stk_points[0], self.stk_points[-1]])
 
         else:
             interp_points = []
@@ -76,10 +79,14 @@ class LinearInterp(object):
             interp_dir = last_pnt - last_former_pnt
             norm = np.linalg.norm(interp_dir)
 
-            if norm > 1e-5:
-                interp_dir = interp_dir / norm
-                interp_pnt = last_former_pnt + interp_dir * dist
-                interp_points.append(interp_pnt)
+            if norm > 1e-2:
+                if is_forward_interp:
+                    interp_dir = interp_dir / norm
+                    interp_pnt = last_former_pnt + interp_dir * dist
+                    interp_points.append(interp_pnt)
+
+                else:  # 如果不向前插值，则直接将该最后一个点加入到插值点数组
+                    interp_points.append(last_pnt)
 
             return np.vstack(interp_points)
 
@@ -425,11 +432,12 @@ def uni_arclength_resample(stroke_list, mid_ratio=0.1):
     return resampled
 
 
-def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
+def uni_arclength_resample_strict(stroke_list, resp_dist, is_forward_interp=True) -> list:
     """
     均匀布点，相邻点之间距离严格为 resp_dist，最后一个点向前插值到间隔距离
     :param stroke_list:
     :param resp_dist:
+    :param is_forward_interp: 最后一个点是否向前插值
     :return:
     """
     assert isinstance(stroke_list, list)
@@ -438,7 +446,7 @@ def uni_arclength_resample_strict(stroke_list, resp_dist) -> list:
     for c_stk in stroke_list:
         lin_interp = LinearInterp(c_stk)
 
-        c_resped_stk = lin_interp.uni_dist_interp_strict(resp_dist)
+        c_resped_stk = lin_interp.uni_dist_interp_strict(resp_dist, is_forward_interp)
 
         if c_resped_stk.size != 0:
             resampled.append(c_resped_stk)

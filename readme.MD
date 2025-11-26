@@ -15,6 +15,12 @@ s = global_defs.pen_up or global_defs.pen_down
 数据的行数为 n_stk * n_stk_pnt
 草图质心在(0, 0)，范围在[-1, 1]^2。
 
+STK2格式, s = 1表示该点有效， s = 0 表示该点无效，无效位置坐标初始用 (0, 0) 占位
+x y s
+x y s
+...
+x y s
+
 ### 2. S5 sketch
 在 np.ndarray 中保存时，大小为 [n_pnt, 5]。
 
@@ -31,13 +37,13 @@ p3 = 1: 该点为草图最后一个点
 ### 2. S3 sketch
 在 np.ndarray 中保存时，大小为 [n_pnt, 3]。
 
-txt文件中每行为 x,y,s
+txt文件中每行为 x y s
 
-不同元素之间以英文逗号分隔，因此读取时使用函数：np.loadtxt(filename, delimiter=',')
+不同元素之间以空格分隔，因此读取时使用函数：np.loadtxt(filename)
 
-s = pen_down (1)：该点下一个点仍属于当前笔划
+s = pen_down (0)：该点下一个点仍属于当前笔划
 
-s = pen_up (0)：该点下一个点属于另一个笔划
+s = pen_up (1)：该点绘制完毕后抬笔
 
 ---------------------
 

@@ -13,6 +13,8 @@ import matplotlib.pyplot as plt
 import os
 import numpy as np
 from scipy.interpolate import splprep, splev
+
+import global_defs
 from encoders_3rd.vit import VITFinetune
 from encoders_3rd import sketch_rnn
 
@@ -21,6 +23,8 @@ import data_utils.vis as vis
 import data_utils.sketch_utils as skutils
 from data_utils import data_convert as dc
 from data_utils import preprocess as pp
+from data_utils import sketch_file_read as fr
+from data_utils import statis
 
 
 def curve_fit(x, y, k):
@@ -337,14 +341,57 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
     return x, y, segData
 
 
+def test_stk2():
+    s3_file = r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32\1.txt'
+    vis.vis_sketch(s3_file, show_dot=True, delimiter=' ')
+
+
+def test_npz_read():
+    npz_file = r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz'
+    sketches, masks = fr.npz_read(npz_file)
+    vis.vis_sketch(sketches[0])
+
+
+def test_save_2():
+    sketch_file = r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32\1.txt'
+    data_tensor = np.loadtxt(sketch_file).reshape([global_defs.n_stk, global_defs.n_stk_pnt, 3])
+
+    # 原第3列
+    col3 = data_tensor[..., 2:3]  # shape [bs, stk, stkpnt, 1]
+
+    # 第3列取反
+    inv = 1 - data_tensor[..., 2:3]  # shape [bs, stk, stkpnt, 1]
+
+    # 拼成 4 列
+    arr2 = np.concatenate([data_tensor[..., :2], inv, col3], axis=-1)
+
+    vis.save_format_sketch_test(torch.from_numpy(arr2), r'C:\Users\ChengXi\Desktop\cstnet2\gen.png')
+
+
+
 if __name__ == '__main__':
-    dc.s3_to_stk_batched(
-        source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3',
-        target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_stk',
-        delimiter=' ',
-        pen_up=1,
-        pen_down=0
-    )
+    test_stk2()
+
+    # test_npz_read()
+
+    # statis.npz_resample_statistic()
+
+    # dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+    #                    r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
+    #                    preprocess_func=pp.preprocess_stk2,
+    #                    delimiter=' ',
+    #                    is_order_stk=False
+    #                    )
+
+    # dc.s3_to_stk_batched(
+    #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3',
+    #     target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_stk',
+    #     delimiter=' ',
+    #     pen_up=1,
+    #     pen_down=0
+    # )
+
+
 
     # vis.vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk\test\2429245009_1.txt', pen_down=0, pen_up=1, delimiter=' ', show_dot=True)
 

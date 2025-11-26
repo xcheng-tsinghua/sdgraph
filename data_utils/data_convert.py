@@ -556,7 +556,12 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter, is_order
         target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
 
         if len(target_skh_STK) == global_defs.n_skh_pnt:
-            np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+
+            if target_skh_STK.shape[1] == 3:  # STK2
+                fmt = ["%.6f", "%.6f", "%d"]
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter, fmt=fmt)
+            else:
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
         else:
             print(f'error occurred, skip instance: {idx}')
 
@@ -724,8 +729,8 @@ if __name__ == '__main__':
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
     #
-    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
-    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion', preprocess_func=pp.preprocess_stk2, delimiter=' ')
     #
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
@@ -790,6 +795,6 @@ if __name__ == '__main__':
 
     # s3_to_svg(r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.txt', r'C:\Users\ChengXi\Desktop\cstnet2\testsvg.svg', 0, 1)
 
-    s3_to_svg_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_svg_all')
+    # s3_to_svg_batched(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt_all', r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_svg_all')
     pass
 

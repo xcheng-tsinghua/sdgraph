@@ -5,6 +5,11 @@ from tqdm import tqdm
 
 from data_utils.sketch_utils import get_allfiles
 from data_utils import sketch_file_read as fr
+from data_utils import sketch_utils as du
+from encoders import spline as sp
+from data_utils import filter as ft
+import global_defs
+from data_utils import vis
 
 
 def stroke_points_statis(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt', pen_up=16, pen_down=17, decrease=0.95, is_read_data=False):
@@ -208,6 +213,72 @@ def npz_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw'):
 
     with open('data.json', 'w', encoding='utf-8') as f:
         json.dump(skh_statistic, f, ensure_ascii=False, indent=4)
+
+
+def hist_bins(data):
+    data = np.array(data)
+
+    # 设置直方图的 bins（区间），也可以省略让 matplotlib 自动选择
+    bins = np.arange(data.min(), data.max() + 2)  # +2 是为了包含最大值
+
+    # 绘制频率分布直方图
+    plt.hist(data, bins=bins, edgecolor='black', align='left', rwidth=0.8)
+
+    # 设置标题和坐标轴标签
+    plt.title('频率分布直方图')
+    plt.xlabel(f'值, 最大值: {data.max()}')
+    plt.ylabel('频率')
+
+    # 设置 x 轴刻度为整数
+    plt.xticks(bins[:-1])
+
+    # 显示图形
+    plt.show()
+
+
+def npz_resample_statistic(root_npz=r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz'):
+    """
+    统计草图中的点数和该点数草图数量的统计值
+    :param root_npz:
+    :return:
+    """
+
+    npz_train, _ = fr.npz_read(root_npz, 'train')
+    npz_test, _ = fr.npz_read(root_npz, 'test')
+    npz_valid, _ = fr.npz_read(root_npz, 'valid')
+
+    c_files_all = []
+    c_files_all.extend(npz_train)
+    c_files_all.extend(npz_test)
+    c_files_all.extend(npz_valid)
+
+    stks = []
+    stkpnts = []
+    for c_skh in tqdm(c_files_all):
+        # c_skh: S3 格式
+
+        # 移动草图质心并缩放大小
+        sketch_data = du.sketch_std(c_skh)
+
+        # 按点状态标志位分割笔划
+        sketch_data = du.sketch_split(sketch_data, global_defs.pen_up, global_defs.pen_down, delimiter=' ')
+
+        # 删除长度小于等于一个点笔划
+        sketch_data = ft.stk_pnt_num_filter(sketch_data, 2)
+
+        # 重采样，使点之间距离相等，最后一个点不插值，直接将最后一个点作为插值点
+        sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.1, False)
+
+        vis.vis_sketch(sketch_data, show_dot=True)
+
+        stks.append(len(sketch_data))
+        max_stk_number = max(sketch_data, key=lambda _stroke: _stroke.shape[0]).shape[0]
+        stkpnts.append(max_stk_number)
+
+    print(f'最大的笔划数：{max(stks)}')
+    print(f'最大笔划点数：{max(stkpnts)}')
+    hist_bins(stks)
+    hist_bins(stkpnts)
 
 
 if __name__ == '__main__':

@@ -699,8 +699,8 @@ def single_split_(stroke_list: list) -> None:
 
     # Replace the largest array with the two halves
     del stroke_list[largest_idx]
-    stroke_list.append(first_half)
-    stroke_list.append(second_half)
+    stroke_list.insert(largest_idx, first_half)
+    stroke_list.insert(largest_idx, second_half)
 
 
 def single_split(stroke_list: list):
