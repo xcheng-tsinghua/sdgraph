@@ -10,13 +10,13 @@ from datetime import datetime
 import global_defs
 from data_utils.sketch_dataset import DiffDataset
 from data_utils.vis import save_format_sketch_test
-from encoders.sdgraph_test import SDGraphUNet
-from GaussianDiffusion import GaussianDiffusion
+from encoders.sdgraph_test2 import SDGraphUNet
+from GaussianDiffusion_test import GaussianDiffusion
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default='sdgraph_unet', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph_test_stk2', help='---')
 
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
@@ -39,14 +39,15 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
+    img_save_dir = os.path.join('imgs_gen', save_str + f'-{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
     os.makedirs('model_trained/', exist_ok=True)
-    os.makedirs('imgs_gen/', exist_ok=True)
+    os.makedirs(img_save_dir, exist_ok=True)
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
     logger = logging.getLogger("Model")
     logger.setLevel(logging.INFO)
-    file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')  # 日志文件路径
+    file_handler = logging.FileHandler('log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.txt')  # 日志文件路径
     file_handler.setLevel(logging.INFO)
     formatter = logging.Formatter('%(message)s')
     file_handler.setFormatter(formatter)
@@ -86,7 +87,7 @@ def main(args):
             eps=1e-08,
             weight_decay=1e-4
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.7)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.9)
 
         '''训练'''
         for epoch_idx in range(args.epoch):
@@ -126,7 +127,7 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch_test(sampled_images[batch_fig_idx, :, :], f'imgs_gen/{save_str}-{gen_idx}.png')
+                save_format_sketch_test(sampled_images[batch_fig_idx, :, :], os.path.join(img_save_dir, f'{gen_idx}.png'))
                 gen_idx += 1
 
 
