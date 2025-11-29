@@ -53,6 +53,7 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=fr'/root/my_data/data_set/quickdraw/diffusion/apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion\apple_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
     
+    --root_sever='/opt/data/private/data_set/quickdraw/diffusion/book_order_stk_11_16'
     '''
     return parser.parse_args()
 
