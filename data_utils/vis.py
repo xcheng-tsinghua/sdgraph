@@ -484,6 +484,40 @@ def test():
     plt.show()
 
 
+def vis_sketch_auto_space_snap(sketch, title=None):
+    if isinstance(sketch, str):
+        sketch = np.loadtxt(sketch)
+
+    elif isinstance(sketch, np.ndarray):
+        sketch = sketch.reshape(-1, 2) if len(sketch.shape) == 3 else sketch
+
+    real_sampled_dist = du.get_real_resample_space(sketch)
+
+    # 分割，如果距离明显大于指定值则断开
+    stroke_list = []
+    start_idx = 0
+
+    over_rate = 0.5
+    for i in range(len(sketch) - 1):
+        c_dist = np.linalg.norm(sketch[i] - sketch[i + 1])
+        if c_dist > real_sampled_dist * (1 + over_rate) or c_dist < real_sampled_dist * (1 - over_rate):
+            stroke_list.append(sketch[start_idx: i + 1])
+            start_idx = i + 1
+
+        # 最后一个点
+        if i == len(sketch) - 2:
+            stroke_list.append(sketch[start_idx:])
+
+    # 绘图
+    for s in stroke_list:
+        plt.plot(s[:, 0], -s[:, 1])
+        plt.scatter(s[:, 0], -s[:, 1], s=80)
+
+    plt.axis('equal')
+    plt.title(title)
+    plt.show()
+
+
 if __name__ == '__main__':
     # vis_sketch_orig(r'D:\document\DeepLearning\DataSet\sketch_cad\raw\sketch_txt\train\Gear\8646fb6b0a7f42bb9d5036995471b6b0_1.txt', show_dot=True)
 

@@ -651,6 +651,14 @@ def sketch_short_straw_split(sketch, resp_dist: float = 0.01, filter_dist: float
 
 
 def stroke_length(stroke):
+    """
+    计算笔划长度
+    笔划需要是以 n*2 的 numpy 数组表示
+    :param stroke:
+    :return:
+    """
+    assert isinstance(stroke, np.ndarray), TypeError(f'error stroke type: {type(stroke)}, np.ndarray is supported.')
+
     if stroke.shape[0] < 2:
         return 0.0
 
@@ -1340,6 +1348,23 @@ def remove_svg_comments(svg_path):
     with open(svg_path, 'w', encoding='utf-8') as f:
         print(f'having removed commons: {svg_path}')
         f.write(cleaned_text)
+
+
+def get_real_resample_space(sketch_data):
+    """
+    根据输入的草图获取真实的采样间距
+    :param sketch_data: [n, 2] np.ndarray
+    :return:
+    """
+    # 找到所有间距
+    space_all = []
+    for i in range(len(sketch_data) - 1):
+        c_dist = np.linalg.norm(sketch_data[i] - sketch_data[i + 1])
+        space_all.append(c_dist)
+
+    center = np.median(space_all)
+    return center
+
 
 
 if __name__ == '__main__':

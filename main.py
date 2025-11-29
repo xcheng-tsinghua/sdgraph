@@ -20,7 +20,7 @@ from encoders_3rd import sketch_rnn
 
 import data_utils.vis as vis
 # from data_utils.sketch_utils import svg_to_txt
-import data_utils.sketch_utils as skutils
+import data_utils.sketch_utils as du
 from data_utils import data_convert as dc
 from data_utils import preprocess as pp
 from data_utils import sketch_file_read as fr
@@ -368,21 +368,36 @@ def test_save_2():
     vis.save_format_sketch_test(torch.from_numpy(arr2), r'C:\Users\ChengXi\Desktop\cstnet2\gen.png')
 
 
+def test_preprocess(file, func=pp.preprocess_stk_auto_space_snap):
+    # processed_data = func(file).reshape(-1, 2)
+
+    file_all = du.get_allfiles(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
+    for c_txt in file_all:
+
+        vis.vis_sketch_auto_space_snap(c_txt, c_txt)
+
+
+
 
 if __name__ == '__main__':
-    test_stk2()
+    # test_preprocess(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap\100005.txt')
+
+    # vis.vis_sketch_auto_space_snap(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap\100005.txt')
+
+    # test_stk2()
 
     # test_npz_read()
 
     # statis.npz_resample_statistic()
 
-    # dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
-    #                    r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
-    #                    preprocess_func=pp.preprocess_stk2_duplast,
-    #                    delimiter=' ',
-    #                    is_order_stk=False,
-    #                    add_savefolder_str='_duplast'
-    #                    )
+    dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+                       r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
+                       preprocess_func=pp.preprocess_stk_auto_space_snap,
+                       delimiter=' ',
+                       is_order_stk=False,
+                       add_savefolder_str='_auto_space_snap',
+                       workers=1
+                       )
 
     # dc.s3_to_stk_batched(
     #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3',

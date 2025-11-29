@@ -51,10 +51,11 @@ class LinearInterp(object):
 
             return self.batch_interp(paras)
 
-    def uni_dist_interp_strict(self, dist, is_forward_interp=True) -> np.ndarray:
+    def uni_dist_interp_strict(self, dist, resp_npnt=None, is_forward_interp=True) -> np.ndarray:
         """
         严格按照该距离采样
         :param dist:
+        :param resp_npnt: 采样点数
         :param is_forward_interp: 最后一个点向前插值到间隔距离
         :return:
         """
@@ -62,7 +63,14 @@ class LinearInterp(object):
         if dist >= self.arc_length:
             # warnings.warn(f'resample dist ({dist:.6f}) is equal to stroke length ({self.arc_length:.6f}), drop this stroke')
             # return np.array([])
-            return np.vstack([self.stk_points[0], self.stk_points[-1]])
+
+            if is_forward_interp:
+                pnt_interp = forward_interp(self.stk_points[0], self.stk_points[-1], dist, is_last_strat=False)
+
+            else:
+                pnt_interp = self.stk_points[-1]
+
+            res = np.vstack([self.stk_points[0], pnt_interp])
 
         else:
             interp_points = []
@@ -79,16 +87,31 @@ class LinearInterp(object):
             interp_dir = last_pnt - last_former_pnt
             norm = np.linalg.norm(interp_dir)
 
-            if norm > 1e-2:
+            if norm > 1e-3:
                 if is_forward_interp:
-                    interp_dir = interp_dir / norm
-                    interp_pnt = last_former_pnt + interp_dir * dist
+                    # interp_dir = interp_dir / norm
+                    # interp_pnt = last_former_pnt + interp_dir * dist
+                    interp_pnt = forward_interp(last_former_pnt, last_pnt, dist)
                     interp_points.append(interp_pnt)
 
                 else:  # 如果不向前插值，则直接将该最后一个点加入到插值点数组
                     interp_points.append(last_pnt)
 
-            return np.vstack(interp_points)
+            res = np.vstack(interp_points)
+
+        if resp_npnt is not None:
+            while True:
+                if len(res) == resp_npnt:
+                    break
+
+                elif len(res) < resp_npnt:  # 需要向前插值
+                    new_interp = forward_interp(res[-2], res[-1], dist)
+                    res = np.vstack([res, new_interp])
+
+                elif len(res) > resp_npnt:  # 需要删除点
+                    res = res[: -1]
+
+        return res
 
     def length_interp(self, target_len):
         """
@@ -432,21 +455,23 @@ def uni_arclength_resample(stroke_list, mid_ratio=0.1):
     return resampled
 
 
-def uni_arclength_resample_strict(stroke_list, resp_dist, is_forward_interp=True) -> list:
+def uni_arclength_resample_strict(stroke_list, resp_dist, resp_npnt=None, is_forward_interp=True) -> list:
     """
     均匀布点，相邻点之间距离严格为 resp_dist，最后一个点向前插值到间隔距离
     :param stroke_list:
-    :param resp_dist:
+    :param resp_dist: 指定的采样距离
+    :param resp_npnt: 每个笔划指定的采样点数
     :param is_forward_interp: 最后一个点是否向前插值
     :return:
     """
     assert isinstance(stroke_list, list)
 
     resampled = []
-    for c_stk in stroke_list:
+    for idx, c_stk in enumerate(stroke_list):
         lin_interp = LinearInterp(c_stk)
 
-        c_resped_stk = lin_interp.uni_dist_interp_strict(resp_dist, is_forward_interp)
+        c_resp_npnt = None if resp_npnt is None else resp_npnt[idx]
+        c_resped_stk = lin_interp.uni_dist_interp_strict(resp_dist, c_resp_npnt, is_forward_interp)
 
         if c_resped_stk.size != 0:
             resampled.append(c_resped_stk)
@@ -656,6 +681,33 @@ def sample_keep_dense(stroke, n_sample):
 
     interp_stk = np.hstack([interp_x[:, np.newaxis], interp_y[:, np.newaxis]])
     return interp_stk
+
+
+def forward_interp(pnt0, pnt1, interp_dist, default_interp_dir=np.array([1, 0]), min_interp_dir_len=1e-3, is_last_strat=True):
+    """
+    沿 pnt1 -> pnt2 方向按指定距离插值一个点
+    :param pnt0:
+    :param pnt1:
+    :param interp_dist:
+    :param default_interp_dir: 默认插值方向
+    :param min_interp_dir_len: 两点之间距离低于该值直接向默认方向插值
+    :param is_last_strat: True: 插值起点为 pnt0, False: 插值起点为 pnt1
+    :return:
+    """
+    interp_dir = pnt1 - pnt0
+    interp_len = np.linalg.norm(interp_dir)
+
+    if interp_len > min_interp_dir_len:
+        interp_vec = interp_dir / np.linalg.norm(interp_dir)
+
+    else:
+        warnings.warn(f'interp length is too short: {interp_len}, use default interp dir: {default_interp_dir}')
+        interp_vec = default_interp_dir
+
+    interp_start = pnt1 if is_last_strat else pnt0
+    pnt_interp = interp_start + interp_dist * interp_vec
+
+    return pnt_interp
 
 
 def show_pnts_with_idx(points):

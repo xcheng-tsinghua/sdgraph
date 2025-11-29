@@ -782,6 +782,115 @@ def preprocess_stk2_duplast(sketch_root, pen_up=global_defs.pen_up, pen_down=glo
     return sketch_coor
 
 
+def preprocess_stk_auto_space_snap(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_order_stk=None) -> np.ndarray:
+    """
+    处理成 STK2 草图，如果长度不够，最后一个点一直重复
+    每个点表示为四维向量 (x, y, s), s = (0, 1) or (1, 0)
+    :return: [n_stk, n_stk_pnt, xy]
+    """
+    # 读取草图数据
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = fr.load_sketch_file(sketch_root, delimiter=' ')
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点状态标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 删除长度小于等于一个点笔划
+    sketch_data = ft.stk_pnt_num_filter(sketch_data, 2)
+
+    # 删除长度小于指定值的笔划
+    sketch_data = ft.stroke_len_filter(sketch_data, 5e-2)
+
+    # 根据草图长度计算重采样间距
+    allocate_sketch_npnts, resample_dist = allocate_points_by_length_with_min(sketch_data, n_stk * n_stk_pnt, 2)
+
+    # 重采样，使点之间距离相等，最后一个点不插值，直接将最后一个点作为插值点
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resample_dist, allocate_sketch_npnts, True)
+
+    # 笔划排序
+    sketch_data = du.order_strokes(sketch_data)
+
+    # 将长度长于笔划点数的笔划，多的点数排到下一排
+    sketch_data = np.vstack(sketch_data)  # -> [skh_pnt, 2]
+    sketch_data = sketch_data.reshape(n_stk, n_stk_pnt, 2)
+
+    return sketch_data
+
+
+def allocate_points_by_length_with_min(sketch_data, skh_pnt, min_pts=2):
+    """
+    为草图中的每个笔划分配点数
+    笔划点数严格是给定值
+    每个分配的点数不低于指定值
+
+    :param sketch_data: list[np.ndarray]
+    :param skh_pnt: 草图中的总点数
+    :param min_pts: 每个笔划中的点数最小值
+    :return: 每个笔划的分配点数
+    """
+    stk_len_list = []
+    for c_stk in sketch_data:
+        c_stk_len = du.stroke_length(c_stk)
+        stk_len_list.append(c_stk_len)
+
+    stk_len_list = np.array(stk_len_list, dtype=float)
+    ratios = stk_len_list / stk_len_list.sum()
+    raw = ratios * skh_pnt
+
+    # 1. 初步 floor
+    alloc = np.floor(raw).astype(int)
+
+    # 2. 强制每个笔划至少 min_pts
+    alloc = np.maximum(alloc, min_pts)
+
+    # 当前总点数
+    cur_sum = alloc.sum()
+    gap = skh_pnt - cur_sum
+
+    # 3. 如果点数不足（gap > 0）：按余数最大优先补点
+    if gap > 0:
+        remainders = raw - np.floor(raw)
+        order = np.argsort(-remainders)
+        for idx in order:
+            alloc[idx] += 1
+            gap -= 1
+            if gap == 0:
+                break
+
+    # 4. 如果点数超额（gap < 0）：按分配点数大的优先减点（不能低于 min_pts）
+    elif gap < 0:
+        # 按 alloc 大小排序（从大到小减点）
+        order = np.argsort(-alloc)
+        for idx in order:
+            # 不能低于 min_pts
+            if alloc[idx] > min_pts:
+                alloc[idx] -= 1
+                gap += 1
+                if gap == 0:
+                    break
+
+    resample_dist_list = []
+    for c_stk_len, c_npnt in zip(stk_len_list, alloc):
+        c_resample_dist = c_stk_len / c_npnt
+        resample_dist_list.append(c_resample_dist)
+
+    resample_dist_mean = np.mean(resample_dist_list)
+
+    assert np.sum(alloc) == skh_pnt, ValueError(f'error allocate pnt num: {np.sum(alloc)}, required: {skh_pnt}')
+
+    return alloc, resample_dist_mean
+
+
 def test_resample():
     sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_root = sketch_test

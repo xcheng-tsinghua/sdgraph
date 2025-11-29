@@ -17,8 +17,8 @@ from data_utils.vis import save_format_sketch
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph import SDGraphUNet as sd_normal
-# from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
-from ablation.sdgraph_endsnap_nomix import SDGraphUNet as sd_normal
+from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
+# from ablation.sdgraph_endsnap_nomix import SDGraphUNet as sd_normal
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log, get_log
 
@@ -27,7 +27,7 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
-    parser.add_argument('--epoch', default=70, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
@@ -39,8 +39,8 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
-    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_duplast')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_duplast')
+    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_auto_space_snap')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
 
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
@@ -72,14 +72,14 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
-    skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}')
+    skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
     print('sketch save to: ', os.path.abspath(skh_save_folder))
     os.makedirs(skh_save_folder, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
-    logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d %H-%M-%S")}.txt')
+    logger = get_log('./log/' + save_str + f'-{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.txt')
 
     '''加载模型及权重'''
     # model = SDGraphUNet(2, 2)

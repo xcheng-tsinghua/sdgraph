@@ -7,7 +7,7 @@ from data_utils import sketch_utils as du
 
 def stk_pnt_num_filter(sketch, min_point=5) -> list:
     """
-    filter out strokes whose point number is below min_point
+    删除点数小于指定点数的笔划
     :param sketch: (list) element: ndarray[n_point, 2]
     :param min_point: (int)
     :return:

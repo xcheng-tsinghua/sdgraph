@@ -561,7 +561,7 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter, is_order
                 # fmt = ["%.6f", "%.6f", "%d"]
                 np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter, fmt="%.6f")
             else:
-                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter, fmt="%.6f")
         else:
             print(f'error occurred, skip instance: {idx}')
 
