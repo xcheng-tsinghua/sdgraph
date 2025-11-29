@@ -342,7 +342,7 @@ def detect_and_plot_square_wave(xlsx_file, sheet_name="13", pen=10):
 
 
 def test_stk2():
-    s3_file = r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32\1.txt'
+    s3_file = r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_duplast\2.txt'
     vis.vis_sketch(s3_file, show_dot=True, delimiter=' ')
 
 
@@ -378,9 +378,10 @@ if __name__ == '__main__':
 
     # dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
     #                    r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
-    #                    preprocess_func=pp.preprocess_stk2,
+    #                    preprocess_func=pp.preprocess_stk2_duplast,
     #                    delimiter=' ',
-    #                    is_order_stk=False
+    #                    is_order_stk=False,
+    #                    add_savefolder_str='_duplast'
     #                    )
 
     # dc.s3_to_stk_batched(

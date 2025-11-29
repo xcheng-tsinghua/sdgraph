@@ -39,8 +39,8 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
-    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/diffusion')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
+    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_duplast')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_duplast')
 
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')

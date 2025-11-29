@@ -558,18 +558,18 @@ def npz_to_stk_ass(idx_skh, stk_root_inner, preprocess_func, delimiter, is_order
         if len(target_skh_STK) == global_defs.n_skh_pnt:
 
             if target_skh_STK.shape[1] == 3:  # STK2
-                fmt = ["%.6f", "%.6f", "%d"]
-                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter, fmt=fmt)
+                # fmt = ["%.6f", "%.6f", "%d"]
+                np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter, fmt="%.6f")
             else:
                 np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
         else:
             print(f'error occurred, skip instance: {idx}')
 
-    except:
-        print(f'error occurred, skip instance: {idx}')
+    except Exception as e:
+        print(f'error occurred, skip instance: {idx}, exception: {e}')
 
 
-def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, is_order_stk=True):
+def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, is_order_stk=True, add_savefolder_str=''):
     """
     将npz文件转化为stk草图并保存
     :param npz_file:
@@ -580,14 +580,15 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     :param delimiter:
     :param workers:
     :param is_order_stk:
+    :param add_savefolder_str: 附加的自定义保存文件夹名附加字符串
     :return:
     """
     class_name = os.path.basename(npz_file).split('.')[0]
 
     if is_order_stk:
-        stk_root_inner = os.path.join(stk_root, f'{class_name}_order_stk_{n_stk}_{n_stk_pnt}')
+        stk_root_inner = os.path.join(stk_root, f'{class_name}_order_stk_{n_stk}_{n_stk_pnt}' + add_savefolder_str)
     else:
-        stk_root_inner = os.path.join(stk_root, f'{class_name}_stk_{n_stk}_{n_stk_pnt}')
+        stk_root_inner = os.path.join(stk_root, f'{class_name}_stk_{n_stk}_{n_stk_pnt}' + add_savefolder_str)
 
     os.makedirs(stk_root_inner, exist_ok=True)
 

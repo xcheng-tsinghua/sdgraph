@@ -721,6 +721,67 @@ def preprocess_stk2(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs
     #     return None
 
 
+def preprocess_stk2_duplast(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, resample_dist=0.1, is_shuffle_stroke=False, is_order_stk=None) -> np.ndarray:
+    """
+    处理成 STK2 草图，如果长度不够，最后一个点一直重复
+    每个点表示为四维向量 (x, y, s), s = (0, 1) or (1, 0)
+    :return: [n_stk, n_stk_pnt, xy]
+    """
+    # 读取草图数据
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = fr.load_sketch_file(sketch_root, delimiter=' ')
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点状态标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 打乱笔划
+    if is_shuffle_stroke:
+        random.shuffle(sketch_data)
+
+    # 删除长度小于等于一个点笔划
+    sketch_data = ft.stk_pnt_num_filter(sketch_data, 2)
+
+    # 重采样，使点之间距离相等，最后一个点不插值，直接将最后一个点作为插值点
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resample_dist, False)
+
+    # 笔划中的点数高于指定值，将较长的笔划在中间拆分
+    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, n_stk_pnt)
+
+    # 笔划数大于指定数值，将长度较短的笔划删除
+    sketch_data = ft.stk_number_filter(sketch_data, n_stk, True)
+
+    # 将数据放入固定大小的numpy数组
+    # 空白位置坐标 (0, 0),
+    # 有效位置标志位 (1, 0), 无效位置标志位 (0, 1)
+    sketch_coor = np.ones([n_stk, n_stk_pnt, 2], dtype=np.float32)
+
+    for stk_idx, c_stk in enumerate(sketch_data):
+        # c_stk: [c_pnt, 2]
+        n_valid_pnts = c_stk.shape[0]
+
+        if n_valid_pnts < n_stk_pnt:
+            sketch_coor[stk_idx, :n_valid_pnts, :] = c_stk
+            sketch_coor[stk_idx, n_valid_pnts:, :] = c_stk[-1]
+
+        elif n_valid_pnts == n_stk_pnt:
+            sketch_coor[stk_idx, :, :] = c_stk
+
+        else:
+            raise ValueError(f'error stroke point number: set n_stk_pnt: {n_stk_pnt}, real stk pnt: {n_valid_pnts}')
+
+    return sketch_coor
+
+
 def test_resample():
     sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_root = sketch_test
