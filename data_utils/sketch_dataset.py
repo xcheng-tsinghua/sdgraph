@@ -948,7 +948,7 @@ class DiffDataset(Dataset):
         if self.back_mode == 'STK':
             if self.is_stk_processed:
                 sketch_cube = np.loadtxt(fn, delimiter=self.delimiter)
-                sketch_cube = sketch_cube.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 3])
+                sketch_cube = sketch_cube.reshape([global_defs.n_stk, global_defs.n_stk_pnt, 2])
             else:
                 sketch_cube = prep(fn)
             mask = 0
