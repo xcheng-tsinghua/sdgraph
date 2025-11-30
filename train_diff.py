@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
     parser.add_argument('--scale', default=100, type=float, help='sketch bonding box is within [-scale, scale]')
 
-    parser.add_argument('--category', default='bicycle', type=str, help='training diffusion category')
+    parser.add_argument('--category', default='book', type=str, help='training diffusion category')
     parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
@@ -95,7 +95,7 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.img_size(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model, model.img_size())
     diffusion = diffusion.cuda()
 
     if args.epoch > 0:
