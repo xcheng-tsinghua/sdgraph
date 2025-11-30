@@ -12,7 +12,7 @@ import shutil
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
-from data_utils.vis import save_format_sketch
+from data_utils.vis import save_format_sketch, save_format_sketch_ext
 # from encoders.sdgraph_stk_samp import SDGraphUNet as sd_stk_sample
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample
@@ -165,8 +165,8 @@ def main(args):
             for batch_fig_idx in range(10):
                 # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
-                save_format_sketch(sampled_images[batch_fig_idx], skh_save_name,
-                                   is_near_merge=True, retreat=(1, 0), merge_dist=args.scale * 0.10)
+                save_format_sketch_ext(sampled_images[batch_fig_idx], skh_save_name,
+                                   is_near_merge=True, retreat=(0, 1), merge_dist=args.scale * 0.10)
 
                 gen_idx += 1
 
