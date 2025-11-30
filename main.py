@@ -369,9 +369,21 @@ def test_save_2():
 
 
 def test_preprocess(file, func=pp.preprocess_ext_linear_interp):
-    processed_data = func(file)[:, :, :2]
 
-    vis.vis_sketch(processed_data, show_dot=True)
+    vis.vis_sketch(file, delimiter=' ', show_dot=True)
+    processed_data = func(file)
+
+    for i in range(len(processed_data)):
+        c_stk = processed_data[i]
+        c_stk = c_stk[c_stk[:, 2] > 0.5]
+
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+        plt.scatter(c_stk[:, 0], -c_stk[:, 1])
+
+    plt.axis('equal')
+    plt.show()
+
+    # vis.vis_sketch(processed_data, show_dot=True)
 
     # file_all = du.get_allfiles(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
     # for c_txt in file_all:

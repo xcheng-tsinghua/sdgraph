@@ -16,8 +16,8 @@ from data_utils.vis import save_format_sketch, save_format_sketch_ext
 # from encoders.sdgraph_stk_samp import SDGraphUNet as sd_stk_sample
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample
-# from encoders.sdgraph import SDGraphUNet as sd_normal
-from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
+from encoders.sdgraph import SDGraphUNet as sd_normal
+# from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
 # from ablation.sdgraph_endsnap_nomix import SDGraphUNet as sd_normal
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log, get_log
@@ -67,11 +67,12 @@ def main(args):
     save_str = f'sdgraph_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
     # save_str = args.save_str.replace('$TYPE$', args.category)
 
+    pnt_channel = 3
     if args.is_stk_sample == 'True':
-        model = sd_stk_sample(2, 2, args.n_stk, args.n_stk_pnt)
+        model = sd_stk_sample(pnt_channel, pnt_channel, args.n_stk, args.n_stk_pnt)
         save_str = save_str.replace('sdgraph', 'sdgraph_stk_sample')
     else:
-        model = sd_normal(2, 2, args.n_stk, args.n_stk_pnt)
+        model = sd_normal(pnt_channel, pnt_channel, args.n_stk, args.n_stk_pnt)
 
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 

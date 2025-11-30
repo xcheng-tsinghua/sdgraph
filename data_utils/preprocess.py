@@ -926,6 +926,8 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
     # 删除长度小于等于一个点笔划
     sketch_data = ft.stk_pnt_num_filter(sketch_data, 2)
 
+    # vis.vis_sketch(sketch_data, show_dot=True)
+
     # 重采样，使点之间距离相等
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist, None, True)
 
@@ -951,6 +953,9 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
 
         else:
             sketch_data.append(empty_stk)
+
+    transed_res = np.array(sketch_data)
+    assert transed_res.shape[0] == n_stk and transed_res.shape[1] == n_stk_pnt, ValueError('error sketch point number')
 
     return np.array(sketch_data)
 
