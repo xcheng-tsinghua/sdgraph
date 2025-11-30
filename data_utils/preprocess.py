@@ -891,17 +891,18 @@ def allocate_points_by_length_with_min(sketch_data, skh_pnt, min_pts=2):
     return alloc, resample_dist_mean
 
 
-def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=',') -> np.ndarray:
+def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, resp_dist=0.1, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=' ') -> np.ndarray:
     """
     末端用线性插值
     太长的笔划中间断开
+    :param resp_dist: 重采样距离
 
     :return: [n_stk, n_stk_pnt, xys], s = 1, 该点有效，对应图片中的黑色像素。s = 0, 该点无效，对应图片中的白色像素
     """
     # 读取草图数据
     if isinstance(sketch_root, str):
         # 读取草图数据
-        sketch_data = fr.load_sketch_file(sketch_root, delimiter=delimiter)
+        sketch_data = fr.load_sketch_file(sketch_root, delimiter=' ')
 
     elif isinstance(sketch_root, (np.ndarray, list)):
         sketch_data = sketch_root
@@ -915,65 +916,123 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
     # 按点状态标志位分割笔划
     sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
 
-    # 删除点数小于某个点数的笔划，可能删除比较长但是点数较少的笔划
-    # sketch_data = ft.stk_pnt_num_filter(sketch_data, 4)
-
-    # 重采样，使点之间距离尽量相等
-    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.01)
-
-    # 去掉点数过少的笔划
-    sketch_data = ft.stk_pnt_num_filter(sketch_data, 5)
-
-    # 笔划数大于指定数值，将长度较短的笔划连接到最近的笔划
-    if len(sketch_data) > n_stk:
-        while len(sketch_data) > n_stk:
-            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
-
-    # 笔划数小于指定数值，拆分点数较多的笔划
-    elif len(sketch_data) < n_stk:
-        while len(sketch_data) < n_stk:
-            du.single_split_(sketch_data)
-
-    if len(sketch_data) != global_defs.n_stk:
-        raise ValueError(f'error stroke number: {len(sketch_data)}')
-
-    if is_mix_proc:
-        # 不断拆分、合并笔划，使各笔划点数尽量接近
-        n_ita = 0
-        var_brfore = 999.999
-        while True:
-
-            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
-            du.single_split_(sketch_data)
-
-            var_after = du.stroke_length_var(sketch_data, True)
-
-            if var_brfore == var_after or n_ita > 150:
-                break
-            else:
-                var_brfore = var_after
-                n_ita += 1
-
-    if len(sketch_data) != n_stk:
-        raise ValueError(f'error stroke number final: {len(sketch_data)}, file: {sketch_root}')
-
-    # 将每个笔划左右插值两个点，使笔划间存在一定的重合区域，减缓生成时笔划过于分散
-    sketch_data = du.stk_extend_batched(sketch_data, 1)
-
-    # 将每个笔划重采样至指定点
-    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
-    if is_show_status: vis.vis_sketch(sketch_data, title='after resample', show_dot=True)
-
-    # 排序笔划
-    if is_order_stk:
-        sketch_data = du.order_strokes(sketch_data)
-
-    # 转换成 Tensor. [n_stk, n_stk_pnt, 2]
-    sketch_data = np.array(sketch_data)
+    # 打乱笔划
     if is_shuffle_stroke:
-        np.random.shuffle(sketch_data)
+        random.shuffle(sketch_data)
 
-    return sketch_data
+    # 删除距离过近的点
+    sketch_data = ft.near_pnt_dist_filter(sketch_data, 1e-3)
+
+    # 删除长度小于等于一个点笔划
+    sketch_data = ft.stk_pnt_num_filter(sketch_data, 2)
+
+    # 重采样，使点之间距离相等
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist, None, True)
+
+    # 笔划中的点数高于指定值，将较长的笔划在中间拆分
+    sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, n_stk_pnt)
+
+    # 笔划数大于指定数值，将长度较短的笔划删除
+    sketch_data = ft.stk_number_filter(sketch_data, n_stk, True)
+
+    # 点数不足的笔划，向后插值
+    sketch_data = linear_ext_npnt_sketch(sketch_data, n_stk_pnt, resp_dist)
+
+    # 空笔划，默认填充[-1, 1]向右插值的笔划
+    default_start = np.array([-1, 1])
+    default_interp_dir = np.array([1, 0])
+    empty_stk = [default_start, default_start + resp_dist * default_interp_dir]
+    empty_stk = stroke_ext_and_state(empty_stk, n_stk_pnt, resp_dist)
+    empty_stk[:, 2] = 0  # 标志位统一为0
+
+    while True:
+        if len(sketch_data) == n_stk:
+            break
+
+        else:
+            sketch_data.append(empty_stk)
+
+    return np.array(sketch_data)
+
+
+def stroke_ext_and_state(stroke, n_stk_pnt, interp_dist):
+    """
+    将笔划中的点数向后线性插值到指定点数
+    并且加上标志位，1表示该点是原始点，0表示该点为向后插值点
+    :param stroke: [n, 2], np.ndarray
+    :return:
+    """
+    # 先将原始点加上标志位
+    stroke = np.hstack([stroke, np.ones([len(stroke), 1])])
+
+    if len(stroke) > n_stk_pnt:
+        warnings.warn(f'orig stroke points {len(stroke)} is larger than required number {n_stk_pnt}')
+        return np.hstack([stroke[:n_stk_pnt], np.ones([n_stk_pnt, 1])])
+
+    else:
+        ita_count = 0
+        while True:
+            if len(stroke) == n_stk_pnt:
+                break
+
+            # 获取一个向后的插值点
+            pnt_interp = sp.forward_interp(stroke[-2, :2], stroke[-1, :2], interp_dist)
+
+            # 为插值点加上标志位
+            pnt_interp = pnt_interp.reshape(1, 2)
+            pnt_interp = np.hstack([pnt_interp, [[0]]])
+
+            stroke = np.vstack([stroke, pnt_interp])
+
+            ita_count += 1
+            assert ita_count < 1000, ValueError('too more iteration times.')
+
+    return stroke
+
+
+def linear_ext_npnt_sketch(stroke_list, n_stk_pnt, interp_dist):
+    """
+    将草图中的点数向后线性插值到指定点数, 并加上逐点标志位，1表示该点是原始点，0表示该点为向后插值点
+    :param stroke_list:
+    :param n_stk_pnt:
+    :param interp_dist:
+    :return:
+    """
+    res = []
+
+    for c_stk in stroke_list:
+        new_stk = stroke_ext_and_state(c_stk, n_stk_pnt, interp_dist)
+        res.append(new_stk)
+
+    return res
+
+
+def check_point_and_nearest_edge(p):
+    """
+    检查点是否在正方形内
+    :param p:
+    :return:
+    """
+    x, y = p
+
+    # 1. 判断是否在正方形内（包含边界）
+    inside = (-1 <= x <= 1) and (-1 <= y <= 1)
+    if inside:
+        return True, None, 0.0
+
+    # 2. 不在正方形内 → 计算到四条边的距离
+    distances = {
+        "left": abs(x + 1),
+        "right": abs(x - 1),
+        "bottom": abs(y + 1),
+        "top": abs(y - 1)
+    }
+
+    # 找出最近的边
+    nearest_edge = min(distances, key=distances.get)
+    nearest_distance = distances[nearest_edge]
+
+    return False, nearest_edge, nearest_distance
 
 
 def test_resample():

@@ -27,20 +27,20 @@ def parse_args():
     parser = argparse.ArgumentParser('training')
 
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
-    parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
+    parser.add_argument('--epoch', default=10, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
     parser.add_argument('--scale', default=100, type=float, help='sketch bonding box is within [-scale, scale]')
 
-    parser.add_argument('--category', default='bicycle', type=str, help='training diffusion category')
+    parser.add_argument('--category', default='book', type=str, help='training diffusion category')
     parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
-    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_auto_space_snap')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
+    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_ext_interp')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp')
 
     parser.add_argument('--n_stk', default=global_defs.n_stk, type=int, help='草图中笔划数')
     parser.add_argument('--n_stk_pnt', default=global_defs.n_stk_pnt, type=int, help='每个笔划中的点数')
@@ -77,7 +77,6 @@ def main(args):
 
     '''创建文件夹'''
     skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
-    print('sketch save to: ', os.path.abspath(skh_save_folder))
     os.makedirs(skh_save_folder, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
     os.makedirs('log/', exist_ok=True)
@@ -153,6 +152,7 @@ def main(args):
 
     '''生成图片'''
     with torch.no_grad():
+        print('sketch save to: ', os.path.abspath(skh_save_folder))
         diffusion = diffusion.eval()
 
         print('generate images')

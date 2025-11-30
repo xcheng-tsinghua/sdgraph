@@ -368,19 +368,19 @@ def test_save_2():
     vis.save_format_sketch_test(torch.from_numpy(arr2), r'C:\Users\ChengXi\Desktop\cstnet2\gen.png')
 
 
-def test_preprocess(file, func=pp.preprocess_stk_auto_space_snap):
-    # processed_data = func(file).reshape(-1, 2)
+def test_preprocess(file, func=pp.preprocess_ext_linear_interp):
+    processed_data = func(file)[:, :, :2]
 
-    file_all = du.get_allfiles(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
-    for c_txt in file_all:
+    vis.vis_sketch(processed_data, show_dot=True)
 
-        vis.vis_sketch_auto_space_snap(c_txt, c_txt)
-
-
+    # file_all = du.get_allfiles(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
+    # for c_txt in file_all:
+    #
+    #     vis.vis_sketch_auto_space_snap(c_txt, c_txt)
 
 
 if __name__ == '__main__':
-    # test_preprocess(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap\100005.txt')
+    # test_preprocess(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3\train\2kn308a2ca10_2.txt')
 
     # vis.vis_sketch_auto_space_snap(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap\100005.txt')
 
@@ -392,10 +392,10 @@ if __name__ == '__main__':
 
     dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
                        r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
-                       preprocess_func=pp.preprocess_stk_auto_space_snap,
+                       preprocess_func=pp.preprocess_ext_linear_interp,
                        delimiter=' ',
                        is_order_stk=False,
-                       add_savefolder_str='_auto_space_snap',
+                       add_savefolder_str='_ext_interp',
                        workers=1
                        )
 
