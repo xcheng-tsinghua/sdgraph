@@ -891,6 +891,91 @@ def allocate_points_by_length_with_min(sketch_data, skh_pnt, min_pts=2):
     return alloc, resample_dist_mean
 
 
+def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=',') -> np.ndarray:
+    """
+    末端用线性插值
+    太长的笔划中间断开
+
+    :return: [n_stk, n_stk_pnt, xys], s = 1, 该点有效，对应图片中的黑色像素。s = 0, 该点无效，对应图片中的白色像素
+    """
+    # 读取草图数据
+    if isinstance(sketch_root, str):
+        # 读取草图数据
+        sketch_data = fr.load_sketch_file(sketch_root, delimiter=delimiter)
+
+    elif isinstance(sketch_root, (np.ndarray, list)):
+        sketch_data = sketch_root
+
+    else:
+        raise TypeError('error input sketch_root type')
+
+    # 移动草图质心并缩放大小
+    sketch_data = du.sketch_std(sketch_data)
+
+    # 按点状态标志位分割笔划
+    sketch_data = du.sketch_split(sketch_data, pen_up, pen_down)
+
+    # 删除点数小于某个点数的笔划，可能删除比较长但是点数较少的笔划
+    # sketch_data = ft.stk_pnt_num_filter(sketch_data, 4)
+
+    # 重采样，使点之间距离尽量相等
+    sketch_data = sp.uni_arclength_resample_strict(sketch_data, 0.01)
+
+    # 去掉点数过少的笔划
+    sketch_data = ft.stk_pnt_num_filter(sketch_data, 5)
+
+    # 笔划数大于指定数值，将长度较短的笔划连接到最近的笔划
+    if len(sketch_data) > n_stk:
+        while len(sketch_data) > n_stk:
+            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
+
+    # 笔划数小于指定数值，拆分点数较多的笔划
+    elif len(sketch_data) < n_stk:
+        while len(sketch_data) < n_stk:
+            du.single_split_(sketch_data)
+
+    if len(sketch_data) != global_defs.n_stk:
+        raise ValueError(f'error stroke number: {len(sketch_data)}')
+
+    if is_mix_proc:
+        # 不断拆分、合并笔划，使各笔划点数尽量接近
+        n_ita = 0
+        var_brfore = 999.999
+        while True:
+
+            du.single_merge_dist_inc_(sketch_data, 0.1, 0.1)
+            du.single_split_(sketch_data)
+
+            var_after = du.stroke_length_var(sketch_data, True)
+
+            if var_brfore == var_after or n_ita > 150:
+                break
+            else:
+                var_brfore = var_after
+                n_ita += 1
+
+    if len(sketch_data) != n_stk:
+        raise ValueError(f'error stroke number final: {len(sketch_data)}, file: {sketch_root}')
+
+    # 将每个笔划左右插值两个点，使笔划间存在一定的重合区域，减缓生成时笔划过于分散
+    sketch_data = du.stk_extend_batched(sketch_data, 1)
+
+    # 将每个笔划重采样至指定点
+    sketch_data = sp.uni_arclength_resample_certain_pnts_batched(sketch_data, n_stk_pnt)
+    if is_show_status: vis.vis_sketch(sketch_data, title='after resample', show_dot=True)
+
+    # 排序笔划
+    if is_order_stk:
+        sketch_data = du.order_strokes(sketch_data)
+
+    # 转换成 Tensor. [n_stk, n_stk_pnt, 2]
+    sketch_data = np.array(sketch_data)
+    if is_shuffle_stroke:
+        np.random.shuffle(sketch_data)
+
+    return sketch_data
+
+
 def test_resample():
     sketch_root = r'D:\document\DeepLearning\DataSet\TU_Berlin\TU_Berlin_txt\motorbike\10722.txt'
     # sketch_root = sketch_test

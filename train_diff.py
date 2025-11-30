@@ -42,6 +42,9 @@ def parse_args():
     parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_auto_space_snap')
     parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
 
+    parser.add_argument('--n_stk', default=global_defs.n_stk, type=int, help='草图中笔划数')
+    parser.add_argument('--n_stk_pnt', default=global_defs.n_stk_pnt, type=int, help='每个笔划中的点数')
+
     r'''
     parser.add_argument('--root_sever', type=str, default=f'/root/my_data/data_set/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',  help='root of dataset')
     parser.add_argument('--root_local', type=str, default=f'D:/document/DeepLearning/DataSet/unified_sketch_from_quickdraw/apple_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}', help='root of dataset')
@@ -61,14 +64,14 @@ def parse_args():
 def main(args):
     print(args)
 
-    save_str = f'sdgraph_{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}'
+    save_str = f'sdgraph_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
     # save_str = args.save_str.replace('$TYPE$', args.category)
 
     if args.is_stk_sample == 'True':
-        model = sd_stk_sample(2, 2)
+        model = sd_stk_sample(2, 2, args.n_stk, args.n_stk_pnt)
         save_str = save_str.replace('sdgraph', 'sdgraph_stk_sample')
     else:
-        model = sd_normal(2, 2)
+        model = sd_normal(2, 2, args.n_stk, args.n_stk_pnt)
 
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
