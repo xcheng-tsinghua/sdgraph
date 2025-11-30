@@ -127,7 +127,7 @@ def main(args):
             eps=1e-08,
             weight_decay=1e-4
         )
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10, gamma=0.7)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=2, gamma=0.7)
 
         '''训练'''
         for epoch_idx in range(args.epoch):
