@@ -16,7 +16,7 @@ from GaussianDiffusion_test import GaussianDiffusion
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default='sdgraph_ext_interp', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph_ext_interp_msevalid', help='---')
 
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
