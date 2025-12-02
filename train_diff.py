@@ -64,10 +64,10 @@ def parse_args():
 def main(args):
     print(args)
 
-    save_str = f'sdgraph_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
+    save_str = f'ext2_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
     # save_str = args.save_str.replace('$TYPE$', args.category)
 
-    pnt_channel = 3
+    pnt_channel = 2
     if args.is_stk_sample == 'True':
         model = sd_stk_sample(pnt_channel, pnt_channel, args.n_stk, args.n_stk_pnt)
         save_str = save_str.replace('sdgraph', 'sdgraph_stk_sample')
@@ -139,7 +139,7 @@ def main(args):
                 points, masks = data[0].float().cuda(), data[1].float().cuda()
 
                 optimizer.zero_grad()
-                loss = diffusion(points)
+                loss = diffusion(points[..., :2])
                 loss.backward()
                 optimizer.step()
 
@@ -166,8 +166,8 @@ def main(args):
             for batch_fig_idx in range(10):
                 # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
-                save_format_sketch_ext(sampled_images[batch_fig_idx], skh_save_name,
-                                   is_near_merge=True, retreat=(0, 1), merge_dist=args.scale * 0.10)
+                save_format_sketch(sampled_images[batch_fig_idx], skh_save_name,
+                                   is_near_merge=False, retreat=(0, 1), merge_dist=args.scale * 0.10)
 
                 gen_idx += 1
 
