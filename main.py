@@ -370,12 +370,12 @@ def test_save_2():
 
 def test_preprocess(file, func=pp.preprocess_ext_linear_interp):
 
-    vis.vis_sketch(file, delimiter=' ', show_dot=True)
+    # vis.vis_sketch(file, delimiter=' ', show_dot=True)
     processed_data = func(file)
 
     for i in range(len(processed_data)):
         c_stk = processed_data[i]
-        c_stk = c_stk[c_stk[:, 2] > 0.5]
+        # c_stk = c_stk[c_stk[:, 2] > 0.5]
 
         plt.plot(c_stk[:, 0], -c_stk[:, 1])
         plt.scatter(c_stk[:, 0], -c_stk[:, 1])
@@ -394,6 +394,11 @@ def test_preprocess(file, func=pp.preprocess_ext_linear_interp):
 if __name__ == '__main__':
     # test_preprocess(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3\train\2kn308a2ca10_2.txt')
 
+    # all_data = np.loadtxt(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp\0.txt')
+    # all_data = all_data[:, :2]
+    # vis.vis_sketch(all_data, show_dot=True)
+
+
     # vis.vis_sketch_auto_space_snap(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap\100005.txt')
 
     # test_stk2()
@@ -407,7 +412,7 @@ if __name__ == '__main__':
                        preprocess_func=pp.preprocess_ext_linear_interp,
                        delimiter=' ',
                        is_order_stk=False,
-                       add_savefolder_str='_ext_interp',
+                       add_savefolder_str='_ext_interp_round',
                        workers=1
                        )
 

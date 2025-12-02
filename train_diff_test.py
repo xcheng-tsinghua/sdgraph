@@ -10,13 +10,13 @@ from datetime import datetime
 import global_defs
 from data_utils.sketch_dataset import DiffDataset
 from data_utils.vis import save_format_sketch_test
-from encoders.sdgraph_test2 import SDGraphUNet
+from encoders.sdgraph_test import SDGraphUNet
 from GaussianDiffusion_test import GaussianDiffusion
 
 
 def parse_args():
     parser = argparse.ArgumentParser('training')
-    parser.add_argument('--save_str', type=str, default='sdgraph_test_stk2', help='---')
+    parser.add_argument('--save_str', type=str, default='sdgraph_ext_interp', help='---')
 
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=20, type=int, help='number of epoch in training')
@@ -26,8 +26,8 @@ def parse_args():
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='---')
-    parser.add_argument('--root_sever', type=str, default=rf'/root/my_data/data_set/quickdraw/stk2/book_stk_16_32', help='root of dataset')
-    parser.add_argument('--root_local', type=str, default=rf'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32', help='root of dataset')
+    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_ext_interp', help='root of dataset')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp', help='root of dataset')
 
     return parser.parse_args()
 
@@ -39,9 +39,9 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
-    img_save_dir = os.path.join('imgs_gen', save_str + f'-{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+    skh_save_folder = os.path.join('imgs_gen', f'{args.save_str}_{global_defs.n_stk}_{global_defs.n_stk_pnt}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+    os.makedirs(skh_save_folder, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
-    os.makedirs(img_save_dir, exist_ok=True)
     os.makedirs('log/', exist_ok=True)
 
     '''日志记录'''
@@ -66,7 +66,7 @@ def main(args):
     else:
         print(Fore.BLACK + Back.BLUE + 'does not load state dict, training from scratch')
 
-    diffusion = GaussianDiffusion(model, model.img_size(), global_defs.n_skh_pnt)
+    diffusion = GaussianDiffusion(model, model.img_size())
     diffusion = diffusion.cuda()
 
     if args.epoch > 0:
@@ -103,11 +103,11 @@ def main(args):
                 points = torch.cat([points[..., :2], inv, col3], dim=-1)
 
                 optimizer.zero_grad()
-                loss = diffusion(points)
+                loss, mse, nll = diffusion(points)
                 loss.backward()
                 optimizer.step()
 
-                state_str = f"Epoch {epoch_idx}/{args.epoch}:, batch_idx {batch_idx}/{len(train_dataloader)}, Loss: {loss.detach().item():.4f}"
+                state_str = f"Epoch {epoch_idx}/{args.epoch}:, batch_idx {batch_idx}/{len(train_dataloader)}, mse: {mse:.4f}, nll: {nll:.4f}"
                 if batch_idx % args.n_print_skip == 0:
                     print(state_str)
                 logger.info(state_str)
@@ -117,6 +117,7 @@ def main(args):
 
     '''生成图片'''
     with torch.no_grad():
+        print('sketch save to: ', os.path.abspath(skh_save_folder))
         diffusion = diffusion.eval()
 
         print('generate images')
@@ -127,7 +128,10 @@ def main(args):
 
             sampled_images = diffusion.sample(batch_size=10)
             for batch_fig_idx in range(10):
-                save_format_sketch_test(sampled_images[batch_fig_idx, :, :], os.path.join(img_save_dir, f'{gen_idx}.png'))
+                skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
+                save_format_sketch_test(sampled_images[batch_fig_idx], skh_save_name)
+                # save_format_sketch_ext(sampled_images[batch_fig_idx], skh_save_name,
+                #                    is_near_merge=True, retreat=(0, 1), merge_dist=args.scale * 0.10)
                 gen_idx += 1
 
 

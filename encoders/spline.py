@@ -91,7 +91,7 @@ class LinearInterp(object):
                 if is_forward_interp:
                     # interp_dir = interp_dir / norm
                     # interp_pnt = last_former_pnt + interp_dir * dist
-                    interp_pnt = forward_interp(last_former_pnt, last_pnt, dist)
+                    interp_pnt = forward_interp(last_former_pnt, last_pnt, dist, is_last_strat=False)
                     interp_points.append(interp_pnt)
 
                 else:  # 如果不向前插值，则直接将该最后一个点加入到插值点数组

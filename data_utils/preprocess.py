@@ -891,12 +891,12 @@ def allocate_points_by_length_with_min(sketch_data, skh_pnt, min_pts=2):
     return alloc, resample_dist_mean
 
 
-def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, resp_dist=0.1, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=' ') -> np.ndarray:
+def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, resp_dist=0.1, is_ext_round=True, is_shuffle_stroke=False, is_order_stk=False) -> np.ndarray:
     """
     末端用线性插值
     太长的笔划中间断开
     :param resp_dist: 重采样距离
-
+    :param is_ext_round: 采样单超出范围后，是否沿四周回旋
     :return: [n_stk, n_stk_pnt, xys], s = 1, 该点有效，对应图片中的黑色像素。s = 0, 该点无效，对应图片中的白色像素
     """
     # 读取草图数据
@@ -931,6 +931,8 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
     # 重采样，使点之间距离相等
     sketch_data = sp.uni_arclength_resample_strict(sketch_data, resp_dist, None, True)
 
+    # vis.vis_sketch(sketch_data, show_dot=True)
+
     # 笔划中的点数高于指定值，将较长的笔划在中间拆分
     sketch_data = ft.stk_n_pnt_maximum_filter(sketch_data, n_stk_pnt)
 
@@ -938,13 +940,13 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
     sketch_data = ft.stk_number_filter(sketch_data, n_stk, True)
 
     # 点数不足的笔划，向后插值
-    sketch_data = linear_ext_npnt_sketch(sketch_data, n_stk_pnt, resp_dist)
+    sketch_data = linear_ext_npnt_sketch(sketch_data, n_stk_pnt, resp_dist, is_ext_round)
 
     # 空笔划，默认填充[-1, 1]向右插值的笔划
     default_start = np.array([-1, 1])
     default_interp_dir = np.array([1, 0])
     empty_stk = [default_start, default_start + resp_dist * default_interp_dir]
-    empty_stk = stroke_ext_and_state(empty_stk, n_stk_pnt, resp_dist)
+    empty_stk = stroke_ext_and_state(empty_stk, n_stk_pnt, resp_dist, is_ext_round)
     empty_stk[:, 2] = 0  # 标志位统一为0
 
     while True:
@@ -960,11 +962,12 @@ def preprocess_ext_linear_interp(sketch_root, pen_up=global_defs.pen_up, pen_dow
     return np.array(sketch_data)
 
 
-def stroke_ext_and_state(stroke, n_stk_pnt, interp_dist):
+def stroke_ext_and_state(stroke, n_stk_pnt, interp_dist, is_ext_round):
     """
     将笔划中的点数向后线性插值到指定点数
     并且加上标志位，1表示该点是原始点，0表示该点为向后插值点
     :param stroke: [n, 2], np.ndarray
+    :param is_ext_round: 超出范围是否回旋
     :return:
     """
     # 先将原始点加上标志位
@@ -987,6 +990,12 @@ def stroke_ext_and_state(stroke, n_stk_pnt, interp_dist):
             pnt_interp = pnt_interp.reshape(1, 2)
             pnt_interp = np.hstack([pnt_interp, [[0]]])
 
+            if is_ext_round:
+                # 先判断是否超出边缘
+                interp_dir = check_point_and_nearest_edge(pnt_interp[:, :2])
+                if interp_dir is not None:
+                    pnt_interp[0, :2] = stroke[-1, :2] + interp_dist * interp_dir
+
             stroke = np.vstack([stroke, pnt_interp])
 
             ita_count += 1
@@ -995,21 +1004,55 @@ def stroke_ext_and_state(stroke, n_stk_pnt, interp_dist):
     return stroke
 
 
-def linear_ext_npnt_sketch(stroke_list, n_stk_pnt, interp_dist):
+def linear_ext_npnt_sketch(stroke_list, n_stk_pnt, interp_dist, is_ext_round):
     """
     将草图中的点数向后线性插值到指定点数, 并加上逐点标志位，1表示该点是原始点，0表示该点为向后插值点
     :param stroke_list:
     :param n_stk_pnt:
     :param interp_dist:
+    :param is_ext_round: 超出范围是否回旋
     :return:
     """
     res = []
 
     for c_stk in stroke_list:
-        new_stk = stroke_ext_and_state(c_stk, n_stk_pnt, interp_dist)
+        new_stk = stroke_ext_and_state(c_stk, n_stk_pnt, interp_dist, is_ext_round)
         res.append(new_stk)
 
     return res
+
+
+def point_to_segment_distance(p, a, b):
+    """
+    p: (2,) 点
+    a, b: (2,) 线段端点
+    返回：距离
+    """
+    p = np.asarray(p)
+    a = np.asarray(a)
+    b = np.asarray(b)
+
+    ab = b - a
+    ap = p - a
+
+    ab_len2 = np.dot(ab, ab)
+    if ab_len2 == 0:
+        # a==b 的情况
+        return np.linalg.norm(p - a)
+
+    # 投影参数 t
+    t = np.dot(ap, ab) / ab_len2
+
+    if t < 0:
+        # 垂足在线段 a 的延长线上 → 距离为 p 到 a
+        return np.linalg.norm(p - a)
+    elif t > 1:
+        # 垂足在线段 b 的延长线上 → 距离为 p 到 b
+        return np.linalg.norm(p - b)
+    else:
+        # 垂足在线段上
+        proj = a + t * ab
+        return np.linalg.norm(p - proj)
 
 
 def check_point_and_nearest_edge(p):
@@ -1018,26 +1061,91 @@ def check_point_and_nearest_edge(p):
     :param p:
     :return:
     """
-    x, y = p
 
-    # 1. 判断是否在正方形内（包含边界）
-    inside = (-1 <= x <= 1) and (-1 <= y <= 1)
-    if inside:
-        return True, None, 0.0
+    # 正方形顶点，按顺时针
+    VERTICES = np.array([
+        [-1, -1],  # bottom-left
+        [-1, 1],  # top-left
+        [1, 1],  # top-right
+        [1, -1]  # bottom-right
+    ])
 
-    # 2. 不在正方形内 → 计算到四条边的距离
-    distances = {
-        "left": abs(x + 1),
-        "right": abs(x - 1),
-        "bottom": abs(y + 1),
-        "top": abs(y - 1)
+    side_retreat = 0.01
+    EDGES = {
+        "left": ([-1, -1], [-1, 1 - side_retreat]),
+        "top": ([-1, 1], [1 - side_retreat, 1]),
+        "right": ([1, 1], [1, -1 + side_retreat]),
+        "bottom": ([1, -1], [-1 + side_retreat, -1])
     }
 
-    # 找出最近的边
-    nearest_edge = min(distances, key=distances.get)
-    nearest_distance = distances[nearest_edge]
+    p = p.squeeze()[:2]
+    x, y = p
 
-    return False, nearest_edge, nearest_distance
+    # ---- 1. 判断是否在正方形内（含边界） ----
+    inside = (-1 < x < 1) and (-1 < y < 1)
+    if inside:
+        res = {
+            "inside": True,
+            "nearest_edge": None,
+            "nearest_edge_dist": 0.0,
+            "nearest_vertex": None,
+            "nearest_vertex_dist": 0.0
+        }
+
+    else:
+        # # ---- 2. 计算到四条边的距离 ----
+        # edge_distances = {
+        #     "left":   abs(x + 1),
+        #     "right":  abs(x - 1),
+        #     "bottom": abs(y + 1),
+        #     "top":    abs(y - 1)
+        # }
+        # nearest_edge = min(edge_distances, key=edge_distances.get)
+        # nearest_edge_dist = edge_distances[nearest_edge]
+
+        # 3. 最近边（真正的线段距离）
+        edge_distances = {
+            name: point_to_segment_distance(p, *seg)
+            for name, seg in EDGES.items()
+        }
+        nearest_edge = min(edge_distances, key=edge_distances.get)
+        nearest_edge_dist = edge_distances[nearest_edge]
+
+        # ---- 3. 计算到四个顶点的距离 ----
+        dists_to_vertices = np.linalg.norm(VERTICES - p.reshape(1, 2), axis=1)
+        vidx = np.argmin(dists_to_vertices)
+        nearest_vertex = VERTICES[vidx]
+        nearest_vertex_dist = dists_to_vertices[vidx]
+
+        res = {
+            "inside": False,
+            "nearest_edge": nearest_edge,
+            "nearest_edge_dist": nearest_edge_dist,
+            "nearest_vertex": nearest_vertex,
+            "nearest_vertex_dist": nearest_vertex_dist
+        }
+
+    if res['inside']:
+        interp_dir = None
+    else:
+        if res['nearest_vertex_dist'] < 1e-2:  # 离角点近的情况
+            next_vidx = 0 if vidx == 3 else vidx + 1
+
+            # 计算下一个插值方向
+            interp_dir = VERTICES[next_vidx] - VERTICES[vidx]
+            interp_dir = interp_dir / np.linalg.norm(interp_dir)
+
+        else:  # 离边近的情况
+            edge_dir_map = {
+            "left":   np.array([0, 1]),
+            "right":  np.array([0, -1]),
+            "bottom": np.array([-1, 0]),
+            "top":    np.array([1, 0])
+            }
+
+            interp_dir = edge_dir_map[res['nearest_edge']]
+
+    return interp_dir
 
 
 def test_resample():

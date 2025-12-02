@@ -294,7 +294,7 @@ class SDGraphCls(nn.Module):
 class SDGraphUNet(nn.Module):
     def __init__(self, channel_in=4, channel_out=4, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, dropout=0.0):
         super().__init__()
-        print('diff valid')
+        print('diff valid with softmax')
 
         '''草图参数'''
         self.channel_in = channel_in
@@ -422,6 +422,8 @@ class SDGraphUNet(nn.Module):
 
         noise = self.final_linear(dense_graph)  # -> [bs, channel_out, n_stk * n_stk_pnt]
         noise = einops.rearrange(noise, 'b c (s sp) -> b s sp c', s=self.n_stk, sp=self.n_stk_pnt)
+
+        noise[..., 2:] = F.softmax(noise[..., 2:], dim=-1)
 
         return noise
 
