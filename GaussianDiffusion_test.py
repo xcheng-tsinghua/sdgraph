@@ -132,10 +132,10 @@ class GaussianDiffusion(Module):
         # 获取模型预测的原始图片
         noise_pred = self.model(x_t, t)
 
-        mse = ((noise_pred[..., :2] - noise[..., :2]) ** 2).sum(dim=-1) / noise_pred.size(-1)
-        mse = (mse * state).sum() / state.sum()
+        # mse = ((noise_pred[..., :2] - noise[..., :2]) ** 2).sum(dim=-1) / noise_pred.size(-1)
+        # mse = (mse * state).sum() / state.sum()
 
-        # mse = F.mse_loss(noise_pred[..., :2], noise[..., :2])
+        mse = F.mse_loss(noise_pred[..., :2], noise[..., :2])
 
         nll = F.nll_loss(torch.log(noise_pred[..., 2:]).reshape(-1, 2), state.view(-1))
 
