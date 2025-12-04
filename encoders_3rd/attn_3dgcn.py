@@ -127,6 +127,7 @@ def indexing_neighbor(tensor: "(bs, vertice_num, dim)", index: "(bs, vertice_num
 
 def get_neighbor_direction_norm(vertices: "(bs, vertice_num, 3)", neighbor_index: "(bs, vertice_num, neighbor_num)"):
     """
+    获取每个点到其邻近点的向量，会单位化
     Return: (bs, vertice_num, neighobr_num, 3)
     """
     neighbors = indexing_neighbor(vertices, neighbor_index)  # (bs, v, n, 3)
@@ -137,7 +138,6 @@ def get_neighbor_direction_norm(vertices: "(bs, vertice_num, 3)", neighbor_index
 
 class ConvSurface(nn.Module):
     """Extract structure feafure from surface, independent from vertice coordinates"""
-
     def __init__(self, kernel_num, support_num, coor_channel=3):
         super().__init__()
         self.kernel_num = kernel_num
@@ -220,33 +220,6 @@ class ConvLayer(nn.Module):
         return feature_fuse
 
 
-class Pool_layer(nn.Module):
-    def __init__(self, pooling_rate: int = 4, neighbor_num: int = 4):
-        super().__init__()
-        self.pooling_rate = pooling_rate
-        self.neighbor_num = neighbor_num
-
-    def forward(self,
-                vertices: "(bs, vertice_num, 3)",
-                feature_map: "(bs, vertice_num, channel_num)"):
-        """
-        Return:
-            vertices_pool: (bs, pool_vertice_num, 3),
-            feature_map_pool: (bs, pool_vertice_num, channel_num)
-        """
-        bs, vertice_num, _ = vertices.size()
-        neighbor_index = get_neighbor_index(vertices, self.neighbor_num)
-        neighbor_feature = indexing_neighbor(feature_map,
-                                             neighbor_index)  # (bs, vertice_num, neighbor_num, channel_num)
-        pooled_feature = torch.max(neighbor_feature, dim=2)[0]  # (bs, vertice_num, channel_num)
-
-        pool_num = int(vertice_num / self.pooling_rate)
-        sample_idx = torch.randperm(vertice_num)[:pool_num]
-        vertices_pool = vertices[:, sample_idx, :]  # (bs, pool_num, 3)
-        feature_map_pool = pooled_feature[:, sample_idx, :]  # (bs, pool_num, channel_num)
-        return vertices_pool, feature_map_pool
-
-
 class AttnGCN3D(nn.Module):
     """
     多层 3DGcn 特征编码器
@@ -305,3 +278,5 @@ if __name__ == "__main__":
     model = AttnGCN3D(coor_channel=2)
     output = model(input_data)
     print(output.shape)
+
+
