@@ -498,15 +498,15 @@ def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter, 
     try:
         c_target_file = std_file.replace(source_dir, target_dir)
 
-        target_skh_STK = preprocess_func(std_file, pen_up=pen_up, pen_down=pen_down, delimiter=delimiter)
-        target_skh_STK = einops.rearrange(target_skh_STK, 's sp c -> (s sp) c')
+        target_skh_stk = preprocess_func(std_file, pen_up=pen_up, pen_down=pen_down, delimiter=delimiter)
+        target_skh_stk = einops.rearrange(target_skh_stk, 's sp c -> (s sp) c')
 
-        if len(target_skh_STK) == global_defs.n_skh_pnt:
-            np.savetxt(c_target_file, target_skh_STK, delimiter=delimiter)
+        if len(target_skh_stk) == global_defs.n_skh_pnt:
+            np.savetxt(c_target_file, target_skh_stk, delimiter=delimiter)
         else:
             print(f'error occurred, skip file: {std_file}')
-    except:
-        print(f'error occurred, skip file: {std_file}')
+    except Exception as e:
+        print(f'error occurred, skip file: {std_file}, error: {e}')
 
 
 def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
@@ -590,6 +590,7 @@ def npz_to_stk_file(npz_file, stk_root, n_stk=global_defs.n_stk, n_stk_pnt=globa
     else:
         stk_root_inner = os.path.join(stk_root, f'{class_name}_stk_{n_stk}_{n_stk_pnt}' + add_savefolder_str)
 
+    print('save root: ', stk_root_inner)
     os.makedirs(stk_root_inner, exist_ok=True)
 
     skh_all = fr.npz_read(npz_file, 'train')[0]

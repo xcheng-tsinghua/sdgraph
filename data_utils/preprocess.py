@@ -782,7 +782,7 @@ def preprocess_stk2_duplast(sketch_root, pen_up=global_defs.pen_up, pen_down=glo
     return sketch_coor
 
 
-def preprocess_stk_auto_space_snap(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_order_stk=None) -> np.ndarray:
+def preprocess_stk_auto_space_snap(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_order_stk=None, delimiter=None) -> np.ndarray:
     """
     处理成 STK2 草图，如果长度不够，最后一个点一直重复
     每个点表示为四维向量 (x, y, s), s = (0, 1) or (1, 0)

@@ -50,12 +50,12 @@ def index_points(points, idx):
 
 
 class TransformerBlock(nn.Module):
-    def __init__(self, d_points, d_model, k) -> None:
+    def __init__(self, d_points, d_model, k, coor_channel=3) -> None:
         super().__init__()
         self.fc1 = nn.Linear(d_points, d_model)
         self.fc2 = nn.Linear(d_model, d_points)
         self.fc_delta = nn.Sequential(
-            nn.Linear(3, d_model),
+            nn.Linear(coor_channel, d_model),
             nn.ReLU(),
             nn.Linear(d_model, d_model)
         )
@@ -135,16 +135,16 @@ def get_neighbor_direction_norm(vertices: "(bs, vertice_num, 3)", neighbor_index
     return neighbor_direction_norm
 
 
-class Conv_surface(nn.Module):
+class ConvSurface(nn.Module):
     """Extract structure feafure from surface, independent from vertice coordinates"""
 
-    def __init__(self, kernel_num, support_num):
+    def __init__(self, kernel_num, support_num, coor_channel=3):
         super().__init__()
         self.kernel_num = kernel_num
         self.support_num = support_num
 
         self.relu = nn.ReLU(inplace=True)
-        self.directions = nn.Parameter(torch.FloatTensor(3, support_num * kernel_num))
+        self.directions = nn.Parameter(torch.FloatTensor(coor_channel, support_num * kernel_num))
         self.initialize()
 
     def initialize(self):
@@ -169,8 +169,8 @@ class Conv_surface(nn.Module):
         return feature
 
 
-class Conv_layer(nn.Module):
-    def __init__(self, in_channel, out_channel, support_num):
+class ConvLayer(nn.Module):
+    def __init__(self, in_channel, out_channel, support_num, coor_channel=3):
         super().__init__()
         # arguments:
         self.in_channel = in_channel
@@ -181,7 +181,7 @@ class Conv_layer(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.weights = nn.Parameter(torch.FloatTensor(in_channel, (support_num + 1) * out_channel))
         self.bias = nn.Parameter(torch.FloatTensor((support_num + 1) * out_channel))
-        self.directions = nn.Parameter(torch.FloatTensor(3, support_num * out_channel))
+        self.directions = nn.Parameter(torch.FloatTensor(coor_channel, support_num * out_channel))
         self.initialize()
 
     def initialize(self):
@@ -253,23 +253,25 @@ class MultiLayerGCN3DFeatureEncoder(nn.Module):
     输入: xyz [bs, 3, N]
     输出: fea [bs, out_dim, N]
     """
-    def __init__(self, support_num=1, neighbor_num=20, out_dim=128, attn_k=16):
+    def __init__(self, support_num=1, neighbor_num=20, out_dim=128, attn_k=16, coor_channel=3):
         super().__init__()
         self.neighbor_num = neighbor_num
         self.out_dim = out_dim
         self.attn_k = attn_k
 
         # 4 层卷积结构
-        self.conv0 = Conv_surface(kernel_num=128, support_num=support_num)
-        self.conv1 = Conv_layer(128, 128, support_num=support_num)
-        self.conv2 = Conv_layer(128, 256, support_num=support_num)
-        self.conv3 = Conv_layer(256, out_dim, support_num=support_num)
+        self.conv0 = ConvSurface(kernel_num=128, support_num=support_num, coor_channel=coor_channel)
+        self.conv1 = ConvLayer(128, 128, support_num=support_num, coor_channel=coor_channel)
+        self.conv2 = ConvLayer(128, 256, support_num=support_num, coor_channel=coor_channel)
+        self.conv3 = ConvLayer(256, out_dim, support_num=support_num, coor_channel=coor_channel)
+
         # 激活函数
         self.act = nn.ReLU(inplace=True)
         self.attention = TransformerBlock(
             d_points=out_dim,
             d_model=out_dim,
-            k=attn_k
+            k=attn_k,
+            coor_channel=coor_channel
         )
 
     def forward(self, xyz):
@@ -299,7 +301,7 @@ class MultiLayerGCN3DFeatureEncoder(nn.Module):
 
 
 if __name__ == "__main__":
-    input_data = torch.randn(32, 3, 2000)
-    model = MultiLayerGCN3DFeatureEncoder()
+    input_data = torch.randn(32, 2, 2000)
+    model = MultiLayerGCN3DFeatureEncoder(coor_channel=2)
     output = model(input_data)
     print(output.shape)

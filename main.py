@@ -407,21 +407,22 @@ if __name__ == '__main__':
 
     # statis.npz_resample_statistic()
 
-    dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+    dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
                        r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
-                       preprocess_func=pp.preprocess_ext_linear_interp,
+                       preprocess_func=pp.preprocess_stk_auto_space_snap,
                        delimiter=' ',
                        is_order_stk=False,
-                       add_savefolder_str='_ext_interp_round',
+                       add_savefolder_str='_autospace',
                        workers=1
                        )
 
     # dc.s3_to_stk_batched(
-    #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3',
-    #     target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_stk',
+    #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_s3',
+    #     target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk_autospace',
     #     delimiter=' ',
     #     pen_up=1,
-    #     pen_down=0
+    #     pen_down=0,
+    #     preprocess_func=pp.preprocess_stk_auto_space_snap
     # )
 
 
