@@ -12,12 +12,12 @@ import shutil
 # 自建模块
 import global_defs
 from data_utils.sketch_dataset import DiffDataset, QuickDrawDiff
-from data_utils.vis import save_format_sketch, save_format_sketch_ext
+from data_utils.vis import save_format_sketch_auto_snap_split as save_sketch_tensor
 # from encoders.sdgraph_stk_samp import SDGraphUNet as sd_stk_sample
 from encoders.sdgraph_stk_samp_endsnap import SDGraphUNet as sd_stk_sample
 # from encoders.sdgraph_test import SDGraphUNet as sd_stk_sample
-from encoders.sdgraph import SDGraphUNet as sd_normal
-# from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
+# from encoders.sdgraph import SDGraphUNet as sd_normal
+from encoders.sdgraph_endsnap import SDGraphUNet as sd_normal
 # from ablation.sdgraph_endsnap_nomix import SDGraphUNet as sd_normal
 from GaussianDiffusion import GaussianDiffusion
 from encoders.utils import clear_log, get_log
@@ -26,13 +26,14 @@ from encoders.utils import clear_log, get_log
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
+    parser.add_argument('--save_str', type=str, default='sdgraph_endsnap', help='save_name')
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=10, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')
     parser.add_argument('--is_load_weight', type=str, default='True', choices=['True', 'False'], help='---')
     parser.add_argument('--n_skh_gen', default=30, type=int, help='---')
     parser.add_argument('--n_print_skip', default=10, type=int, help='print batch loss after n_print_skip batch number')
-    parser.add_argument('--scale', default=100, type=float, help='sketch bonding box is within [-scale, scale]')
+    parser.add_argument('--scale', default=1, type=float, help='sketch bonding box is within [-scale, scale]')
 
     parser.add_argument('--category', default='book', type=str, help='training diffusion category')
     parser.add_argument('--is_stk_sample', default='False', type=str, choices=['True', 'False'], help='using stroke sample model?')
@@ -64,9 +65,7 @@ def parse_args():
 def main(args):
     print(args)
 
-    save_str = f'autospace_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
-    # save_str = args.save_str.replace('$TYPE$', args.category)
-
+    save_str = f'{args.save_str}_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
     pnt_channel = 2
     if args.is_stk_sample == 'True':
         model = sd_stk_sample(pnt_channel, pnt_channel, args.n_stk, args.n_stk_pnt)
@@ -77,7 +76,7 @@ def main(args):
     print(Fore.BLACK + Back.BLUE + 'save as: ' + save_str)
 
     '''创建文件夹'''
-    skh_save_folder = os.path.join('imgs_gen', f'{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
+    skh_save_folder = os.path.join('imgs_gen', f'{save_str}_{args.category}_{global_defs.n_stk}_{global_defs.n_stk_pnt}_{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}')
     os.makedirs(skh_save_folder, exist_ok=True)
     os.makedirs('model_trained/', exist_ok=True)
     os.makedirs('log/', exist_ok=True)
@@ -166,8 +165,8 @@ def main(args):
             for batch_fig_idx in range(10):
                 # save_format_sketch(sampled_images[batch_fig_idx], f'imgs_gen/{save_str}-{gen_idx}.png')
                 skh_save_name = os.path.join(skh_save_folder, f'{save_str}-{gen_idx}.png')
-                save_format_sketch(sampled_images[batch_fig_idx], skh_save_name,
-                                   is_near_merge=False, retreat=(0, 1), merge_dist=args.scale * 0.10)
+                save_sketch_tensor(sampled_images[batch_fig_idx], skh_save_name,
+                                   is_near_merge=True, retreat=(0, 1), merge_dist=args.scale * 0.10)
 
                 gen_idx += 1
 

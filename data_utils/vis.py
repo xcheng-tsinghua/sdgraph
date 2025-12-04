@@ -151,7 +151,6 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
     plt.clf()
     for stk_idx in range(len(stroke_list)):
         c_stk = stroke_list[stk_idx]
-        c_stk = split_valid_stroke(c_stk)
         plt.plot(c_stk[:, 0], -c_stk[:, 1], linewidth=linewidth)
         # plt.scatter(s[:, 0], -s[:, 1])
 
@@ -246,6 +245,85 @@ def save_format_sketch_ext(sketch_points, file_path, is_smooth=False, is_near_me
         # plt.scatter(s[:, 0], -s[:, 1])
 
     plt.axis('off')
+    plt.savefig(file_path)
+
+
+def save_format_sketch_auto_snap_split(sketch_points, file_path, is_near_merge=False, merge_dist=0.05, retreat=(0, 0), linewidth=5):
+    """
+    保存设定格式的草图, 自动根据点之间的距离分割、合并笔划
+    :param sketch_points: [n_stk, n_stk_pnt, 2]
+    :param file_path:
+    :param is_near_merge:
+    :param merge_dist: 笔划之间距离小于该值，合并笔划
+    :param retreat: 合并之前将每个笔划左右各向内删减的点数
+    :return:
+    """
+
+    n_stk, n_stk_pnt, channel = sketch_points.size()
+    sketch_points = sketch_points.detach().cpu().numpy()
+
+    # 每个笔划左右各向内缩减指定数量的点
+    if retreat != (0, 0):
+        sketch_points = sketch_points[:, retreat[0]:, :] if retreat[1] == 0 else sketch_points[:, retreat[0]: -retreat[1], :]
+
+    # 分析距离，找到距离过大的点，将其分隔开
+    sketch_pnts = sketch_points.reshape(-1, 2)
+    space_all = []
+    for i in range(len(sketch_pnts) - 1):
+        c_dist = np.linalg.norm(sketch_pnts[i] - sketch_pnts[i + 1])
+        space_all.append(c_dist)
+
+    # 百分比截断
+    space_all = np.array(space_all)
+    low, high = np.percentile(space_all, [10, 90])
+    mask = (space_all >= low) & (space_all <= high)
+    real_space = np.mean(space_all[mask])
+
+    # 将过近的笔划合并
+    stroke_list = []
+    for i in range(n_stk):
+        stroke_list.append(sketch_points[i])
+
+    if is_near_merge:
+        stroke_list = du.stroke_merge_until(stroke_list, merge_dist)
+
+    # 将过远的点分割
+    def _split_too_far(_stroke, _thres):
+        """
+        如果两个相邻点之间的距离大于指定值，分隔开
+        :param _stroke: n*2 np.ndarray
+        :param _thres:
+        :return:
+        """
+        _start_split_idx = 0
+
+        split_substroke = []
+        for _i in range(1, len(_stroke)):
+            # 在索引 _i 对应元素左侧进行截断
+            _c_dist = np.linalg.norm(_stroke[_i] - _stroke[_i - 1])
+
+            if _c_dist > _thres:
+                # 只加入点数大于2的笔划
+                if _i - _start_split_idx > 1:
+                    split_substroke.append(_stroke[_start_split_idx: _i])
+
+                _start_split_idx = _i
+
+        return split_substroke
+
+    stroke_list_split_far = []
+    for c_stk in stroke_list:
+        stroke_list_split_far.extend(_split_too_far(c_stk, real_space * 2))
+    stroke_list = stroke_list_split_far
+
+    # 绘图
+    plt.clf()
+    for c_stk in stroke_list:
+        # plt.plot(c_stk[:, 0], -c_stk[:, 1], linewidth=linewidth)
+        plt.plot(c_stk[:, 0], -c_stk[:, 1])
+        plt.scatter(c_stk[:, 0], -c_stk[:, 1])
+
+    # plt.axis('off')
     plt.savefig(file_path)
 
 
