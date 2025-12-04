@@ -39,8 +39,8 @@ def parse_args():
 
     parser.add_argument('--local', default='False', choices=['True', 'False'], type=str, help='running on local?')
     parser.add_argument('--is_load_npz', default='False', type=str, choices=['True', 'False'], help='using quickdraw npz file?')
-    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_ext_interp')
-    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp')
+    parser.add_argument('--root_sever', type=str, default=fr'/opt/data/private/data_set/quickdraw/stk2/book_stk_16_32_auto_space_snap')
+    parser.add_argument('--root_local', type=str, default=fr'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_auto_space_snap')
 
     parser.add_argument('--n_stk', default=global_defs.n_stk, type=int, help='草图中笔划数')
     parser.add_argument('--n_stk_pnt', default=global_defs.n_stk_pnt, type=int, help='每个笔划中的点数')
