@@ -151,6 +151,7 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
     plt.clf()
     for stk_idx in range(len(stroke_list)):
         c_stk = stroke_list[stk_idx]
+        c_stk = split_valid_stroke(c_stk)
         plt.plot(c_stk[:, 0], -c_stk[:, 1], linewidth=linewidth)
         # plt.scatter(s[:, 0], -s[:, 1])
 
@@ -168,6 +169,41 @@ def save_format_sketch(sketch_points, file_path, is_smooth=False, is_near_merge=
         plt.axis('off')
         ahead, ext = os.path.splitext(file_path)
         plt.savefig(ahead + 'smooth' + ext)
+
+
+def split_valid_stroke(pts, angle_thresh=np.deg2rad(5)):
+    """
+    根据方向变化分离有效笔划与无效笔划
+    pts: (n, 2) numpy array
+    angle_thresh: 判断为方向变化的角度阈值（弧度）
+
+    返回:
+    valid_pts, invalid_pts
+    """
+    # 向量
+    vecs = pts[1:] - pts[:-1]   # (n-1, 2)
+
+    # 每段向量的方向角
+    angles = np.arctan2(vecs[:,1], vecs[:,0])  # (n-1,)
+
+    # 相邻两段方向差
+    dtheta = np.abs(np.diff(angles))  # (n-2,)
+    dtheta = np.minimum(dtheta, 2*np.pi - dtheta)  # 处理角度跳变
+
+    # 从后往前找首次超过阈值的位置
+    idx = len(dtheta) - 1
+    cutoff = 0
+    while idx >= 0:
+        if dtheta[idx] > angle_thresh:   # 标记有效笔划末尾
+            cutoff = idx + 1   # +1 是因为 dtheta 是 vec 的 diff
+            break
+        idx -= 1
+
+    # 分离笔划
+    valid_pts = pts[:cutoff+1]
+    invalid_pts = pts[cutoff+1:]
+
+    return valid_pts
 
 
 def save_format_sketch_ext(sketch_points, file_path, is_smooth=False, is_near_merge=False, merge_dist=0.05, retreat=(0, 0), linewidth=5):
