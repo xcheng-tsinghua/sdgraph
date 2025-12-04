@@ -247,7 +247,7 @@ class Pool_layer(nn.Module):
         return vertices_pool, feature_map_pool
 
 
-class MultiLayerGCN3DFeatureEncoder(nn.Module):
+class AttnGCN3D(nn.Module):
     """
     多层 3DGcn 特征编码器
     输入: xyz [bs, 3, N]
@@ -302,6 +302,6 @@ class MultiLayerGCN3DFeatureEncoder(nn.Module):
 
 if __name__ == "__main__":
     input_data = torch.randn(32, 2, 2000)
-    model = MultiLayerGCN3DFeatureEncoder(coor_channel=2)
+    model = AttnGCN3D(coor_channel=2)
     output = model(input_data)
     print(output.shape)

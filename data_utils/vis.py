@@ -311,10 +311,10 @@ def save_format_sketch_auto_snap_split(sketch_points, file_path, is_near_merge=F
 
         return split_substroke
 
-    stroke_list_split_far = []
-    for c_stk in stroke_list:
-        stroke_list_split_far.extend(_split_too_far(c_stk, real_space * 5))
-    stroke_list = stroke_list_split_far
+    # stroke_list_split_far = []
+    # for c_stk in stroke_list:
+    #     stroke_list_split_far.extend(_split_too_far(c_stk, real_space * 5))
+    # stroke_list = stroke_list_split_far
 
     # 绘图
     plt.clf()
