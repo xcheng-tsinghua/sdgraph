@@ -64,7 +64,7 @@ def parse_args():
 def main(args):
     print(args)
 
-    save_str = f'ext2_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
+    save_str = f'autospace_{args.category}_{args.n_stk}_{args.n_stk_pnt}'
     # save_str = args.save_str.replace('$TYPE$', args.category)
 
     pnt_channel = 2
