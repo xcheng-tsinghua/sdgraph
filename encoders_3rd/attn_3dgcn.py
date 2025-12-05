@@ -158,8 +158,8 @@ class ConvSurface(nn.Module):
         Return vertices with local feature: (bs, vertice_num, kernel_num)
         """
         bs, vertice_num, neighbor_num = neighbor_index.size()
-        neighbor_direction_norm = get_neighbor_direction_norm(vertices, neighbor_index)
-        support_direction_norm = F.normalize(self.directions, dim=0)  # (3, s * k)
+        neighbor_direction_norm = get_neighbor_direction_norm(vertices, neighbor_index)  # 获得中心点到边缘点的向量 [bs, n_pnt, n_neighobr_num, coor_channel]
+        support_direction_norm = F.normalize(self.directions, dim=0)  # (coor_channel, s * k)
         theta = neighbor_direction_norm @ support_direction_norm  # (bs, vertice_num, neighbor_num, s*k)
 
         theta = self.relu(theta)
