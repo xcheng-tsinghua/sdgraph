@@ -645,14 +645,14 @@ class SDGraphUNet(nn.Module):
         '''下采样层 × 2'''
         self.sd_down1 = SDGraphEncoder(sparse_l0, sparse_l1, dense_l0, dense_l1,
                                        sparse_l0, channel_in,
-                                       sp_near=1, dn_near=50,
+                                       sp_near=5, dn_near=60,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
 
         self.sd_down2 = SDGraphEncoder(sparse_l1, sparse_l2, dense_l1, dense_l2,
                                        sparse_l0, channel_in,
-                                       sp_near=1, dn_near=50,
+                                       sp_near=5, dn_near=60,
                                        sample_type='down_sample',
                                        with_time=True, time_emb_dim=time_emb_dim,
                                        dropout=dropout)
@@ -668,14 +668,14 @@ class SDGraphUNet(nn.Module):
         '''上采样层 × 2'''
         self.sd_up2 = SDGraphEncoder(global_dim + sparse_l2, sparse_l2, global_dim + dense_l2, dense_l2,
                                      sparse_l0, channel_in,
-                                     sp_near=2, dn_near=10,
+                                     sp_near=5, dn_near=60,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
 
         self.sd_up1 = SDGraphEncoder(sparse_l1 + sparse_l2, sparse_l1, dense_l1 + dense_l2, dense_l1,
                                      sparse_l0, channel_in,
-                                     sp_near=2, dn_near=10,
+                                     sp_near=5, dn_near=60,
                                      sample_type='up_sample',
                                      with_time=True, time_emb_dim=time_emb_dim,
                                      dropout=dropout)
