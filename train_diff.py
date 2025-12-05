@@ -26,7 +26,7 @@ from encoders.utils import clear_log, get_log
 def parse_args():
     parser = argparse.ArgumentParser('training')
 
-    parser.add_argument('--save_str', type=str, default='sdgraph_endsnap', help='save_name')
+    parser.add_argument('--save_str', type=str, default='sdgraph_endsnap_attn_3dgcn', help='save_name')
     parser.add_argument('--bs', type=int, default=40, help='batch size in training')
     parser.add_argument('--epoch', default=10, type=int, help='number of epoch in training')
     parser.add_argument('--lr', default=1e-4, type=float, help='learning rate in training')

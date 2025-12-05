@@ -391,7 +391,21 @@ def test_preprocess(file, func=pp.preprocess_ext_linear_interp):
     #     vis.vis_sketch_auto_space_snap(c_txt, c_txt)
 
 
+def test_sdgraph():
+    from encoders.sdgraph_endsnap import SDGraphUNet
+
+    anet = SDGraphUNet(2, 2)
+
+    bs = 7
+    atensor = torch.rand([bs, global_defs.n_stk, global_defs.n_stk_pnt, 2])
+    t1 = torch.randint(0, 1000, (bs,)).long()
+
+    res = anet(atensor, t1)
+    print(res.size())
+
+
 if __name__ == '__main__':
+    test_sdgraph()
     # test_preprocess(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3\train\2kn308a2ca10_2.txt')
 
     # all_data = np.loadtxt(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp\0.txt')
@@ -407,14 +421,14 @@ if __name__ == '__main__':
 
     # statis.npz_resample_statistic()
 
-    dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
-                       r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
-                       preprocess_func=pp.preprocess_stk_auto_space_snap,
-                       delimiter=' ',
-                       is_order_stk=False,
-                       add_savefolder_str='_autospace',
-                       workers=1
-                       )
+    # dc.npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
+    #                    r'D:\document\DeepLearning\DataSet\quickdraw\stk2',
+    #                    preprocess_func=pp.preprocess_stk_auto_space_snap,
+    #                    delimiter=' ',
+    #                    is_order_stk=False,
+    #                    add_savefolder_str='_autospace',
+    #                    workers=1
+    #                    )
 
     # dc.s3_to_stk_batched(
     #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_s3',
