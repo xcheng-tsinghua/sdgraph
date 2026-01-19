@@ -220,7 +220,7 @@ class ConvLayer(nn.Module):
         return feature_fuse
 
 
-class AttnGCN3D(nn.Module):
+class Attn3DGCN(nn.Module):
     """
     多层 3DGcn 特征编码器
     输入: xyz [bs, 3, N]
@@ -294,7 +294,7 @@ class AttnGCN3D(nn.Module):
 if __name__ == "__main__":
     input_data = torch.randn(32, 2, 2000)
     input_fea = torch.randn(32, 30, 2000)
-    model = AttnGCN3D(channel_coor=2, channel_fea=30)
+    model = Attn3DGCN(channel_coor=2, channel_fea=30)
     output = model(input_data, input_fea)
     print(output.shape)
 

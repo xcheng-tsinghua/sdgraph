@@ -11,7 +11,7 @@ from einops import rearrange
 
 import global_defs
 import encoders.utils as eu
-from encoders_3rd.attn_3dgcn import AttnGCN3D
+from encoders_3rd.attn_3dgcn import Attn3DGCN as GCNEncoder
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -199,7 +199,7 @@ class PointToDense(nn.Module):
     """
     def __init__(self, point_dim, emb_dim, with_time=False, time_emb_dim=0, n_near=10):
         super().__init__()
-        self.encoder = AttnGCN3D(point_dim, 0, emb_dim, n_near, n_near)
+        self.encoder = GCNEncoder(point_dim, 0, emb_dim, n_near, n_near)
 
         self.with_time = with_time
         if self.with_time:
@@ -238,7 +238,7 @@ class SparseUpdate(nn.Module):
         :param n_near:
         """
         super().__init__()
-        self.encoder = AttnGCN3D(sp_coor_channel, sp_in, sp_out, n_near, n_near)
+        self.encoder = GCNEncoder(sp_coor_channel, sp_in, sp_out, n_near, n_near)
 
     def forward(self, sparse_coor, sparse_fea):
         """
@@ -265,7 +265,7 @@ class DenseUpdate(nn.Module):
         :param dropout:
         """
         super().__init__()
-        self.encoder = AttnGCN3D(dn_coor_channel, dn_in, dn_out, n_near, n_near)
+        self.encoder = GCNEncoder(dn_coor_channel, dn_in, dn_out, n_near, n_near)
 
     def forward(self, dense_coor, dense_fea):
         """
