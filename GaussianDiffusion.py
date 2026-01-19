@@ -59,7 +59,6 @@ class GaussianDiffusion(Module):
     def device(self):
         return self.sqrt_alphas_bar.device
 
-    @torch.inference_mode()
     def inference_mean_std(self, x_t, t):
         """
         通过 x_t 和 t 推导上一步中服从分布的均值和方差
@@ -75,7 +74,6 @@ class GaussianDiffusion(Module):
 
         return model_mean, model_std
 
-    @torch.inference_mode()
     def inference_x_t_minus1(self, x_t, t: int):
         """
         使用当前时间步的图片生成上一步图片

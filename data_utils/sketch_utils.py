@@ -112,48 +112,6 @@ def get_allfiles(dir_path, suffix='txt', filename_only=False):
     return filepath_all
 
 
-def translate_class_folder(root=r'D:\document\DeepLearning\DataSet\sketch\sketch_txt\train'):
-    """
-    root
-    ├─ bearing (folder)
-    ├─ bolt (folder)
-    ├─ ...
-    └─ washer (folder)
-
-    """
-    terms_mapping = {
-        '垫圈': 'Washer',
-        '堵头': 'Plug',
-        '带轮': 'Pulley',
-        '弹簧': 'Spring',
-        '挡圈': 'Retaining_ring',
-        '接头': 'Joint',
-        '法兰': 'Flange',
-        '涡轮': 'Turbine',
-        '脚轮': 'Caster',
-        '螺柱': 'Stud',
-        '螺栓': 'Bolt',
-        '螺母': 'Nut',
-        '螺钉': 'Screw',
-        '衬套': 'Bushing',
-        '轴承': 'Bearing',
-        '铆钉': 'Rivet',
-        '链轮': 'Sprocket',
-        '销': 'Pin',
-        '键': 'Key',
-        '间隔器': 'Spacer',
-        '阀门': 'Valve',
-        '风扇': 'Fan',
-        '齿轮': 'Gear'
-    }
-
-    sub_dirs = get_subdirs(root)
-
-    for c_name in sub_dirs:
-        new_name = terms_mapping[c_name]
-        os.rename(os.path.join(root, c_name), os.path.join(root, new_name))
-
-
 def sketch_std(sketch):
     """
     将草图质心移动到原点，范围归一化为 [-1, 1]^2

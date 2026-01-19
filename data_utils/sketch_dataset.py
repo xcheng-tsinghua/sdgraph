@@ -1469,7 +1469,7 @@ def coordinate_pre_load(coordinate_path):
             # sketch_img_orig.show()
             sketch_img_orig.save(str(i_rdp) + '/' + str(num) + 'Low_.jpg')
 
-            np.savetxt(c_save_name, sketch_points_new)
+            np.savetxt(c_save_name, sketch_points_new, fmt='%6f %6f %d')
 
             # if sketch_points_new.shape[0] > 200:
             #     combined_image = np.concatenate(( sketch_img_orig, sketch_img_rdp), axis=1)

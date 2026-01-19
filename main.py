@@ -405,7 +405,12 @@ def test_sdgraph():
 
 
 if __name__ == '__main__':
-    test_sdgraph()
+
+    # dc.s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe\sketch_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe\sketch_s3_352', 352)
+
+    # alas = np.loadtxt(r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\chair\sketch_s3_352\test\class\9910-02-carbon_1.txt')
+
+    # test_sdgraph()
     # test_preprocess(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ChairV2\sketch_s3\train\2kn308a2ca10_2.txt')
 
     # all_data = np.loadtxt(r'D:\document\DeepLearning\DataSet\quickdraw\stk2\book_stk_16_32_ext_interp\0.txt')
@@ -431,15 +436,18 @@ if __name__ == '__main__':
     #                    )
 
     # dc.s3_to_stk_batched(
-    #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_s3',
-    #     target_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk_autospace',
-    #     delimiter=' ',
+    #     source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe\sketch_s3',
+    #     target_dir=rf'D:\document\DeepLearning\DataSet\sketch_retrieval\qmul_v2_fit\shoe\sketch_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}',
     #     pen_up=1,
     #     pen_down=0,
-    #     preprocess_func=pp.preprocess_stk_auto_space_snap
+    #     preprocess_func=pp.preprocess_stk
     # )
 
-
+    dc.s3_to_stk_batched(
+        source_dir=r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_s3',
+        target_dir=rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_stk{global_defs.n_stk}_stkpnt{global_defs.n_stk_pnt}_autospace',
+        preprocess_func=pp.preprocess_stk_auto_space_snap
+    )
 
     # vis.vis_sketch(r'D:\document\DeepLearning\DataSet\sketch_retrieval\SketchX_Shoe_ChairV2\ShoeV2\sketch_stk\test\2429245009_1.txt', pen_down=0, pen_up=1, delimiter=' ', show_dot=True)
 

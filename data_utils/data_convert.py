@@ -494,22 +494,22 @@ def s3_to_tensor_img(sketch, image_size=(224, 224), line_thickness=1, pen_up=glo
     return tensor_img
 
 
-def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func, delimiter, pen_up, pen_down):
+def s3_to_stk_ass(std_file, source_dir, target_dir, preprocess_func):
     try:
         c_target_file = std_file.replace(source_dir, target_dir)
 
-        target_skh_stk = preprocess_func(std_file, pen_up=pen_up, pen_down=pen_down, delimiter=delimiter)
+        target_skh_stk = preprocess_func(std_file, pen_up=1, pen_down=0)
         target_skh_stk = einops.rearrange(target_skh_stk, 's sp c -> (s sp) c')
 
         if len(target_skh_stk) == global_defs.n_skh_pnt:
-            np.savetxt(c_target_file, target_skh_stk, delimiter=delimiter)
+            np.savetxt(c_target_file, target_skh_stk, fmt='%6f')
         else:
             print(f'error occurred, skip file: {std_file}')
     except Exception as e:
         print(f'error occurred, skip file: {std_file}, error: {e}')
 
 
-def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, delimiter=',', workers=4, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down):
+def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk, workers=4):
     """
     将 source_dir 内的 std 草图转化为 STK 草图
     std 草图：每行为 [x, y, s]，行数不固定
@@ -533,16 +533,13 @@ def s3_to_stk_batched(source_dir, target_dir, preprocess_func=pp.preprocess_stk,
                           source_dir=source_dir,
                           target_dir=target_dir,
                           preprocess_func=preprocess_func,
-                          delimiter=delimiter,
-                          pen_up=pen_up,
-                          pen_down=pen_down
                           )
 
     with Pool(processes=workers) as pool:
         data_trans = list(tqdm(
             pool.imap(worker_func, files_all),
             total=len(files_all),
-            desc='QuickDraw to MGT')
+            desc='S3 to STK')
         )
 
 
@@ -691,12 +688,12 @@ def s3_to_fix_point_s3(s3_data, n_point=global_defs.n_skh_pnt):
     return sampled_stk
 
 
-def s3_to_fix_point_s3_ass(s3_file, source_dir, target_dir, n_pnt, delimiter=','):
+def s3_to_fix_point_s3_ass(s3_file, source_dir, target_dir, n_pnt):
     try:
         target_pix_pnt_s3 = s3_to_fix_point_s3(s3_file, n_pnt)
 
         c_target_file = s3_file.replace(source_dir, target_dir)
-        np.savetxt(c_target_file, target_pix_pnt_s3, delimiter=delimiter)
+        np.savetxt(c_target_file, target_pix_pnt_s3, fmt='%6f %6f %d')
 
     except:
         print(f'error occurred, skip file: {s3_file}')
@@ -724,16 +721,45 @@ def s3_to_fix_point_s3_batched(source_dir, target_dir, n_pnt=global_defs.n_skh_p
         )
 
 
+def s3_repair(source_dir, workers=8):
+    """
+    修复S3草图，原本错误地将第三列1表示为落笔。0表示为抬笔，实际上应该0表示落笔，1表示抬笔
+    :param source_dir:
+    :return:
+    """
+    def _single_repair(_path):
+        # 读取 txt 文件
+        _data = np.loadtxt(_path, delimiter=',')
+
+        # 第三列索引为 2（从 0 开始）
+        _data[:, 2] = 1 - _data[:, 2]
+
+        # 保存到新文件
+        np.savetxt(_path, _data, fmt='%.6f %.6f %d')
+
+    files_all = du.get_allfiles(source_dir)
+
+    # with Pool(processes=workers) as pool:
+    #     data_trans = list(tqdm(
+    #         pool.imap(_single_repair, files_all),
+    #         total=len(files_all),
+    #         desc='s3 to fix point number s3')
+    #     )
+
+    for c_file in tqdm(files_all):
+        _single_repair(c_file)
+
+
 if __name__ == '__main__':
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\apple.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
     #
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\moon.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
-    #
-    npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
-                    r'D:\document\DeepLearning\DataSet\quickdraw\diffusion', preprocess_func=pp.preprocess_stk2, delimiter=' ')
-    #
+    
+    # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\book.full.npz',
+    #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion', preprocess_func=pp.preprocess_stk2, delimiter=' ')
+    
     # npz_to_stk_file(r'D:\document\DeepLearning\DataSet\quickdraw\raw\shark.full.npz',
     #                 r'D:\document\DeepLearning\DataSet\quickdraw\diffusion')
     #
@@ -791,7 +817,9 @@ if __name__ == '__main__':
 
     # svg_to_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketches_svg_raw', r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_txt')
 
-    # s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketches_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_{global_defs.n_skh_pnt}')
+    # s3_repair(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_s3')
+    s3_to_fix_point_s3_batched(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_s3', rf'D:\document\DeepLearning\DataSet\sketch_retrieval\sketch_cad\sketch_s3_352', 352, 8)
+
 
     # atensor = s3_to_tensor_img(r'D:\document\DeepLearning\DataSet\sketch_retrieval\sketchy\sketch_s3_352\airplane\n02691156_196-5.txt', line_thickness=2, save_path=r'C:\Users\ChengXi\Desktop\60mm20250708\rel_skh.png')
 

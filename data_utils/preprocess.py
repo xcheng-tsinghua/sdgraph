@@ -44,7 +44,7 @@ def stroke_list_padding_to_cube(sketch_list: list, n_stk=global_defs.n_stk, n_st
     return n3_cube
 
 
-def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=False, delimiter=',') -> np.ndarray:
+def preprocess_stk(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_mix_proc=True, is_show_status=False, is_shuffle_stroke=False, is_order_stk=True, delimiter=' ') -> np.ndarray:
     """
     最初始的版本, 处理成 STK 草图
     通过反复合并、拆分，使得笔划长度尽量相等
@@ -782,16 +782,15 @@ def preprocess_stk2_duplast(sketch_root, pen_up=global_defs.pen_up, pen_down=glo
     return sketch_coor
 
 
-def preprocess_stk_auto_space_snap(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_order_stk=None, delimiter=None) -> np.ndarray:
+def preprocess_stk_auto_space_snap(sketch_root, pen_up=global_defs.pen_up, pen_down=global_defs.pen_down, n_stk=global_defs.n_stk, n_stk_pnt=global_defs.n_stk_pnt, is_order_stk=None) -> np.ndarray:
     """
-    处理成 STK2 草图，如果长度不够，最后一个点一直重复
-    每个点表示为四维向量 (x, y, s), s = (0, 1) or (1, 0)
+    处理成 STK2 草图，排序后拼接打散
     :return: [n_stk, n_stk_pnt, xy]
     """
     # 读取草图数据
     if isinstance(sketch_root, str):
         # 读取草图数据
-        sketch_data = fr.load_sketch_file(sketch_root, delimiter=' ')
+        sketch_data = fr.load_sketch_file(sketch_root)
 
     elif isinstance(sketch_root, (np.ndarray, list)):
         sketch_data = sketch_root
